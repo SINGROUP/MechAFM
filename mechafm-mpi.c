@@ -32,6 +32,7 @@
 #define TOLERANCE 1e-10
 #define TRUE 1
 #define FALSE 0
+#define NEGVAL -99999
 #define PI 3.14159265358979323846
 #define SIXTHRT2 1.12246204830937298142
 
@@ -55,8 +56,8 @@ typedef struct InputOptions {
   char dummyatom[NAME_LENGTH];
   char planeatom[NAME_LENGTH];
   double dx, dy, dz;
-  double zlow, zhigh;
-  int coulomb;
+  double zlow, zhigh, zplane;
+  int coulomb, units;
   int maxsteps, minterm;
   double etol, ftol, cfac;
   int bufsize, gzip;
@@ -81,6 +82,9 @@ typedef struct buffer {
 
 /* A simple list to distinguish different minimization criteria */
 enum{MIN_E,MIN_F,MIN_EF}; 
+
+/* A simple list to distinguish the chosen unit system */
+enum{U_KCAL,U_KJ,U_EV};
 
 /* Time thingies */
 struct timeval TimeStart, TimeEnd;
@@ -192,26 +196,30 @@ void parseCommandLine(int argc, char *argv[]) {
 void readInputFile(void) {
   
   FILE *fp;
+  int check;
   char keyword[NAME_LENGTH];
   char value[NAME_LENGTH];
   char line[LINE_LENGTH];
-  char tmp_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH], tmp_gzip[NAME_LENGTH];
+  char tmp_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH];
+  char tmp_gzip[NAME_LENGTH], tmp_units[NAME_LENGTH];
   
   /* Initialize the mandatory options */
   sprintf(Options.xyzfile,"");
   sprintf(Options.paramfile,"");
   sprintf(Options.tipatom,"");
   sprintf(Options.dummyatom,"");  
-  sprintf(Options.planeatom,"");
   Options.minterm = -1;
 
   /* Initialize the other options */
+  sprintf(Options.planeatom,"");
+  Options.units = U_KCAL;
   Options.coulomb = FALSE;
   Options.dx = 0.1;
   Options.dy = 0.1;
   Options.dz = 0.1;
   Options.zlow = 6.0;
   Options.zhigh = 10.0;
+  Options.zplane = NEGVAL;
   Options.etol = 0.01;
   Options.ftol = 0.01;
   Options.cfac = 0.001;
@@ -240,6 +248,7 @@ void readInputFile(void) {
     else if (strcmp(keyword,"dz")==0) { Options.dz = atof(value); }
     else if (strcmp(keyword,"zlow")==0) { Options.zlow = atof(value); }
     else if (strcmp(keyword,"zhigh")==0) { Options.zhigh = atof(value); }
+    else if (strcmp(keyword,"zplane")==0) { Options.zplane = atof(value); }
     else if (strcmp(keyword,"etol")==0) { Options.etol = atof(value); }
     else if (strcmp(keyword,"ftol")==0) { Options.ftol = atof(value); }
     else if (strcmp(keyword,"cfac")==0) { Options.cfac = atof(value); }
@@ -262,6 +271,15 @@ void readInputFile(void) {
       else { error("Option %s must be either e, f or ef!", keyword); }
       sprintf(tmp_minterm,"%s",value);
     }
+    else if (strcmp(keyword,"units")==0) { 
+      if (strcmp(value,"kcal/mol")==0) { Options.units = U_KCAL; }
+      else if (strcmp(value,"kcal")==0) { Options.units = U_KCAL; }
+      else if (strcmp(value,"kJ/mol")==0) { Options.units = U_KJ; }
+      else if (strcmp(value,"kJ")==0) { Options.units = U_KJ; }
+      else if (strcmp(value,"eV")==0) { Options.units = U_EV; }
+      else { error("Option %s must be either kcal/mol (default), kJ/mol or eV!", keyword); }
+      sprintf(tmp_units,"%s",value);
+    }
     else { error("Unknown option %s!", keyword); }
   }
 
@@ -270,8 +288,9 @@ void readInputFile(void) {
   if (strcmp(Options.paramfile,"")==0) { error("Specify at least a parameter file!"); }  
   if (strcmp(Options.tipatom,"")==0) { error("Specify at least a tip atom!"); }
   if (strcmp(Options.dummyatom,"")==0) { error("Specify at least a dummy atom!"); }  
-  if (strcmp(Options.planeatom,"")==0) { error("Specify at least a plane atom!"); }  
   if (Options.minterm<0) { error("Specify at least a minimization termination criterion (e, f, or ef)!"); }
+  if ( (strcmp(Options.planeatom,"")==0) && (Options.zplane <= NEGVAL) ) { error("Specify at least a plane or a plane atom!"); }  
+  else if ( (strcmp(Options.planeatom,"")!=0) && (Options.zplane > NEGVAL) ) { error("Specify only a plane or a plane atom!"); }
 
   /* Close file */
   fclose(fp);
@@ -290,7 +309,10 @@ void readInputFile(void) {
   debugline(RootProc,"paramfile:   %-s", Options.paramfile);
   debugline(RootProc,"tipatom:     %-s", Options.tipatom);
   debugline(RootProc,"dummyatom:   %-s", Options.dummyatom);
-  debugline(RootProc,"planeatom:   %-s", Options.planeatom);
+  if (strcmp(Options.planeatom,"")!=0) { debugline(RootProc,"planeatom:   %-s", Options.planeatom); }
+  else if (Options.zplane > NEGVAL) { debugline(RootProc,"zplane:      %-8.4f", Options.zplane); }
+  debugline(RootProc,"");
+  debugline(RootProc,"units:       %-s", tmp_units);
   debugline(RootProc,"");
   debugline(RootProc,"minterm:     %-s", tmp_minterm);
   debugline(RootProc,"etol:        %-8.4f", Options.etol);
@@ -351,17 +373,19 @@ void readXYZFile(void) {
   }
 
   /* Put the plane atoms at 0 (in z) */
-  avgz = 0.0;
-  nplaneatoms = 0;
-  for (i=0; i<Natoms; ++i) {
-    if (strcmp(Surf_types[i],Options.planeatom)==0) {
-      nplaneatoms++;
-      avgz += Surf_pos[i].z;
+  if (strcmp(Options.planeatom,"")!=0) {
+    avgz = 0.0;
+    nplaneatoms = 0;
+    for (i=0; i<Natoms; ++i) {
+      if (strcmp(Surf_types[i],Options.planeatom)==0) {
+	nplaneatoms++;
+	avgz += Surf_pos[i].z;
+      }
     }
+    avgz /= nplaneatoms;
+    for (i=0; i<Natoms; ++i) { Surf_pos[i].z -= avgz; }
   }
-  avgz /= nplaneatoms;
-  for (i=0; i<Natoms; ++i) { Surf_pos[i].z -= avgz; }
-
+    
   /* Return home */
   return;
 }
@@ -376,7 +400,7 @@ void readParameterFile(void) {
   FILE *fp;
   char atom[ATOM_LENGTH], keyword[NAME_LENGTH], dump[NAME_LENGTH], line[LINE_LENGTH];
   double eps, sig, eps_cross, sig_cross;
-  double eps_tip, sig_tip, q_tip, qbase;
+  double eps_tip, sig_tip, q_tip, qbase, epermv;
   int i, check, hcheck, nplaneatoms, natoms;
   double avgx, avgy, dx, dy;
 
@@ -412,29 +436,35 @@ void readParameterFile(void) {
   rewind(fp);
 
   /* Now we know the size of the universe, put the molecule in the center of it */
-  avgx = avgy = 0.0;
-  nplaneatoms = 0;
-  for (i=0; i<Natoms; ++i) {
-    if (strcmp(Surf_types[i],Options.planeatom)==0) {
-      nplaneatoms++;
-      avgx += Surf_pos[i].x;
-      avgy += Surf_pos[i].y;
+  if (strcmp(Options.planeatom,"")!=0) {
+    avgx = avgy = 0.0;
+    nplaneatoms = 0;
+    for (i=0; i<Natoms; ++i) {
+      if (strcmp(Surf_types[i],Options.planeatom)==0) {
+	nplaneatoms++;
+	avgx += Surf_pos[i].x;
+	avgy += Surf_pos[i].y;
+      }
     }
-  }
-  avgx /= nplaneatoms;
-  avgy /= nplaneatoms;
-  dx = (Box.x/2) - avgx;
-  dy = (Box.y/2) - avgy;
-  for (i=0; i<Natoms; ++i) { 
-    Surf_pos[i].x += dx;
-    Surf_pos[i].y += dy;
+    avgx /= nplaneatoms;
+    avgy /= nplaneatoms;
+    dx = (Box.x/2) - avgx;
+    dy = (Box.y/2) - avgy;
+    for (i=0; i<Natoms; ++i) { 
+      Surf_pos[i].x += dx;
+      Surf_pos[i].y += dy;
+    }
   }
 
   /* Set up the interaction list */
   CrossParams = (InteractionList *)malloc(Natoms*sizeof(InteractionList));
 
-  /* The constant part of the Coulomb equation */
-  qbase = 332.0636 / 1.0;
+  /* The constant part of the Coulomb equation (depends on chosen unit system) */
+  epermv = 1.0;
+  if (Options.units == U_KCAL) { qbase = 332.06371; }
+  else if (Options.units == U_KJ) { qbase = 1389.354563; }
+  else if (Options.units == U_EV) { qbase = 14.39964901; }
+  qbase /= epermv;
 
   /* Read the parameter file again, but this time, create the interaction list 
      for the surface atoms, for the dummy atom, and also for the harmonic spring */
@@ -515,7 +545,7 @@ void interactTipSurface(void) {
     dy = Tip_pos.y - Surf_pos[i].y;
     dz = Tip_pos.z - Surf_pos[i].z;
     rsqt = dx*dx + dy*dy + dz*dz;
-    /* The Lennard-Jones interaction coefficients */
+    /* The Lennard-Jones 12-6 interaction coefficients */
     sr6 = rsqt*rsqt*rsqt;
     sr12 = sr6*sr6;
     terma = CrossParams[i].es12/sr12;
@@ -642,23 +672,23 @@ void dumpToFiles(BUFFER *sendbuf, BUFFER *recvbuf, int bufsize) {
  ** FREQUENCY SHIFT APPROXIMATIONS **
  ************************************/
 
-void computeDeltaF(double x, double y, VECTOR *ftip) {
+/* void computeDeltaF(double x, double y, VECTOR *ftip) { */
 
-  int i;
-  double z;
+/*   int i; */
+/*   double z; */
 
-  /* Wait! */
-  MPI_Barrier(Universe);
+/*   /\* Wait! *\/ */
+/*   MPI_Barrier(Universe); */
 
-  /* Copy data */
-  for (i=0; i<=Npoints.z; ++i) {
-    z = Options.zhigh - i*Options.dz;
-    fprintf(stdout,"@ %8.4f %8.4f %8.4f %8.4f %8.4f %8.4f\n",x,y,z,ftip[i].x,ftip[i].y,ftip[i].z);
-  }
+/*   /\* Copy data *\/ */
+/*   for (i=0; i<=Npoints.z; ++i) { */
+/*     z = Options.zhigh - i*Options.dz; */
+/*     fprintf(stdout,"@ %8.4f %8.4f %8.4f %8.4f %8.4f %8.4f\n",x,y,z,ftip[i].x,ftip[i].y,ftip[i].z); */
+/*   } */
   
-  /* Go home */
-  return;
-}
+/*   /\* Go home *\/ */
+/*   return; */
+/* } */
 
 /*************************************************
  ** EVERYTHING TO DO WITH THE SIMULATION ITSELF **
@@ -852,9 +882,6 @@ void moveTip(void) {
 
       /* Compute the frequency shift for the given F(z) */
       //computeDeltaF(x,y,ftip);
-
-      /* Talk to me */
-      //debugline(Me,"x = %5.2f   y = %5.2f   nmax = %6d   min_angle = %6.2f   max_force = %6.2f",x,y,nmax,minangle,maxforce);
 
       /* Keep track of counting */
       Ntotal += nmax;
