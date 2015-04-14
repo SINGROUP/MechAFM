@@ -7,11 +7,20 @@
  **    90:085421 (2014)    **
  **                        **
  **  C+MPI Implementation  **
- **  2014 - Peter Spijker  **
+ **       2014/2015        **
+ **      Peter Spijker     **
  **    Aalto University    **
  ** peter.spijker@aalto.fi **
  **                        **
  ****************************/
+
+/****
+TO DO:
+- make harmonic angle part for surface atoms
+- VDW-E interactions between molecules (not intramolecular), needs molecule identification and clustering
+- implement better minimization algorithm
+- create DF image on the fly
+****/
 
 /* Load system headers */
 #include <stdarg.h>
@@ -61,6 +70,7 @@ typedef struct InputOptions {
   int maxsteps, minterm;
   double etol, ftol, cfac;
   int bufsize, gzip;
+  int flexible;
 } InputOptions;
 
 /* Define a structure to quickly compute nonbonded interactions */
@@ -72,6 +82,26 @@ typedef struct InteractionList {
   double r0;
   double rmin;
 } InteractionList;
+
+/* Define a structure to figure out possible bonds */
+typedef struct PossibleBonds {
+  char a1[NAME_LENGTH], a2[NAME_LENGTH];
+  double r0;
+} PossibleBonds;
+
+/* Define a structure to compute bonds */
+typedef struct BondInteraction {
+  int a1, a2;
+  double r0;
+  double k;
+} BondInteraction;
+
+/* Define a structure to compute angles */
+typedef struct AngleInteraction {
+  int a1, a2, a3;
+  double theta0;
+  double k;
+} AngleInteraction;
 
 /* Define a structure for easy processor communication */
 typedef struct buffer {
@@ -96,13 +126,22 @@ struct timeval TimeStart, TimeEnd;
 char InputFileName[NAME_LENGTH];   /* File name of the input file */
 InputOptions Options;              /* Structure containing all relevant input options */
 int Natoms;                        /* Number of surface atoms */
+int Nbonds;                        /* Number of bonds in flexible molecule */
+int Nangles;                       /* Number of angles in flexible molecule */
+int Nfixed;                        /* Number of fixed atoms (flexible molecule) */
 VECTOR *Surf_pos;                  /* Vector containing positions of all surface atoms */
+VECTOR *Surf_pos_org;              /* Copy of the surface position vector, needed for flexible reset */
+VECTOR *Surf_force;                /* Vector containing the surface forces (needed for flexible) */
 double *Surf_q;                    /* List containing charges of all surface atoms */
-char **Surf_types;                 /* List containing types of all surface atoms */
+double *Surf_mass;                 /* List containing masses of all surface atoms */
+int *Surf_fix;                     /* List containing a boolean to signal fixed or free atoms (needed for flexible) */
+char **Surf_type;                  /* List containing types of all surface atoms */
 VECTOR Box;                        /* Vector containing the size of the universe */
 InteractionList *CrossParams;      /* Structured list for all cross particle interaction parameters */
 InteractionList DummyParams;       /* List for particle interaction parameters with dummy atom */
-InteractionList Harmonic;          /* List for the harmonic constraint paramets on the tip atom */
+InteractionList Harmonic;          /* List for the harmonic constraint parameters on the tip atom */
+BondInteraction *Bonds;            /* List of all possible bonds (flexible molecule) */
+AngleInteraction *Angles;          /* List of all possible angles (flexible molecule) */
 VECTOR Tip_pos;                    /* Position of the tip atom */
 VECTOR Dummy_pos;                  /* Position of the dummy atom */
 VECTOR TipSurf_force;              /* Force on tip atom caused by the surface */
@@ -112,7 +151,7 @@ double TipSurf_energy;             /* Energy of tip atom caused by the surface *
 double TipDummy_energy;            /* Energy of tip atom caused by the dummy atom */
 double TipHarmonic_energy;         /* Energy of tip atom caused by the harmonic constraint */
 IVECTOR Npoints;                   /* Number of points (x,y,z) for the tip */
-int Ntotal;                        /* Total number of minimization loops used */
+long int Ntotal;                  /* Total number of minimization loops used */
 FILE **FStreams;                   /* Array with the entire file stream */
 
 /* Some parallel specific global variables */
@@ -136,6 +175,16 @@ void error(char *message, ...) {
   fprintf(stderr, "+- ERROR (on proc %d): %s\n", Me, ws);
   MPI_Finalize();
   exit(1);
+}
+
+/* And a warning function */
+void warning(char *message, ...) { 
+  va_list arg;
+  static char ws[LINE_LENGTH];
+  va_start(arg, message);
+  vsprintf(ws, message, arg);
+  va_end(arg);
+  if (Me==RootProc) { fprintf(stderr, "+- WARNING: %s\n", ws); }
 }
 
 /* Print some debug information to the screen */
@@ -173,6 +222,18 @@ int checkForComments(char *line) {
   return moveon;
 }
 
+/* Check if a value is an integer */
+int isint(char *str) {
+  int integer = TRUE;
+  int n = strlen(str);
+  int i;
+  for (i=0; i<n; ++i) {
+    if (isdigit(str[i]) || str[i] == '-' || str[i] == '+') continue;
+    integer = FALSE;
+  }
+  return integer;
+}
+
 /**************************
  ** FILE INPUT FUNCTIONS **
  **************************/
@@ -202,7 +263,8 @@ void readInputFile(void) {
   char line[LINE_LENGTH];
   char tmp_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH];
   char tmp_gzip[NAME_LENGTH], tmp_units[NAME_LENGTH];
-  
+  char tmp_flexible[NAME_LENGTH];
+
   /* Initialize the mandatory options */
   sprintf(Options.xyzfile,"");
   sprintf(Options.paramfile,"");
@@ -213,6 +275,7 @@ void readInputFile(void) {
   /* Initialize the other options */
   sprintf(Options.planeatom,"");
   Options.units = U_KCAL;
+  sprintf(tmp_units,"%s","kcal/mol");
   Options.coulomb = FALSE;
   Options.dx = 0.1;
   Options.dy = 0.1;
@@ -226,6 +289,7 @@ void readInputFile(void) {
   Options.maxsteps = 5000;
   Options.bufsize = 1000;
   Options.gzip = TRUE;
+  Options.flexible = FALSE;
 
   /* Check if the file exists */
   fp = fopen(InputFileName,"r");
@@ -257,6 +321,11 @@ void readInputFile(void) {
     else if (strcmp(keyword,"gzip")==0) {
       if (strcmp(value,"on")==0) { Options.gzip = TRUE; }
       else if (strcmp(value,"off")==0) { Options.gzip = FALSE; }
+      else { error("Option %s must be either on or off!", keyword); }
+    }
+    else if (strcmp(keyword,"flexible")==0) {
+      if (strcmp(value,"on")==0) { Options.flexible = TRUE; }
+      else if (strcmp(value,"off")==0) { Options.flexible = FALSE; }
       else { error("Option %s must be either on or off!", keyword); }
     }
     else if (strcmp(keyword,"coulomb")==0) { 
@@ -300,6 +369,8 @@ void readInputFile(void) {
   else { sprintf(tmp_coulomb,"%s","off"); }
   if (Options.gzip) { sprintf(tmp_gzip,"%s","on"); }
   else { sprintf(tmp_gzip,"%s","off"); }
+  if (Options.flexible) { sprintf(tmp_flexible,"%s","on"); }
+  else { sprintf(tmp_flexible,"%s","off"); }
 
   /* Talk to me */
   debugline(RootProc,"");
@@ -328,6 +399,8 @@ void readInputFile(void) {
   debugline(RootProc,"");
   debugline(RootProc,"coulomb:     %-s",tmp_coulomb);
   debugline(RootProc,"");
+  debugline(RootProc,"flexible:    %-s",tmp_flexible);
+  debugline(RootProc,"");
   debugline(RootProc,"bufsize:     %-8d", Options.bufsize);
   debugline(RootProc,"gzip:        %-s", tmp_gzip);
   debugline(RootProc,"");
@@ -340,44 +413,81 @@ void readInputFile(void) {
 void readXYZFile(void) {
   
   FILE *fp;
-  int i, nplaneatoms;
-  char line[LINE_LENGTH];
-  double avgz;
+  int i, n, nplaneatoms, firstline, realxyz, ncols;
+  char line[LINE_LENGTH], value[NAME_LENGTH], dump[LINE_LENGTH], *pch;
+  double fdump, avgz;
 
   /* Read the file once, to determine the number of atoms */
   fp = fopen(Options.xyzfile,"r");
   if (fp==NULL) { error("No such file: %s!", Options.xyzfile); }
   Natoms = 0;
+  firstline = TRUE;
+  realxyz = FALSE;
   while (fgets(line, LINE_LENGTH, fp)!=NULL) {
     /* Skip empty and commented lines */
     if (checkForComments(line)) { continue; }
-    /* Count useful lines */
-    Natoms++;
+    /* If the first line contains an integer, it is most likely a proper XYZ file */
+    if (firstline) {
+      sscanf(line, "%s", value);
+      if (isint(value)) { Natoms = atoi(value); realxyz = TRUE; break; }
+      firstline = FALSE;
+    } 
+    /* Otherwise continue reading the lines and count how many atoms we have */
+    if (!firstline) {
+      /* Count useful lines */
+      Natoms++;
+    }
   }
   rewind(fp);
+
+  //if (Me == RootProc) fprintf(stdout,"\n*** natoms = %d\n\n",Natoms);
 
   /* Initialize the global surface atoms vector and lists */
   Surf_pos = (VECTOR *)malloc(Natoms*sizeof(VECTOR));
   Surf_q = (double *)malloc(Natoms*sizeof(double));
-  Surf_types = (char **)malloc(Natoms*sizeof(char*));
-  for (i=0; i<Natoms; ++i) { Surf_types[i] = (char *)malloc(ATOM_LENGTH*sizeof(char)); }
+  Surf_mass = (double *)malloc(Natoms*sizeof(double));
+  Surf_type = (char **)malloc(Natoms*sizeof(char*));
+  Surf_fix = (int *)malloc(Natoms*sizeof(int));
+  for (i=0; i<Natoms; ++i) { 
+    Surf_type[i] = (char *)malloc(ATOM_LENGTH*sizeof(char)); 
+    Surf_q[i] = 0.0;
+    Surf_fix[i] = 0;
+    Surf_mass[i] = 0.0;
+  }
 
   /* Read each line and store the data */
-  i = 0;
+  i = n = ncols = 0;
+  firstline = TRUE;
   while (fgets(line, LINE_LENGTH, fp)!=NULL) {
+    /* If it is a real XYZ file, skip the first two lines */
+    if ( (realxyz) && (n<2) ) { n++; continue; }
     /* Skip empty and commented lines */
     if (checkForComments(line)) { continue; }
-    /* Read line */
-    sscanf(line, "%s %lf %lf %lf %lf", Surf_types[i], &(Surf_pos[i].x), &(Surf_pos[i].y), &(Surf_pos[i].z), &(Surf_q[i]));
+    /* Based on the first line with actual atom information, determine how many columns there are */
+    if (firstline) {
+      strcpy(dump,line);
+      pch = strtok(dump," \t\n\r\f");
+      while (pch!=NULL) { pch = strtok(NULL," \t\n\r\f"); ncols++; }
+      firstline = FALSE;
+    }
+    if (ncols == 4) { sscanf(line, "%s %lf %lf %lf", Surf_type[i], &(Surf_pos[i].x), &(Surf_pos[i].y), &(Surf_pos[i].z)); }
+    if (ncols == 5) { sscanf(line, "%s %lf %lf %lf %lf", Surf_type[i], &(Surf_pos[i].x), &(Surf_pos[i].y), &(Surf_pos[i].z), &(Surf_q[i])); }
+    if (ncols == 6) { sscanf(line, "%s %lf %lf %lf %lf %d", Surf_type[i], &(Surf_pos[i].x), &(Surf_pos[i].y), &(Surf_pos[i].z), &(Surf_q[i]), &(Surf_fix[i])); }
     i++;
   }
+
+  for (i=0; i<Natoms; ++i) { if (Surf_fix[i]>0) { Nfixed++; } }
+
+  //if (Me == RootProc) fprintf(stdout,"\n*** ncols = %d\n\n",ncols);
+
+  //if (Me == RootProc) { for (i=0; i<Natoms; ++i) { fprintf(stdout,">>> %s %lf %lf %lf %lf\n", Surf_type[i], Surf_pos[i].x, Surf_pos[i].y, Surf_pos[i].z, Surf_q[i]); } }
 
   /* Put the plane atoms at 0 (in z) */
   if (strcmp(Options.planeatom,"")!=0) {
     avgz = 0.0;
     nplaneatoms = 0;
     for (i=0; i<Natoms; ++i) {
-      if (strcmp(Surf_types[i],Options.planeatom)==0) {
+      if (strcmp(Surf_type[i],Options.planeatom)==0) {
 	nplaneatoms++;
 	avgz += Surf_pos[i].z;
       }
@@ -399,10 +509,10 @@ void readParameterFile(void) {
 
   FILE *fp;
   char atom[ATOM_LENGTH], keyword[NAME_LENGTH], dump[NAME_LENGTH], line[LINE_LENGTH];
-  double eps, sig, eps_cross, sig_cross;
+  double eps, sig, eps_cross, sig_cross, mass;
   double eps_tip, sig_tip, q_tip, qbase, epermv;
   int i, check, hcheck, nplaneatoms, natoms;
-  double avgx, avgy, dx, dy;
+  double avgx, avgy, dx, dy, chargecheck, qdump;
 
   /* Initialize the universe */
   Box.x = Box.y = Box.z = -1.0;
@@ -440,7 +550,7 @@ void readParameterFile(void) {
     avgx = avgy = 0.0;
     nplaneatoms = 0;
     for (i=0; i<Natoms; ++i) {
-      if (strcmp(Surf_types[i],Options.planeatom)==0) {
+      if (strcmp(Surf_type[i],Options.planeatom)==0) {
 	nplaneatoms++;
 	avgx += Surf_pos[i].x;
 	avgy += Surf_pos[i].y;
@@ -466,6 +576,14 @@ void readParameterFile(void) {
   else if (Options.units == U_EV) { qbase = 14.39964901; }
   qbase /= epermv;
 
+  /* Quickly check whether charges were read from the XYZ file                           */
+  /* NOTE: if only zero charges are specified in the XYZ file, this check sort of fails, */
+  /*       as the RMSQE will be zero in that case. If you want zero charge, make sure    */
+  /*       the charges in the parameter file are also set to zero!                       */
+  chargecheck = 0.0;
+  for (i=0; i<Natoms; ++i) { chargecheck += (Surf_q[i]*Surf_q[i]); }
+  if (fabs(chargecheck)<TOLERANCE) { warning("The RMSQ-error for the charges read from the XYZ-file is zero. Charges will be read from the parameter file. If you want zero charge, set the charge in the parameter file to zero."); }
+
   /* Read the parameter file again, but this time, create the interaction list 
      for the surface atoms, for the dummy atom, and also for the harmonic spring */
   check = hcheck = FALSE;
@@ -476,10 +594,10 @@ void readParameterFile(void) {
     /* Read line to determine keyword */
     sscanf(line,"%s",keyword);
     if (strcmp(keyword,"atom")==0) {
-      sscanf(line,"%s %s %lf %lf",dump,atom,&(eps),&(sig));
+      sscanf(line,"%s %s %lf %lf %lf %lf",dump,atom,&(eps),&(sig),&(mass),&(qdump));
       /* Loop all atoms in the surface and check if they match this parameter set */
       for (i=0; i<Natoms; ++i) {
-	if (strcmp(Surf_types[i],atom)==0) {
+	if (strcmp(Surf_type[i],atom)==0) {
 	  natoms++;
 	  eps_cross = mixeps(eps,eps_tip);
 	  sig_cross = mixsig(sig,sig_tip);              /* To power 1 */
@@ -487,7 +605,9 @@ void readParameterFile(void) {
 	  sig_cross *= sig_cross;                       /* To power 6 */
 	  CrossParams[i].es12 = 4 * eps_cross * sig_cross * sig_cross;
 	  CrossParams[i].es6  = 4 * eps_cross * sig_cross;
+	  if (chargecheck > 0) { Surf_q[i] = qdump; }
 	  CrossParams[i].qq   = qbase * q_tip * Surf_q[i];
+	  Surf_mass[i] = mass;
 	}
       }
       /* We found a dummy atom in the parameter list */
@@ -511,7 +631,7 @@ void readParameterFile(void) {
       hcheck = TRUE;
     }
   }
-  if (natoms != Natoms) { error("Not all atoms have been assigned parameters!"); }
+  if (natoms != Natoms) { error("Not all atoms have been assigned parameters! (%d/%d)",natoms,Natoms); }
   if (check == FALSE) { error("Parameters for dummy atom not defined in parameter file!"); }
   if (hcheck == FALSE) { error("No harmonic spring parameters found in parameter file!"); }
 
@@ -521,6 +641,7 @@ void readParameterFile(void) {
   /* Return home */
   return;
 }
+
 
 /***************************
  ** INTERACTION FUNCTIONS **
@@ -537,6 +658,15 @@ void interactTipSurface(void) {
   /* Zero the forces and energy */
   TipSurf_energy = 0.0;
   TipSurf_force = NULL_vector;
+
+  /* Zero the forces for the molecule if it's supposed to be flexible */
+  if (Options.flexible) {
+    for (i=0; i<Natoms; ++i) {
+      Surf_force[i].x = 0.0;
+      Surf_force[i].y = 0.0;
+      Surf_force[i].z = 0.0;
+    }
+  }
 
   /* Loop all surface particles */
   for (i=0; i<Natoms; ++i) {
@@ -560,6 +690,12 @@ void interactTipSurface(void) {
     TipSurf_force.x += (fpair+(termc/rsqt))*dx;
     TipSurf_force.y += (fpair+(termc/rsqt))*dy;
     TipSurf_force.z += (fpair+(termc/rsqt))*dz;
+    /* If the molecule is flexible, also store its forces */
+    if (Options.flexible) {
+      Surf_force[i].x -= (fpair+(termc/rsqt))*dx;
+      Surf_force[i].y -= (fpair+(termc/rsqt))*dy;
+      Surf_force[i].z -= (fpair+(termc/rsqt))*dz;
+    }
   }
 
   /* Go home */
@@ -618,6 +754,201 @@ void interactTipHarmonic(void) {
   /* Go home */
   return;
 }
+
+
+/*********************************
+ ** FLEXIBLE MOLECULE FUNCTIONS **
+ *********************************/
+
+/* In the case we have a flexible molecule we have to build the topology */
+void buildTopology(void) {
+  
+  FILE *fp;
+  int i, j, k, n, bcheck, acheck, tcheck, ntopobonds, idmin;
+  char keyword[NAME_LENGTH], dump[NAME_LENGTH], line[LINE_LENGTH];
+  double kbond, kangle, rzero, d, dx, dy, dz, safedist;
+  double *xrange, *yrange, minx, miny, maxx, maxy, minz;
+  char atom1[NAME_LENGTH], atom2[NAME_LENGTH];
+  PossibleBonds *posbonds;
+  BondInteraction *tmpbonds;
+
+  /* Open the parameter file */
+  fp = fopen(Options.paramfile,"r");
+
+  /* Quickly scan the parameter file to know how many "topobond" keywords there are */
+  ntopobonds = 0;
+  while (fgets(line, LINE_LENGTH, fp)!=NULL) {
+    /* Skip empty and commented lines */
+    if (checkForComments(line)) { continue; }
+    /* Read line to determine keyword */
+    sscanf(line,"%s",keyword);
+    /* If it is a topobond, count it */
+    if (strcmp(keyword,"topobond")==0) { ntopobonds++; }
+  }
+  if (ntopobonds == 0) { warning("No topobond keyword found in parameter file, no molecule? Nothing to keep flexible."); }
+  rewind(fp);
+  
+  /* Create an array to keep the possible bonds listed in the parameter file */
+  posbonds = (PossibleBonds *)malloc(ntopobonds*sizeof(PossibleBonds));
+
+  /* Read the parameter file again, but this time, parse  
+     everything we need for modeling a flexible molecule */
+  bcheck = acheck = FALSE;
+  ntopobonds = 0;
+  while (fgets(line, LINE_LENGTH, fp)!=NULL) {
+    /* Skip empty and commented lines */
+    if (checkForComments(line)) { continue; }
+    /* Read line to determine keyword */
+    sscanf(line,"%s",keyword);
+    /* The strength of the harmonic bond from the parameter file */
+    if (strcmp(keyword,"bond")==0) {
+      if (bcheck == TRUE) { error("Parameters for harmonic bonds can only be specified once!"); }
+      sscanf(line,"%s %lf",dump,&(kbond));
+      bcheck = TRUE;
+    }
+    /* The strength of the harmonic angle from the parameter file */
+    if (strcmp(keyword,"angle")==0) {
+      if (acheck == TRUE) { error("Parameters for harmonic angles can only be specified once!"); }
+      sscanf(line,"%s %lf",dump,&(kangle));
+      acheck = TRUE;
+    }
+    /* Collect the bonds, possibly present in the system */
+    if (strcmp(keyword,"topobond")==0) {
+      tcheck = FALSE;
+      sscanf(line,"%s %s %s %lf",dump,atom1,atom2,&(rzero));
+      for (i=0; i<ntopobonds; ++i) {
+	if ( ( (strcmp(atom1,posbonds[i].a1)==0) && (strcmp(atom2,posbonds[i].a2)==0) ) ||
+	     ( (strcmp(atom1,posbonds[i].a2)==0) && (strcmp(atom2,posbonds[i].a1)==0) ) ) { tcheck = TRUE; }
+      }
+      if (tcheck) { error("The topobond for %s and %s is defined at least twice!",atom1,atom2); }
+      strcpy(posbonds[ntopobonds].a1,atom1);
+      strcpy(posbonds[ntopobonds].a2,atom2);
+      posbonds[ntopobonds].r0 = rzero;
+      ntopobonds++;
+    }
+  }
+  if (bcheck == FALSE) { error("No harmonic bond parameters found in parameter file!"); }
+  if (acheck == FALSE) { error("No harmonic angle parameters found in parameter file!"); }
+
+  /* Close file */
+  fclose(fp);
+
+  /* Some temporary bond storage array */
+  tmpbonds = (BondInteraction *)malloc((Natoms*10)*sizeof(BondInteraction));
+
+  /* Figure out whether we need to store this bond */
+  safedist = 1.10;
+  Nbonds = 0;
+  for (i=0; i<Natoms; ++i) {
+    for (j=(i+1); j<Natoms; ++j) {
+      /* Are the two atoms a possible bond? */
+      tcheck = FALSE;
+      strcpy(atom1,Surf_type[i]);
+      strcpy(atom2,Surf_type[j]);
+      for (k=0; k<ntopobonds; ++k) {
+	if ( ( (strcmp(atom1,posbonds[k].a1)==0) && (strcmp(atom2,posbonds[k].a2)==0) ) ||
+	     ( (strcmp(atom1,posbonds[k].a2)==0) && (strcmp(atom2,posbonds[k].a1)==0) ) ) { 
+	  tcheck = TRUE; 
+	  rzero = posbonds[k].r0;
+	}
+      }
+      //fprintf(stdout,"*** %2d %2d - %s %s - %d - %f\n",i,j,atom1,atom2,tcheck,rzero);
+      if (tcheck==FALSE) { continue; }
+      /* Compute the distance between the two atoms */
+      dx = (Surf_pos[i].x - Surf_pos[j].x);
+      dy = (Surf_pos[i].y - Surf_pos[j].y);
+      dz = (Surf_pos[i].z - Surf_pos[j].z);
+      d = sqrt(dx*dx + dy*dy + dz*dz);
+      /* Are these two atoms forming a bond? */
+      if (d<(rzero*safedist)) {
+	tmpbonds[Nbonds].a1 = i;
+	tmpbonds[Nbonds].a2 = j;
+	tmpbonds[Nbonds].r0 = d;      /* Yes, we keep the current length as rzero! */
+	tmpbonds[Nbonds].k  = kbond;  /* From the parameter file */
+	Nbonds++;
+      }
+    }
+  }
+
+  /* Copy all found bonds to a global array */
+  Bonds = (BondInteraction *)malloc(Nbonds*sizeof(BondInteraction));
+  for (i=0; i<Nbonds; ++i) {
+    Bonds[i].a1 = tmpbonds[i].a1;
+    Bonds[i].a2 = tmpbonds[i].a2;
+    Bonds[i].r0 = tmpbonds[i].r0;
+    Bonds[i].k  = tmpbonds[i].k;
+    //fprintf(stdout,">>> (%3d/%3d): %3d %3d %f %f\n",i,Nbonds,Bonds[i].a1,Bonds[i].a2,Bonds[i].r0,Bonds[i].k);
+  }
+
+  /* In case we have a flexible molecule, make a copy of the current surface atom positions */
+  if (Options.flexible) {
+    Surf_pos_org = (VECTOR *)malloc(Natoms*sizeof(VECTOR));
+    for (i=0; i<Natoms; ++i) {
+      Surf_pos_org[i].x = Surf_pos[i].x;
+      Surf_pos_org[i].y = Surf_pos[i].y;
+      Surf_pos_org[i].z = Surf_pos[i].z;
+    }
+    /* And initialize the force vector */
+    Surf_force = (VECTOR *)malloc(Natoms*sizeof(VECTOR));
+  }
+
+  /* Return home */
+  return;
+}
+
+
+/* Update the positions of the molecules based on the forces, steepest descent minimization */
+void updateFlexibleMolecule(void) {
+
+  int i, a1, a2, a3;
+  double f, k, r0, dr, r, dx, dy, dz;
+  double dx1, dx2, dy1, dy2, dz1, dz2;
+  double r1, r2, c, s, dtheta, theta0, f11, f12, f22;
+
+  /* Compute the forces from all internal bonds */
+  for (i=0; i<Nbonds; ++i) {
+    /* Retrieve the information */
+    a1 = Bonds[i].a1;
+    a2 = Bonds[i].a2;
+    r0 = Bonds[i].r0;
+    k  = Bonds[i].k;
+    /* Compute the current bond length */
+    dx = Surf_pos[a1].x - Surf_pos[a2].x;
+    dy = Surf_pos[a1].y - Surf_pos[a2].y;
+    dz = Surf_pos[a1].z - Surf_pos[a2].z;
+    r = sqrt(dx*dx + dy*dy + dz*dz);
+    /* And the harmonic force arising from it */
+    dr = r - r0;
+    f = -2.0*k*dr/r;
+    /* Assign to both atoms */
+    Surf_force[a1].x += dx*f;
+    Surf_force[a1].y += dy*f;
+    Surf_force[a1].z += dz*f;
+    Surf_force[a2].x -= dx*f;
+    Surf_force[a2].y -= dy*f;
+    Surf_force[a2].z -= dz*f;
+  }
+
+  /* Loop all surface atoms and update their positions */
+  for (i=0; i<Natoms; ++i) {
+    Surf_pos[i].x += Options.cfac * Surf_force[i].x;
+    Surf_pos[i].y += Options.cfac * Surf_force[i].y;
+    Surf_pos[i].z += Options.cfac * Surf_force[i].z;
+  }
+
+  /* Keep some atoms fixed even if the molecule is flexible (substrate support) */
+  for (i=0; i<Natoms; ++i) {
+    if (Surf_fix[i]) {
+      Surf_pos[i].x = Surf_pos_org[i].x;
+      Surf_pos[i].y = Surf_pos_org[i].y;
+      Surf_pos[i].z = Surf_pos_org[i].z;
+    }
+  }
+
+  /* Return home */
+  return;
+}
+
 
 /***************************
  ** FILE OUTPUT FUNCTIONS **
@@ -738,7 +1069,7 @@ void openUniverse(void) {
 void moveTip(void) {
 
   int n, nmax, check;
-  int ix, iy, iz;
+  int i, ix, iy, iz;
   double x, y, z;
   double angle, minangle, maxforce, vv;
   double e, ediff, eold, fnorm;
@@ -794,6 +1125,15 @@ void moveTip(void) {
       Tip_pos.y = Dummy_pos.y;
       Tip_pos.z = Dummy_pos.z - DummyParams.rmin;
 
+      /* If the molecule is flexible, reset it to its original position, before beginning the approach */
+      if (Options.flexible) {
+	for (i=0; i<Natoms; ++i) {
+	  Surf_pos[i].x = Surf_pos_org[i].x;
+	  Surf_pos[i].y = Surf_pos_org[i].y;
+	  Surf_pos[i].z = Surf_pos_org[i].z;
+	}
+      }
+
       /* Approach and optimize */
       nmax = 0;
       minangle = 9e99;
@@ -839,6 +1179,9 @@ void moveTip(void) {
 	  Tip_pos.x += Options.cfac * f.x;
 	  Tip_pos.y += Options.cfac * f.y;
 	  Tip_pos.z += Options.cfac * f.z;
+
+	  /* If the molecule is supposed to behave flexible, we need to update its positions too */
+	  if (Options.flexible) { updateFlexibleMolecule(); }
 	  
 	} /* End minimization loop */
 	
@@ -1018,6 +1361,9 @@ int main(int argc, char *argv[]) {
   readInputFile();              /* Read input file */
   readXYZFile();                /* Read the XYZ file */
   readParameterFile();          /* Read the parameter file */
+
+  /* If the molecule is flexible, build the topology */
+  if (Options.flexible) { buildTopology(); }
 
   /* The simulation itself */
   openUniverse();

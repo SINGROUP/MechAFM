@@ -6,11 +6,30 @@ box    20.000    15.000    20.000
 #      name  |  epsilon (kcal/mol)  |  sigma (A)  |  mass (amu)  |  charge (e)
 atom    C         0.07000              3.55000       12.01100       0.00000
 atom    H         0.03000              2.42000        1.00800       0.00000
+atom    B         0.10500              3.63000       10.81000       0.00000
 atom    X        20.00000              3.55000       12.01100       0.02100
 atom	O	  0.19200	       3.15000	     15.99900	   -0.02100
+
+# Boron parameters guessed from Baowan & Hill, IET Micro & Nano Letters 2:46 (2007)
 # Carbon, oxygen and hydrogen parameters from original CHARMM force field
 
 #     name  |   force constant (kcal/mol)  | distance (A)
 harm    O         0.72000                     0.00
 
+# Additional parameters for making the molecules flexible
 
+# We need to know the topology, so list the possible bonds and their expected length
+#           atom1  |  atom2  |  exp. length (A)
+topobond      C         C         1.430
+topobond      C         H         1.095
+topobond      C         B         1.534
+
+# bonds are assumed harmonic and in their equilibrium position (in the xyz file)
+#               force constant (kcal/mol) 
+bond              250.25000                 
+
+# angles are assumed harmonic and in their equilibrium position (in the xyz file)
+#               force constant (kcal/mol) 
+angle             0.25000                 
+
+# dihedrals and impropers are ignored

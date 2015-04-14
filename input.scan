@@ -1,19 +1,22 @@
-xyzfile      graphene.xyz
+xyzfile      boron-graphene-nanoribbon.xyz
 paramfile    parameters.dat
 tipatom      O
 dummyatom    X
-#planeatom    C
-zplane	     1.000
+
+planeatom    C
+#zplane	     0.000
 
 units	     kcal/mol
 
 minterm      f
-etol         0.1
-ftol         0.1 
+etol         0.01
+ftol         0.01 
 cfac         0.001
-maxsteps     50000
+maxsteps     5000
 
 coulomb	     on
+
+flexible     on
 
 zhigh	     10.0
 zlow	     6.0
