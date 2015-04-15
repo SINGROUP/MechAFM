@@ -20,6 +20,8 @@ TO DO:
 - VDW-E interactions between molecules (not intramolecular), needs molecule identification and clustering
 - implement better minimization algorithm
 - create DF image on the fly
+- create a VDW table rather than computing them every time again (discussion with Prokop)
+- implement the Hartree potential (grid based, see point above)
 ****/
 
 /* Load system headers */
@@ -478,11 +480,12 @@ void readXYZFile(void) {
 
   for (i=0; i<Natoms; ++i) { if (Surf_fix[i]>0) { Nfixed++; } }
 
-  //if (Me == RootProc) fprintf(stdout,"\n*** ncols = %d\n\n",ncols);
+  //if ( Me == RootProc ) {
+  //  fprintf(stdout,"\n[%d] *** ncols = %d\n\n",Me,ncols);
+  //  for (i=0; i<Natoms; ++i) { fprintf(stdout,"[%d] >>> %s %lf %lf %lf %lf\n", Me, Surf_type[i], Surf_pos[i].x, Surf_pos[i].y, Surf_pos[i].z, Surf_q[i]); } 
+  //}
 
-  //if (Me == RootProc) { for (i=0; i<Natoms; ++i) { fprintf(stdout,">>> %s %lf %lf %lf %lf\n", Surf_type[i], Surf_pos[i].x, Surf_pos[i].y, Surf_pos[i].z, Surf_q[i]); } }
-
-  /* Put the plane atoms at 0 (in z) */
+  /* Put the plane atoms at 0 (in z) or as specified separately*/
   if (strcmp(Options.planeatom,"")!=0) {
     avgz = 0.0;
     nplaneatoms = 0;
@@ -494,6 +497,13 @@ void readXYZFile(void) {
     }
     avgz /= nplaneatoms;
     for (i=0; i<Natoms; ++i) { Surf_pos[i].z -= avgz; }
+  }
+  else if (Options.zplane > NEGVAL) {
+    avgz = 0.0;
+    for (i=0; i<Natoms; ++i) { avgz += Surf_pos[i].z; }
+    avgz /= Natoms;
+    for (i=0; i<Natoms; ++i) { Surf_pos[i].z -= avgz; }
+    for (i=0; i<Natoms; ++i) { Surf_pos[i].z += Options.zplane; }
   }
     
   /* Return home */
@@ -605,7 +615,9 @@ void readParameterFile(void) {
 	  sig_cross *= sig_cross;                       /* To power 6 */
 	  CrossParams[i].es12 = 4 * eps_cross * sig_cross * sig_cross;
 	  CrossParams[i].es6  = 4 * eps_cross * sig_cross;
-	  if (chargecheck > 0) { Surf_q[i] = qdump; }
+	  //if ( Me == RootProc ) { fprintf(stdout,">>> %f <<<\n",Surf_q[i]); }
+	  if (fabs(chargecheck)<TOLERANCE) { Surf_q[i] = qdump; }
+	  //if ( Me == RootProc ) { fprintf(stdout,">>> %f <<<\n\n",Surf_q[i]); }
 	  CrossParams[i].qq   = qbase * q_tip * Surf_q[i];
 	  Surf_mass[i] = mass;
 	}
