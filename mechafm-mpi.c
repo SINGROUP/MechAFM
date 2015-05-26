@@ -16,12 +16,11 @@
 
 /****
 TO DO:
-- make harmonic angle part for surface atoms
+- instead of fixing atoms to mimic support, let's put a wall potential which prevents atoms moving too far "down"
 - VDW-E interactions between molecules (not intramolecular), needs molecule identification and clustering
 - implement better minimization algorithm
 - create DF image on the fly
-- create a VDW table rather than computing them every time again (discussion with Prokop)
-- implement the Hartree potential (grid based, see point above)
+- implement the Hartree potential (grid based)
 ****/
 
 /* Load system headers */
@@ -33,8 +32,10 @@ TO DO:
 #include <unistd.h>
 #include <ctype.h>
 #include <glob.h>
-#include <mpi.h>
 #include <sys/time.h>
+#if !SERIAL
+#include <mpi.h>
+#endif
 
 /* Some macro definitions */
 #define LINE_LENGTH 512
@@ -72,17 +73,23 @@ typedef struct InputOptions {
   int maxsteps, minterm;
   double etol, ftol, cfac;
   int bufsize, gzip;
-  int flexible;
+  int flexible, rigidgrid;
 } InputOptions;
 
 /* Define a structure to quickly compute nonbonded interactions */
 typedef struct InteractionList {
+  double eps;
+  double sig;
   double es12;
   double es6;
   double qq;
   double k;
   double r0;
   double rmin;
+  int morse;
+  double De;
+  double a;
+  double re;
 } InteractionList;
 
 /* Define a structure to figure out possible bonds */
@@ -101,6 +108,7 @@ typedef struct BondInteraction {
 /* Define a structure to compute angles */
 typedef struct AngleInteraction {
   int a1, a2, a3;
+  int bond1, bond2;
   double theta0;
   double k;
 } AngleInteraction;
@@ -108,8 +116,8 @@ typedef struct AngleInteraction {
 /* Define a structure for easy processor communication */
 typedef struct buffer {
   int ix, iy, iz, n;
-  double angle, e, vv;
-  VECTOR pos, f, v;
+  double angle, e, dd;
+  VECTOR pos, f, d;
 } BUFFER;
 
 /* A simple list to distinguish different minimization criteria */
@@ -130,21 +138,28 @@ InputOptions Options;              /* Structure containing all relevant input op
 int Natoms;                        /* Number of surface atoms */
 int Nbonds;                        /* Number of bonds in flexible molecule */
 int Nangles;                       /* Number of angles in flexible molecule */
+int Ntypes;                        /* Number of surface atom types (flexible molecule) */
 int Nfixed;                        /* Number of fixed atoms (flexible molecule) */
 VECTOR *Surf_pos;                  /* Vector containing positions of all surface atoms */
+VECTOR *Surf_vel;                  /* Vector containing velocities of all surface atoms (needed for flexible/FIRE minimizer) */
 VECTOR *Surf_pos_org;              /* Copy of the surface position vector, needed for flexible reset */
-VECTOR *Surf_force;                /* Vector containing the surface forces (needed for flexible) */
+VECTOR *Surf_force;                /* Vector containing the surface forces (needed for flexible/FIRE minimizer) */
 double *Surf_q;                    /* List containing charges of all surface atoms */
 double *Surf_mass;                 /* List containing masses of all surface atoms */
 int *Surf_fix;                     /* List containing a boolean to signal fixed or free atoms (needed for flexible) */
 char **Surf_type;                  /* List containing types of all surface atoms */
 VECTOR Box;                        /* Vector containing the size of the universe */
-InteractionList *CrossParams;      /* Structured list for all cross particle interaction parameters */
+InteractionList *TipSurfParams;    /* Structured list for all tip-surface particle interaction parameters */
 InteractionList DummyParams;       /* List for particle interaction parameters with dummy atom */
 InteractionList Harmonic;          /* List for the harmonic constraint parameters on the tip atom */
+InteractionList **SurfSurfParams;  /* 2D array for all surface-surface particle interaction parameters (flexible molecule) */
+char **SurfType2Num;               /* Dictionary hash to go from atom types to numbers in the 2D array (flexible molecule) */
 BondInteraction *Bonds;            /* List of all possible bonds (flexible molecule) */
 AngleInteraction *Angles;          /* List of all possible angles (flexible molecule) */
+InteractionList Substrate;         /* Substrate support parameters (flexible molecule) */     
 VECTOR Tip_pos;                    /* Position of the tip atom */
+VECTOR Tip_vel;                    /* Velocities of the tip atom */
+double Tip_mass;                   /* Mass of the tip atom */
 VECTOR Dummy_pos;                  /* Position of the dummy atom */
 VECTOR TipSurf_force;              /* Force on tip atom caused by the surface */
 VECTOR TipDummy_force;             /* Force on tip atom caused by the dummy atom */ 
@@ -153,11 +168,24 @@ double TipSurf_energy;             /* Energy of tip atom caused by the surface *
 double TipDummy_energy;            /* Energy of tip atom caused by the dummy atom */
 double TipHarmonic_energy;         /* Energy of tip atom caused by the harmonic constraint */
 IVECTOR Npoints;                   /* Number of points (x,y,z) for the tip */
-long int Ntotal;                  /* Total number of minimization loops used */
+long int Ntotal;                   /* Total number of minimization loops used */
 FILE **FStreams;                   /* Array with the entire file stream */
 
+/* Some grid computing thingies */
+double *ForceGridRigid;            /* 3D force grid for use with rigid tips (interpolation) */
+IVECTOR Ngrid;                     /* Size of 3D force grid */
+int Ngridpoints;                   /* Total number of gridpoints */
+double GridSpacing;                /* The size of the cubes of the grid */
+
+/* Function pointers */
+void (*interactTipSurface)(void);  /* For the tip surface interaction */
+void interactTipSurfaceDirectly(void);
+void interactTipSurfaceFromGrid(void);
+
 /* Some parallel specific global variables */
+#if !SERIAL
 MPI_Comm Universe;                 /* The entire parallel universe */
+#endif
 int NProcessors;                   /* Total number of processors */
 int Me;                            /* The current processor */
 int RootProc;                      /* The main processor */               
@@ -175,7 +203,9 @@ void error(char *message, ...) {
   vsprintf(ws, message, arg);
   va_end(arg);
   fprintf(stderr, "+- ERROR (on proc %d): %s\n", Me, ws);
+#if !SERIAL  
   MPI_Finalize();
+#endif
   exit(1);
 }
 
@@ -246,7 +276,11 @@ void parseCommandLine(int argc, char *argv[]) {
     fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
     fprintf(stdout,"|                     Mechanical AFM Model                    |\n");
     fprintf(stdout,"|  Based on: P. Hapala et al, Phys. Rev. B, 90:085421 (2014)  |\n");
+#if SERIAL
+    fprintf(stdout,"|            This C implemenation by Peter Spijker            |\n");
+#else
     fprintf(stdout,"|          This MPI-C implemenation by Peter Spijker          |\n");
+#endif
     fprintf(stdout,"|           2014-2015 (c) Aalto University, Finland           |\n");
     fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
   }
@@ -265,7 +299,7 @@ void readInputFile(void) {
   char line[LINE_LENGTH];
   char tmp_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH];
   char tmp_gzip[NAME_LENGTH], tmp_units[NAME_LENGTH];
-  char tmp_flexible[NAME_LENGTH];
+  char tmp_flexible[NAME_LENGTH], tmp_rigidgrid[NAME_LENGTH];
 
   /* Initialize the mandatory options */
   sprintf(Options.xyzfile,"");
@@ -292,6 +326,7 @@ void readInputFile(void) {
   Options.bufsize = 1000;
   Options.gzip = TRUE;
   Options.flexible = FALSE;
+  Options.rigidgrid = FALSE;
 
   /* Check if the file exists */
   fp = fopen(InputFileName,"r");
@@ -328,6 +363,11 @@ void readInputFile(void) {
     else if (strcmp(keyword,"flexible")==0) {
       if (strcmp(value,"on")==0) { Options.flexible = TRUE; }
       else if (strcmp(value,"off")==0) { Options.flexible = FALSE; }
+      else { error("Option %s must be either on or off!", keyword); }
+    }
+    else if (strcmp(keyword,"rigidgrid")==0) {
+      if (strcmp(value,"on")==0) { Options.rigidgrid = TRUE; }
+      else if (strcmp(value,"off")==0) { Options.rigidgrid = FALSE; }
       else { error("Option %s must be either on or off!", keyword); }
     }
     else if (strcmp(keyword,"coulomb")==0) { 
@@ -373,6 +413,17 @@ void readInputFile(void) {
   else { sprintf(tmp_gzip,"%s","off"); }
   if (Options.flexible) { sprintf(tmp_flexible,"%s","on"); }
   else { sprintf(tmp_flexible,"%s","off"); }
+  if (Options.rigidgrid) { sprintf(tmp_rigidgrid,"%s","on"); }
+  else { sprintf(tmp_rigidgrid,"%s","off"); }
+
+  /* Do some sanity checking */
+  if ((Options.rigidgrid) && (Options.flexible)) {
+    error("Cannot use a flexible molecule with a static force grid!"); 
+  }
+
+  /* Set function pointers */
+  if (Options.rigidgrid) { interactTipSurface = interactTipSurfaceFromGrid; }
+  else { interactTipSurface = interactTipSurfaceDirectly; }
 
   /* Talk to me */
   debugline(RootProc,"");
@@ -402,6 +453,7 @@ void readInputFile(void) {
   debugline(RootProc,"coulomb:     %-s",tmp_coulomb);
   debugline(RootProc,"");
   debugline(RootProc,"flexible:    %-s",tmp_flexible);
+  debugline(RootProc,"rigidgrid:   %-s",tmp_rigidgrid);
   debugline(RootProc,"");
   debugline(RootProc,"bufsize:     %-8d", Options.bufsize);
   debugline(RootProc,"gzip:        %-s", tmp_gzip);
@@ -450,6 +502,8 @@ void readXYZFile(void) {
   Surf_mass = (double *)malloc(Natoms*sizeof(double));
   Surf_type = (char **)malloc(Natoms*sizeof(char*));
   Surf_fix = (int *)malloc(Natoms*sizeof(int));
+  Surf_vel = (VECTOR *)malloc(Natoms*sizeof(VECTOR));
+  Surf_force = (VECTOR *)malloc(Natoms*sizeof(VECTOR));
   for (i=0; i<Natoms; ++i) { 
     Surf_type[i] = (char *)malloc(ATOM_LENGTH*sizeof(char)); 
     Surf_q[i] = 0.0;
@@ -514,14 +568,23 @@ void readXYZFile(void) {
 double mixsig(double sig1, double sig2) { return (sig1+sig2)/2; }
 double mixeps(double eps1, double eps2) { return sqrt(eps1*eps2); }
 
+/* Retrieve the index of the specific atom type */
+int type2num(char *atom) {
+  int i;
+  for (i=0; i<Ntypes; ++i) { if (strcmp(SurfType2Num[i],atom)==0) { break; } }
+  return i;
+}
+
 /* Read the parameter file */
 void readParameterFile(void) {
 
   FILE *fp;
   char atom[ATOM_LENGTH], keyword[NAME_LENGTH], dump[NAME_LENGTH], line[LINE_LENGTH];
-  double eps, sig, eps_cross, sig_cross, mass;
+  char atom1[ATOM_LENGTH], atom2[ATOM_LENGTH], style[NAME_LENGTH], *pch;
+  double eps, sig, eps_cross, sig_cross, mass, es6, es12;
+  double sig6, De, a, re;
   double eps_tip, sig_tip, q_tip, qbase, epermv;
-  int i, check, hcheck, nplaneatoms, natoms;
+  int i, j, k, check, hcheck, nplaneatoms, natoms, ncols;
   double avgx, avgy, dx, dy, chargecheck, qdump;
 
   /* Initialize the universe */
@@ -533,6 +596,7 @@ void readParameterFile(void) {
 
   /* Scan the parameter file for the universe size and for the tip atom definitions */
   check = FALSE;
+  Ntypes = 0;
   while (fgets(line, LINE_LENGTH, fp)!=NULL) {
     /* Skip empty and commented lines */
     if (checkForComments(line)) { continue; }
@@ -550,6 +614,7 @@ void readParameterFile(void) {
 	sscanf(line,"%s %s %lf %lf %s %lf",dump,dump,&(eps_tip),&(sig_tip),dump,&(q_tip));
 	check = TRUE;
       }
+      Ntypes++;
     }
   }
   if (!check) { error("Parameters for tip atom not defined in parameter file!"); } 
@@ -577,7 +642,28 @@ void readParameterFile(void) {
   }
 
   /* Set up the interaction list */
-  CrossParams = (InteractionList *)malloc(Natoms*sizeof(InteractionList));
+  TipSurfParams = (InteractionList *)malloc(Natoms*sizeof(InteractionList));
+
+  /* Create a list with all the possible surface atom particle types */
+  Ntypes -= 2;  /* Subtract the tip and dummy atoms */
+  if (Ntypes<1) { error("Either the tip and/or dummy atom is not specified, or there is no molecule defined. Fix it!"); }
+  SurfSurfParams = (InteractionList **)malloc(Ntypes*sizeof(InteractionList *));
+  SurfType2Num = (char **)malloc(Ntypes*sizeof(char *));
+  for (i=0; i<Ntypes; ++i) { 
+    SurfSurfParams[i] = (InteractionList *)malloc(Ntypes*sizeof(InteractionList)); 
+    SurfType2Num[i] = (char *)malloc(ATOM_LENGTH*sizeof(char));
+  }
+  for (j=0, k=0; j<Natoms; ++j) {
+    check = FALSE;
+    for (i=0; i<Ntypes; ++i) {
+      if (strcmp(Surf_type[j],SurfType2Num[i])==0) { check = TRUE; }
+    }
+    if (!check) { 
+      strcpy(SurfType2Num[k],Surf_type[j]);
+      k++;
+    }
+  }
+  if (k!=Ntypes) { error("Lost an atom type somewhere along the way"); }
 
   /* The constant part of the Coulomb equation (depends on chosen unit system) */
   epermv = 1.0;
@@ -597,7 +683,7 @@ void readParameterFile(void) {
   /* Read the parameter file again, but this time, create the interaction list 
      for the surface atoms, for the dummy atom, and also for the harmonic spring */
   check = hcheck = FALSE;
-  natoms = 0;  
+  natoms = 0;
   while (fgets(line, LINE_LENGTH, fp)!=NULL) {
     /* Skip empty and commented lines */
     if (checkForComments(line)) { continue; }
@@ -613,13 +699,17 @@ void readParameterFile(void) {
 	  sig_cross = mixsig(sig,sig_tip);              /* To power 1 */
 	  sig_cross = (sig_cross*sig_cross*sig_cross);  /* To power 3 */
 	  sig_cross *= sig_cross;                       /* To power 6 */
-	  CrossParams[i].es12 = 4 * eps_cross * sig_cross * sig_cross;
-	  CrossParams[i].es6  = 4 * eps_cross * sig_cross;
-	  //if ( Me == RootProc ) { fprintf(stdout,">>> %f <<<\n",Surf_q[i]); }
+	  TipSurfParams[i].es12 = 4 * eps_cross * sig_cross * sig_cross;
+	  TipSurfParams[i].es6  = 4 * eps_cross * sig_cross;
 	  if (fabs(chargecheck)<TOLERANCE) { Surf_q[i] = qdump; }
-	  //if ( Me == RootProc ) { fprintf(stdout,">>> %f <<<\n\n",Surf_q[i]); }
-	  CrossParams[i].qq   = qbase * q_tip * Surf_q[i];
+	  TipSurfParams[i].qq   = qbase * q_tip * Surf_q[i];
+	  TipSurfParams[i].morse = FALSE;
 	  Surf_mass[i] = mass;
+	  /* While we read these parameters and assign the tip-molecule interactions, 
+	     we can also build the molecule-molecule interactions (at least the diagonal) */
+	  k = type2num(atom);
+	  SurfSurfParams[k][k].eps = eps;
+	  SurfSurfParams[k][k].sig = sig;
 	}
       }
       /* We found a dummy atom in the parameter list */
@@ -634,11 +724,13 @@ void readParameterFile(void) {
 	DummyParams.es6  = 4 * eps_cross * sig_cross;
 	DummyParams.qq   = 0.0; /* Ignore Coulomb interaction between tip and dummy */
 	DummyParams.rmin = mixsig(sig,sig_tip) * SIXTHRT2; /* Needed for tip positioning */
+	DummyParams.morse = FALSE;
       }
     }
     if (strcmp(keyword,"harm")==0) {
       if (hcheck == TRUE) { error("Parameters for harmonic spring can only be specified once!"); }
       sscanf(line,"%s %s %lf %lf",dump,atom,&(Harmonic.k),&(Harmonic.r0));
+      Harmonic.morse = FALSE;
       if (strcmp(atom,Options.tipatom)!=0) { error("Harmonic spring should be defined on tip atom!"); }
       hcheck = TRUE;
     }
@@ -646,6 +738,115 @@ void readParameterFile(void) {
   if (natoms != Natoms) { error("Not all atoms have been assigned parameters! (%d/%d)",natoms,Natoms); }
   if (check == FALSE) { error("Parameters for dummy atom not defined in parameter file!"); }
   if (hcheck == FALSE) { error("No harmonic spring parameters found in parameter file!"); }
+
+  /* Build the entire interaction matrix for surface-surface interactions */
+  for (i=0; i<Ntypes; ++i) {
+    for (j=0; j<Ntypes; ++j) {
+      eps_cross = mixeps(SurfSurfParams[i][i].eps,SurfSurfParams[j][j].eps);
+      sig_cross = mixsig(SurfSurfParams[i][i].sig,SurfSurfParams[j][j].sig);
+      sig_cross = mixsig(sig,sig_tip);              /* To power 1 */
+      sig_cross = (sig_cross*sig_cross*sig_cross);  /* To power 3 */
+      sig_cross *= sig_cross;                       /* To power 6 */
+      SurfSurfParams[i][j].es12 = 4 * eps_cross * sig_cross * sig_cross;
+      SurfSurfParams[i][j].es6  = 4 * eps_cross * sig_cross;
+      SurfSurfParams[j][i].es12 = SurfSurfParams[i][j].es12;
+      SurfSurfParams[j][i].es6  = SurfSurfParams[i][j].es6;
+      SurfSurfParams[i][j].morse = FALSE;
+      SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
+    }
+  }
+
+  /* Finally check for pair style overwrites */
+  rewind(fp);
+  while (fgets(line, LINE_LENGTH, fp)!=NULL) {
+    /* Skip empty and commented lines */
+    if (checkForComments(line)) { continue; }
+    /* Read line to determine keyword */
+    sscanf(line,"%s",keyword);
+    if (strcmp(keyword,"pair_ovwrt")==0) {
+      sscanf(line,"%s %s %s %s",dump,atom1,atom2,style);
+      /* Check number of columns */
+      ncols = 0;
+      strcpy(dump,line);
+      pch = strtok(dump," \t\n\r\f");
+      while (pch!=NULL) { pch = strtok(NULL," \t\n\r\f"); ncols++; }      
+      /* Lennard-Jones potential */
+      if (strcmp(style,"lj")==0) {
+	/* Check if number of columns is correct for LJ */
+	if (ncols>(4+2)) { error("Only two parameters (eps,sig) allowed for LJ"); }
+	/* Read overwrite parameters */
+	sscanf(line,"%s %s %s %s %lf %lf",dump,dump,dump,dump,&(eps),&(sig));
+	sig6 = sig*sig*sig;
+	sig6 *= sig6;
+	es12 = 4 * eps * sig6 * sig6;
+	es6  = 4 * eps * sig6;
+      }
+      /* Morse potential */
+      else if (strcmp(style,"morse")==0) {
+	/* Check if number of columns is correct for LJ */
+	if (ncols>(4+3)) { error("Only three parameters (De,a,re) allowed for Morse"); }
+	/* Read overwrite parameters */
+	sscanf(line,"%s %s %s %s %lf %lf %lf",dump,dump,dump,dump,&(De),&(a),&(re));
+      }
+      /* Try and catch */
+      else { error("Unknown pair style overwrite '%s'",style); }
+      /* Store the changes */
+      if ((strcmp(atom1,Options.tipatom)==0) || (strcmp(atom2,Options.tipatom)==0)) {
+	if (strcmp(atom1,Options.tipatom)==0) { strcpy(atom,atom2); }
+	if (strcmp(atom2,Options.tipatom)==0) { strcpy(atom,atom1); }
+	/* Lennard-Jones potential */
+	if (strcmp(style,"lj")==0) {
+	  for (i=0; i<Natoms; ++i) {
+	    if (strcmp(Surf_type[i],atom)==0) { 
+	      TipSurfParams[i].es12 = es12;
+	      TipSurfParams[i].es6  = es6;
+	      TipSurfParams[i].morse = FALSE;
+	    }
+	  }
+	}
+	/* Morse potential */
+	if (strcmp(style,"morse")==0) {
+	  for (i=0; i<Natoms; ++i) {
+	    if (strcmp(Surf_type[i],atom)==0) { 
+	      TipSurfParams[i].De = De;
+	      TipSurfParams[i].a  = a;
+	      TipSurfParams[i].re = re;
+	      TipSurfParams[i].morse = TRUE;
+	    }
+	  }
+	}
+      }
+      else {
+	i = type2num(atom1);
+	j = type2num(atom2);
+	if (strcmp(style,"lj")==0) {
+	  SurfSurfParams[i][j].es12 = es12;
+	  SurfSurfParams[i][j].es6 = es6;
+	  SurfSurfParams[j][i].es12 = SurfSurfParams[i][j].es12;
+	  SurfSurfParams[j][i].es6 = SurfSurfParams[i][j].es6;
+	  SurfSurfParams[i][j].morse = FALSE;
+	  SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
+	}
+	if (strcmp(style,"morse")==0) {
+	  SurfSurfParams[i][j].De = De;
+	  SurfSurfParams[i][j].a  = a;
+	  SurfSurfParams[i][j].re = re;
+	  SurfSurfParams[j][i].De = SurfSurfParams[i][j].De;
+	  SurfSurfParams[j][i].a  = SurfSurfParams[i][j].a;
+	  SurfSurfParams[j][i].re = SurfSurfParams[i][j].re;
+	  SurfSurfParams[i][j].morse = TRUE;
+	  SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
+	}
+      }
+    }
+  }
+
+  /* Debug printing */
+  //for (i=0; i<Ntypes; ++i) {
+  //  for (j=0; j<Ntypes; ++j) {
+  //    fprintf(stdout,"%d %d - %8.4f %8.4f - %8.4f %8.4f %8.4f\n",i,j,SurfSurfParams[i][j].es12,SurfSurfParams[i][j].es6,SurfSurfParams[i][j].De,SurfSurfParams[i][j].a,SurfSurfParams[i][j].re); 
+  //  }
+  //}
 
   /* Close file */
   fclose(fp);
@@ -660,12 +861,12 @@ void readParameterFile(void) {
  ***************************/
 
 /* Interaction between tip and surface */
-void interactTipSurface(void) {
+void interactTipSurfaceDirectly(void) {
 
   int i;
-  double dx, dy, dz, rsqt, r;
+  double dx, dy, dz, rsqt, dr, dexp, frcfac;
   double e, fx, fy, fz;
-  double fpair, terma, termb, termc, sr6, sr12;
+  double epair, fpair, terma, termb, termc, sr6, sr12;
   
   /* Zero the forces and energy */
   TipSurf_energy = 0.0;
@@ -687,17 +888,29 @@ void interactTipSurface(void) {
     dy = Tip_pos.y - Surf_pos[i].y;
     dz = Tip_pos.z - Surf_pos[i].z;
     rsqt = dx*dx + dy*dy + dz*dz;
-    /* The Lennard-Jones 12-6 interaction coefficients */
-    sr6 = rsqt*rsqt*rsqt;
-    sr12 = sr6*sr6;
-    terma = CrossParams[i].es12/sr12;
-    termb = CrossParams[i].es6/sr6;
-    fpair = (12*terma-6*termb)/rsqt;
+    /* Compute the Van der Waals contribution factors */
+    if (TipSurfParams[i].morse) {
+      /* The LJ is replaced by a Morse potential */
+      dr = sqrt(rsqt) - TipSurfParams[i].re;
+      dexp = exp(-TipSurfParams[i].a * dr);
+      frcfac = 2.0 * TipSurfParams[i].De * TipSurfParams[i].a; 
+      epair = TipSurfParams[i].De * ( dexp*dexp - 2.0*dexp + 1 );
+      fpair = frcfac * ( dexp*dexp - dexp )/sqrt(rsqt);
+    }
+    else {      
+      /* The Lennard-Jones 12-6 interaction coefficients */
+      sr6 = rsqt*rsqt*rsqt;
+      sr12 = sr6*sr6;
+      terma = TipSurfParams[i].es12/sr12;
+      termb = TipSurfParams[i].es6/sr6;
+      epair = terma-termb;
+      fpair = (12*terma-6*termb)/rsqt;
+    }
     /* The Coulomb interaction coefficients (only if coulomb is on) */
-    if (Options.coulomb) { termc = CrossParams[i].qq/sqrt(rsqt); }
+    if (Options.coulomb) { termc = TipSurfParams[i].qq/sqrt(rsqt); }
     else { termc = 0.0; }
     /* The interaction energy */
-    TipSurf_energy += (terma - termb) + termc;
+    TipSurf_energy += epair + termc;
     /* The interaction force */
     TipSurf_force.x += (fpair+(termc/rsqt))*dx;
     TipSurf_force.y += (fpair+(termc/rsqt))*dy;
@@ -717,8 +930,8 @@ void interactTipSurface(void) {
 /* Interaction between tip and dummy atom */
 void interactTipDummy(void) {
 
-  double dx, dy, dz, rsqt, r;
-  double fpair, terma, termb, termc, sr6, sr12;
+  double dx, dy, dz, rsqt, dr, dexp, frcfac;
+  double epair, fpair, terma, termb, termc, sr6, sr12;
 
   /* Compute distance (components) */
   dx = Tip_pos.x - Dummy_pos.x;
@@ -730,9 +943,18 @@ void interactTipDummy(void) {
   sr12 = sr6*sr6;
   terma = DummyParams.es12/sr12;
   termb = DummyParams.es6/sr6;
+  epair = terma-termb;
   fpair = (12*terma-6*termb)/rsqt;
+  /* Now check if the LJ is replaced by a Morse potential */
+  if (DummyParams.morse) {
+    dr = sqrt(rsqt) - DummyParams.re;
+    dexp = exp(-DummyParams.a * dr);
+    frcfac = 2.0 * DummyParams.De * DummyParams.a; 
+    epair = DummyParams.De * ( dexp*dexp - 2.0*dexp + 1 );
+    fpair = frcfac * ( dexp*dexp - dexp )/sqrt(rsqt);
+  }
   /* The interaction energy */
-  TipDummy_energy = (terma - termb);
+  TipDummy_energy = epair;
   /* The interaction force */
   TipDummy_force.x = fpair*dx;
   TipDummy_force.y = fpair*dy;
@@ -767,6 +989,228 @@ void interactTipHarmonic(void) {
   return;
 }
 
+/* Build a 3D force grid (for efficient look ups in case there is no flexibility) */
+void build3DForceGrid(void) {
+  
+  double mingridspacing, smallestgridspacing;
+  double *localforcegrid;
+  int ix, iy, iz;
+  int i, n, onproc;
+  int nx, ny, nz;
+  double x, y, z;
+  double zoffset;
+  FILE *fp;
+
+  /* Check the grid spacing, and adjust if necessary */
+  mingridspacing = 9e99;
+  smallestgridspacing = 0.01; /* A grid smaller than this (in Angstrom) is silly */
+  if (Options.dx < mingridspacing) { mingridspacing = Options.dx; }
+  if (Options.dy < mingridspacing) { mingridspacing = Options.dy; }
+  if (Options.dz < mingridspacing) { mingridspacing = Options.dz; }
+  if (mingridspacing < smallestgridspacing) { mingridspacing = smallestgridspacing; }
+  GridSpacing = mingridspacing;
+
+  /* How many points in the grid in each direction */
+  Ngrid.x = (int)((Npoints.x*Options.dx)/GridSpacing);
+  Ngrid.y = (int)((Npoints.y*Options.dy)/GridSpacing);
+  Ngrid.z = (int)((Npoints.z*Options.dz)/GridSpacing);
+  Ngridpoints = (Ngrid.x+1)*(Ngrid.y+1)*(Ngrid.z+1);
+  
+  /* Allocate memory for force grids (locally and globally) */
+  ForceGridRigid = (double *)malloc(3*Ngridpoints*sizeof(double));
+  localforcegrid = (double *)malloc(3*Ngridpoints*sizeof(double));
+  for (i=0; i<(3*Ngridpoints); ++i) {
+    ForceGridRigid[i] = 0.0;
+    localforcegrid[i] = 0.0;
+  }      
+
+  /* Loop all possible grid points and locally compute the VdW force */
+  debugline(RootProc,"Computing 3D force grid (%d grid points)",Ngridpoints);
+  zoffset = Options.zhigh - DummyParams.rmin - Ngrid.z*GridSpacing;
+  /* First over x */
+  for (ix=0; ix<=Ngrid.x; ++ix) {
+    /* Where is x */
+    Tip_pos.x = ix*GridSpacing;
+    /* Then over y */
+    for (iy=0; iy<=Ngrid.y; ++iy) {
+      /* Where is y */
+      Tip_pos.y = iy*GridSpacing;
+      /* Which processor are we on? Do we skip this point? */
+      n = ix*(Ngrid.y+1) + iy;
+      onproc = n % NProcessors;
+      if (onproc != Me) { continue; }
+      /* Finally loop over z */
+      for (iz=0; iz<=Ngrid.z; ++iz) {
+	/* Where is z */
+	Tip_pos.z = iz*GridSpacing + zoffset;
+	/* Compute the VdW/Coulomb interaction */
+	/* We cannot use the function pointer here, this has to be explicit! */
+	interactTipSurfaceDirectly();
+	/* Which point in the force grid are we storing */
+	nx = ((ix*(Ngrid.y+1)) + iy)*(Ngrid.z+1) + iz;
+	ny = nx + Ngridpoints;
+	nz = ny + Ngridpoints;
+	/* Store the force */
+	localforcegrid[nx] = TipSurf_force.x;
+	localforcegrid[ny] = TipSurf_force.y;
+	localforcegrid[nz] = TipSurf_force.z;
+      } /* End loop in z */ 
+    } /* End loop in y */ 
+  } /* End loop in x */ 
+
+  /* First wait and then communicate all the data to all processors */
+#if !SERIAL
+  MPI_Barrier(Universe);
+  MPI_Allreduce(localforcegrid,ForceGridRigid,3*Ngridpoints,MPI_DOUBLE,MPI_SUM,Universe);
+#else
+  for (i=0; i<(3*Ngridpoints); ++i) { ForceGridRigid[i] = localforcegrid[i]; }
+#endif
+  
+  /* We probably do not need to write the force grid to file. It will be huge and 
+     because the grid is computer in parallel, it is relatively fast to recompute it. */
+
+  /* The main processor will write the grid to file */
+  //if (Me == RootProc) {
+  //  fp = fopen("frcgrid.dat","w");
+  //  for (ix=0; ix<=Ngrid.x; ++ix) {
+  //    for (iy=0; iy<=Ngrid.y; ++iy) {
+  //	for (iz=0; iz<=Ngrid.z; ++iz) {
+  //      /* Which points do we need to retrieve? */
+  //      nx = ((ix*(Ngrid.y+1)) + iy)*(Ngrid.z+1) + iz;
+  //	  ny = nx + Ngridpoints;
+  //	  nz = ny + Ngridpoints;
+  //	  fprintf(fp,"%d %d %d %10.6f %10.6f %10.6f\n",ix,iy,iz,ForceGridRigid[nx],ForceGridRigid[ny],ForceGridRigid[nz]);
+  //	}
+  //  }
+  //  }
+  //  fclose(fp);
+  //}	  
+
+  /* Go home */
+  return;
+}
+
+/* Retrieve grid point ... */
+void retrieveGridPoint(IVECTOR *gp,VECTOR *dxyz) {
+  double zoffset;
+  
+  /* What is the nearest grid point to the current position of the tip */
+  zoffset = Options.zhigh - DummyParams.rmin - Ngrid.z*GridSpacing;
+  gp->x = (int)(Tip_pos.x/GridSpacing);
+  gp->y = (int)(Tip_pos.y/GridSpacing);
+  gp->z = (int)((Tip_pos.z-zoffset)/GridSpacing);
+
+  /* Fix possible out of bounds (only happens at the edges) */
+  if (Tip_pos.x<0) { gp->x = 0; }
+  if (Tip_pos.y<0) { gp->y = 0; }
+  if (Tip_pos.z<zoffset) { gp->z = 0; }
+  if (Tip_pos.x>Box.x) { gp->x = Ngrid.x-1; }
+  if (Tip_pos.y>Box.y) { gp->y = Ngrid.y-1; }
+  if (Tip_pos.z>(zoffset+Ngrid.z*GridSpacing)) { gp->z = Ngrid.z-1; }
+
+  /* And how far are we inside the cube (fractional coordinates) */
+  dxyz->x = (Tip_pos.x - ((gp->x)*GridSpacing)) / GridSpacing;
+  dxyz->y = (Tip_pos.y - ((gp->y)*GridSpacing)) / GridSpacing;
+  dxyz->z = ((Tip_pos.z-zoffset) - ((gp->z)*GridSpacing)) / GridSpacing;
+
+  /* Fix possible out of bounds (only happens at the edges) */
+  if (Tip_pos.x<0) { dxyz->x = 0.0; }
+  if (Tip_pos.y<0) { dxyz->y = 0.0; }
+  if (Tip_pos.z<zoffset) { dxyz->z = 0.0; }
+  if (Tip_pos.x>Box.x) { dxyz->x = 1.0; }
+  if (Tip_pos.y>Box.y) { dxyz->y = 1.0; }
+  if (Tip_pos.z>(zoffset+Ngrid.z*GridSpacing)) { dxyz->z = 1.0; }
+
+  /* Go home */
+  return;
+}
+
+/* ... and corresponding array indices */
+void retrieveArrayIndex(IVECTOR gp, IVECTOR *ai) {
+
+  /* Compute the array index based on the given grid point */
+  ai->x = ((gp.x*(Ngrid.y+1)) + gp.y)*(Ngrid.z+1) + gp.z;
+  ai->y = ai->x + Ngridpoints;
+  ai->z = ai->y + Ngridpoints;
+  
+  /* Go home */
+  return;
+}
+
+/* Interaction between tip and surface (interpolation from a grid) */
+void interactTipSurfaceFromGrid(void) {
+  
+  IVECTOR gp, cgp;
+  VECTOR dxyz;
+  IVECTOR ai;
+  int ix, iy, iz, n;
+  double zoffset;
+  double *fgr;
+  VECTOR C[8];
+  double c00, c10, c01, c11, c0, c1, c;
+
+  /* Zero the forces and energy */
+  TipSurf_energy = 0.0;
+  TipSurf_force = NULL_vector;
+
+  /* What is the nearest grid point to the current position of the tip? */
+  retrieveGridPoint(&gp,&dxyz);
+
+  /* Find the surrounding grid points as array indices and retrieve the force values */
+  fgr = ForceGridRigid;
+  for (ix=0, n=0; ix<=1; ++ix) {
+    cgp.x = gp.x + ix;
+    for (iy=0; iy<=1; ++iy) {
+      cgp.y = gp.y + iy;
+      for (iz=0; iz<=1; ++iz) {
+	cgp.z = gp.z + iz;
+	/* Get the array index */
+	retrieveArrayIndex(cgp,&ai);
+	/* Retrieve and store the force */
+	C[n].x = fgr[ai.x];
+	C[n].y = fgr[ai.y];
+	C[n].z = fgr[ai.z];
+	n++;
+      }
+    }
+  }
+
+  /* This is the order of the coefficients in the C array */
+  /*    000 - 001 - 010 - 011 - 100 - 101 - 110 - 111     */
+
+  /* The trilinear interpolation below is based on:        */
+  /*  http://en.wikipedia.org/wiki/Trilinear_interpolation */
+
+  /* Construct the force on the tip (in x) */
+  c00 = C[0].x*(1-dxyz.x) + C[4].x*(dxyz.x);
+  c01 = C[1].x*(1-dxyz.x) + C[5].x*(dxyz.x);
+  c10 = C[2].x*(1-dxyz.x) + C[6].x*(dxyz.x);
+  c11 = C[3].x*(1-dxyz.x) + C[7].x*(dxyz.x);
+  c0 = c00*(1-dxyz.y) + c10*(dxyz.y);
+  c1 = c01*(1-dxyz.y) + c11*(dxyz.y);
+  TipSurf_force.x = c0*(1-dxyz.z) + c1*(dxyz.z);
+
+  /* Construct the force on the tip (in y) */
+  c00 = C[0].y*(1-dxyz.x) + C[4].y*(dxyz.x);
+  c01 = C[1].y*(1-dxyz.x) + C[5].y*(dxyz.x);
+  c10 = C[2].y*(1-dxyz.x) + C[6].y*(dxyz.x);
+  c11 = C[3].y*(1-dxyz.x) + C[7].y*(dxyz.x);
+  c0 = c00*(1-dxyz.y) + c10*(dxyz.y);
+  c1 = c01*(1-dxyz.y) + c11*(dxyz.y);
+  TipSurf_force.y = c0*(1-dxyz.z) + c1*(dxyz.z);
+
+  /* Construct the force on the tip (in z) */
+  c00 = C[0].z*(1-dxyz.x) + C[4].z*(dxyz.x);
+  c01 = C[1].z*(1-dxyz.x) + C[5].z*(dxyz.x);
+  c10 = C[2].z*(1-dxyz.x) + C[6].z*(dxyz.x);
+  c11 = C[3].z*(1-dxyz.x) + C[7].z*(dxyz.x);
+  c0 = c00*(1-dxyz.y) + c10*(dxyz.y);
+  c1 = c01*(1-dxyz.y) + c11*(dxyz.y);
+  TipSurf_force.z = c0*(1-dxyz.z) + c1*(dxyz.z);
+
+  /* Go home */
+  return;
+}
 
 /*********************************
  ** FLEXIBLE MOLECULE FUNCTIONS **
@@ -776,13 +1220,16 @@ void interactTipHarmonic(void) {
 void buildTopology(void) {
   
   FILE *fp;
-  int i, j, k, n, bcheck, acheck, tcheck, ntopobonds, idmin;
+  int i, j, k, n, bcheck, acheck, scheck, tcheck, ntopobonds, idmin;
+  int a11, a12, a21, a22;
   char keyword[NAME_LENGTH], dump[NAME_LENGTH], line[LINE_LENGTH];
   double kbond, kangle, rzero, d, dx, dy, dz, safedist;
+  double theta, dx1, dx2, dy1, dy2, dz1, dz2, d1, d2, costheta;
   double *xrange, *yrange, minx, miny, maxx, maxy, minz;
   char atom1[NAME_LENGTH], atom2[NAME_LENGTH];
   PossibleBonds *posbonds;
   BondInteraction *tmpbonds;
+  AngleInteraction *tmpangles;
 
   /* Open the parameter file */
   fp = fopen(Options.paramfile,"r");
@@ -805,7 +1252,7 @@ void buildTopology(void) {
 
   /* Read the parameter file again, but this time, parse  
      everything we need for modeling a flexible molecule */
-  bcheck = acheck = FALSE;
+  bcheck = acheck = scheck = FALSE;
   ntopobonds = 0;
   while (fgets(line, LINE_LENGTH, fp)!=NULL) {
     /* Skip empty and commented lines */
@@ -824,6 +1271,12 @@ void buildTopology(void) {
       sscanf(line,"%s %lf",dump,&(kangle));
       acheck = TRUE;
     }
+    /* The strength of the harmonic substrate support from the parameter file */
+    if (strcmp(keyword,"substrate")==0) {
+      if (scheck == TRUE) { error("Parameters for harmonic substrate support can only be specified once!"); }
+      sscanf(line,"%s %lf",dump,&(Substrate.k));
+      scheck = TRUE;
+    }
     /* Collect the bonds, possibly present in the system */
     if (strcmp(keyword,"topobond")==0) {
       tcheck = FALSE;
@@ -841,6 +1294,7 @@ void buildTopology(void) {
   }
   if (bcheck == FALSE) { error("No harmonic bond parameters found in parameter file!"); }
   if (acheck == FALSE) { error("No harmonic angle parameters found in parameter file!"); }
+  if (scheck == FALSE) { error("No harmonic substrate support parameters found in parameter file!"); }
 
   /* Close file */
   fclose(fp);
@@ -889,7 +1343,82 @@ void buildTopology(void) {
     Bonds[i].a2 = tmpbonds[i].a2;
     Bonds[i].r0 = tmpbonds[i].r0;
     Bonds[i].k  = tmpbonds[i].k;
-    //fprintf(stdout,">>> (%3d/%3d): %3d %3d %f %f\n",i,Nbonds,Bonds[i].a1,Bonds[i].a2,Bonds[i].r0,Bonds[i].k);
+    //fprintf(stdout,">>>BOND<<< (%3d/%3d): %3d %3d %f %f\n",i,Nbonds,Bonds[i].a1,Bonds[i].a2,Bonds[i].r0,Bonds[i].k);
+  }
+
+  /* Some temporary angle storage array */
+  tmpangles = (AngleInteraction *)malloc((Nbonds*10)*sizeof(AngleInteraction));
+
+  /* Find the angles by looping through the bond list */
+  Nangles = 0;
+  /* Loop all bonds once */
+  for (i=0; i<Nbonds; ++i) {
+    /* Which atoms form the i-th bond */
+    a11 = Bonds[i].a1;
+    a12 = Bonds[i].a2;
+    /* And loop all bonds twice */
+    for (j=(i+1); j<Nbonds; ++j) {
+      /* And which atoms form the j-th bond */
+      a21 = Bonds[j].a1;
+      a22 = Bonds[j].a2;
+      /* If both bonds share one and only one atom, an angle is possible */
+      /* But only if the other atom is not the same in both bonds */
+      if ((a11==a21) && (a12!=a22)) { 
+	tmpangles[Nangles].a1 = a12;
+	tmpangles[Nangles].a2 = a11;
+	tmpangles[Nangles].a3 = a22;
+      }
+      else if ((a11==a22) && (a12!=a21)) { 
+	tmpangles[Nangles].a1 = a12;
+	tmpangles[Nangles].a2 = a11;
+	tmpangles[Nangles].a3 = a21;
+      }
+      else if ((a12==a21) && (a11!=a22)) { 
+	tmpangles[Nangles].a1 = a11;
+	tmpangles[Nangles].a2 = a12;
+	tmpangles[Nangles].a3 = a22;
+      }
+      else if ((a12==a22) && (a11!=a21)) { 
+	tmpangles[Nangles].a1 = a11;
+	tmpangles[Nangles].a2 = a12;
+	tmpangles[Nangles].a3 = a21;
+      }
+      else { continue; }
+      /* We won't get here, unless we found an angle, so store it properly */
+      tmpangles[Nangles].bond1 = i;
+      tmpangles[Nangles].bond2 = j;
+      tmpangles[Nangles].k = kangle;
+      /* And compute the base angle */
+      dx1 = Surf_pos[tmpangles[Nangles].a1].x - Surf_pos[tmpangles[Nangles].a2].x; 
+      dx2 = Surf_pos[tmpangles[Nangles].a3].x - Surf_pos[tmpangles[Nangles].a2].x; 
+      dy1 = Surf_pos[tmpangles[Nangles].a1].y - Surf_pos[tmpangles[Nangles].a2].y; 
+      dy2 = Surf_pos[tmpangles[Nangles].a3].y - Surf_pos[tmpangles[Nangles].a2].y;
+      dz1 = Surf_pos[tmpangles[Nangles].a1].z - Surf_pos[tmpangles[Nangles].a2].z; 
+      dz2 = Surf_pos[tmpangles[Nangles].a3].z - Surf_pos[tmpangles[Nangles].a2].z; 
+      d1 = sqrt(dx1*dx1 + dy1*dy1 + dz1*dz1);
+      d2 = sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2);
+      costheta = (dx1*dx2 + dy1*dy2 + dz1*dz2) / (d1*d2);
+      if ( costheta >  1.0 ) { costheta =  1.0; }
+      if ( costheta < -1.0 ) { costheta = -1.0; }
+      tmpangles[Nangles].theta0 = acos(costheta);
+      /* Increment the angle number */
+      Nangles++;
+    }
+  }
+
+  /* Copy all found angles to a global array */
+  Angles = (AngleInteraction *)malloc(Nangles*sizeof(AngleInteraction));
+  for (i=0; i<Nangles; ++i) {
+    Angles[i].a1 = tmpangles[i].a1;
+    Angles[i].a2 = tmpangles[i].a2;
+    Angles[i].a3 = tmpangles[i].a3;
+    Angles[i].k  = tmpangles[i].k;
+    Angles[i].theta0 = tmpangles[i].theta0;
+    Angles[i].bond1  = tmpangles[i].bond1;
+    Angles[i].bond2  = tmpangles[i].bond2;
+    //fprintf(stdout,">>>ANGLE<<< (%3d/%3d): %3d %3d %3d - ",i,Nangles,Angles[i].a1,Angles[i].a2,Angles[i].a3);
+    //fprintf(stdout,"%s %s %s - ",Surf_type[Angles[i].a1],Surf_type[Angles[i].a2],Surf_type[Angles[i].a3]);
+    //fprintf(stdout,"%f %f (%3d %3d)\n",Angles[i].theta0,Angles[i].k,Angles[i].bond1,Angles[i].bond2);
   }
 
   /* In case we have a flexible molecule, make a copy of the current surface atom positions */
@@ -900,22 +1429,21 @@ void buildTopology(void) {
       Surf_pos_org[i].y = Surf_pos[i].y;
       Surf_pos_org[i].z = Surf_pos[i].z;
     }
-    /* And initialize the force vector */
-    Surf_force = (VECTOR *)malloc(Natoms*sizeof(VECTOR));
   }
+
+  /* Free some memory */
+  free(tmpbonds);
+  free(tmpangles);
 
   /* Return home */
   return;
 }
 
+/* Compute the bond contribution within the molecule */
+void computeBondsFlexMol(void) {
 
-/* Update the positions of the molecules based on the forces, steepest descent minimization */
-void updateFlexibleMolecule(void) {
-
-  int i, a1, a2, a3;
+  int i, a1, a2;
   double f, k, r0, dr, r, dx, dy, dz;
-  double dx1, dx2, dy1, dy2, dz1, dz2;
-  double r1, r2, c, s, dtheta, theta0, f11, f12, f22;
 
   /* Compute the forces from all internal bonds */
   for (i=0; i<Nbonds; ++i) {
@@ -940,6 +1468,104 @@ void updateFlexibleMolecule(void) {
     Surf_force[a2].y -= dy*f;
     Surf_force[a2].z -= dz*f;
   }
+
+  /* Go home */
+  return;
+}
+
+/* Compute the angle contribution within the molecule */
+void computeAnglesFlexMol(void) {
+
+  int i, a1, a2, a3;
+  double dx1, dx2, dy1, dy2, dz1, dz2, d1, d2;
+  double costheta, sintheta, dtheta, theta0;
+  double k, tk, f, f11, f12, f22;
+  VECTOR f1, f3;
+
+  /* Compute the forces from all internal angles */
+  for (i=0; i<Nangles; ++i) {
+    /* Retrieve information */
+    a1 = Angles[i].a1;
+    a2 = Angles[i].a2;
+    a3 = Angles[i].a3;
+    theta0 = Angles[i].theta0;
+    k = Angles[i].k;
+    /* Compute the current "angle" */
+    dx1 = Surf_pos[a1].x - Surf_pos[a2].x; 
+    dx2 = Surf_pos[a3].x - Surf_pos[a2].x; 
+    dy1 = Surf_pos[a1].y - Surf_pos[a2].y; 
+    dy2 = Surf_pos[a3].y - Surf_pos[a2].y;
+    dz1 = Surf_pos[a1].z - Surf_pos[a2].z; 
+    dz2 = Surf_pos[a3].z - Surf_pos[a2].z; 
+    d1 = sqrt(dx1*dx1 + dy1*dy1 + dz1*dz1);
+    d2 = sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2);
+    costheta = (dx1*dx2 + dy1*dy2 + dz1*dz2) / (d1*d2);
+    if ( costheta >  1.0 ) { costheta =  1.0; }
+    if ( costheta < -1.0 ) { costheta = -1.0; }
+    sintheta = sqrt(1.0 - costheta*costheta);
+    if ( sintheta < 0.001 ) { sintheta = 0.001; }
+    sintheta = 1.0 / sintheta;
+    /* Compute the force */
+    dtheta = acos(costheta) - theta0;
+    tk = k*dtheta;
+    f = -2.0 * tk * sintheta;
+    f11 = f*costheta / (d1*d1);
+    f12 = -f / (d1*d2);
+    f22 = f*costheta / (d2*d2);
+    f1.x = f11*dx1 + f12*dx2;
+    f1.y = f11*dy1 + f12*dy2;
+    f1.z = f11*dz1 + f12*dz2;
+    f3.x = f22*dx2 + f12*dx1;
+    f3.y = f22*dy2 + f12*dy1;
+    f3.z = f22*dz2 + f12*dz1;
+    /* Assign to all atoms */
+    Surf_force[a1].x += f1.x;
+    Surf_force[a1].y += f1.y;
+    Surf_force[a1].z += f1.z;
+    Surf_force[a2].x -= f1.x + f3.x;
+    Surf_force[a2].y -= f1.y + f3.y;
+    Surf_force[a2].z -= f1.z + f3.z;
+    Surf_force[a3].x += f3.x;
+    Surf_force[a3].y += f3.y;
+    Surf_force[a3].z += f3.z;
+  }
+
+  /* Go home */
+  return;
+
+}
+
+/* Compute the contribution of the surface support */
+void computeSubstrateSupport(void) {
+
+  int i;
+  double dz;
+  
+  /* Loop all surface atoms and compute the z-offset with respect to the original coordinates */
+  for (i=0; i<Natoms; ++i) {
+    /* Deviation from original z-coordinate */
+    dz = Surf_pos_org[i].z - Surf_pos[i].z;
+    /* If the atom has moved away from the substrate, do nothing */
+    if (dz<0) { continue; }
+    /* Assign harmonic force (only in z) */
+    Surf_force[i].z += 2.0 * Substrate.k * dz;
+  }
+
+  /* BUT WHAT IF THE MOLECULE BOUNCES AWAY ??? */
+
+  /* Return home */
+  return;
+}
+
+/* Update the positions of the molecules based on the forces, steepest descent minimization */
+void updateFlexibleMolecule(void) {
+
+  int i;
+
+  /* Call all force computations for the flexible molecule */
+  computeBondsFlexMol();
+  computeAnglesFlexMol();
+  computeSubstrateSupport();
 
   /* Loop all surface atoms and update their positions */
   for (i=0; i<Natoms; ++i) {
@@ -969,25 +1595,35 @@ void updateFlexibleMolecule(void) {
 void dumpToFiles(BUFFER *sendbuf, BUFFER *recvbuf, int bufsize) {
 
   int i, f, nsr, *curbufsize, *lcbs;
+#if !SERIAL
   MPI_Status mpistatus;
+#endif
 
   /* Build an array of the current buffer size for broadcast */
   curbufsize = (int *)malloc(NProcessors*sizeof(int));
   lcbs = (int *)malloc(NProcessors*sizeof(int));
   for (i=0; i<NProcessors; ++i) { lcbs[i] = 0; }
   lcbs[Me] = bufsize;
+#if !SERIAL
   MPI_Allreduce(lcbs,curbufsize,NProcessors,MPI_INT,MPI_SUM,Universe);
+#else
+  curbufsize[Me] = lcbs[Me];
+#endif
 
+#if !SERIAL
   /* Send the data to the root processor */
   if (Me != RootProc) { MPI_Send(sendbuf,curbufsize[Me]*sizeof(BUFFER),MPI_CHAR,RootProc,0,Universe); }
   /* Receive the date from the daughter processors and write to file */
   else {
+#endif
     /* Loop the processors */
     for (i=0; i<NProcessors; ++i) {
       /* On the main processor we have to copy the data only, no send and receive */      
       if (i==0) { recvbuf = sendbuf; }
+#if !SERIAL
       /* For all other processors we need to receive the data */
       else { MPI_Recv(recvbuf,curbufsize[i]*sizeof(BUFFER),MPI_CHAR,i,0,Universe,&mpistatus); }
+#endif
       /* Write data to file (only the root processor can do this) */
       /* PLEASE NOTE: DATA IS SENT IN STRIPED FORM, THEY ARE NOT ORDERED! */
       for (nsr=0; nsr<curbufsize[i]; ++nsr) {
@@ -996,13 +1632,15 @@ void dumpToFiles(BUFFER *sendbuf, BUFFER *recvbuf, int bufsize) {
 	fprintf(FStreams[f],"%d %d %d ",recvbuf[nsr].iz,recvbuf[nsr].ix,recvbuf[nsr].iy);
 	fprintf(FStreams[f],"%6.3f %6.3f %6.3f ",recvbuf[nsr].pos.x,recvbuf[nsr].pos.y,recvbuf[nsr].pos.z);
 	fprintf(FStreams[f],"%8.4f %8.4f %8.4f ",recvbuf[nsr].f.x,recvbuf[nsr].f.y,recvbuf[nsr].f.z);
-	fprintf(FStreams[f],"%6.3f %6.3f %6.3f ",recvbuf[nsr].v.x,recvbuf[nsr].v.y,recvbuf[nsr].v.z);
-	fprintf(FStreams[f],"%6.3f %8.4f ",recvbuf[nsr].vv,recvbuf[nsr].angle);
+	fprintf(FStreams[f],"%6.3f %6.3f %6.3f ",recvbuf[nsr].d.x,recvbuf[nsr].d.y,recvbuf[nsr].d.z);
+	fprintf(FStreams[f],"%6.3f %8.4f ",recvbuf[nsr].dd,recvbuf[nsr].angle);
 	fprintf(FStreams[f],"%8.4f %d\n",recvbuf[nsr].e,recvbuf[nsr].n);
       }
     }
+#if !SERIAL
   }      
-    
+#endif    
+
   /* Get rid of the buffer size broadcast arrays */
   free(curbufsize);
   free(lcbs);
@@ -1051,8 +1689,13 @@ void openUniverse(void) {
   n = (Npoints.x + 1) * (Npoints.y + 1) * (Npoints.z + 1);
   debugline(RootProc,"3D data grid is: %d x %d x %d (%d in total)",1+Npoints.x,1+Npoints.y,1+Npoints.z,n);
 
+#if !SERIAL
   /* Wait! */
   MPI_Barrier(Universe);
+#endif
+
+  /* If we which to precompute the force grid, do it now */
+  if (Options.rigidgrid) { build3DForceGrid(); }
 
   /* Open all the file streams (one for every z point) [ONLY ON ROOT PROCESSOR] */
   if (Me == RootProc) {
@@ -1083,13 +1726,16 @@ void moveTip(void) {
   int n, nmax, check;
   int i, ix, iy, iz;
   double x, y, z;
-  double angle, minangle, maxforce, vv;
+  double angle, minangle, maxforce, dd;
   double e, ediff, eold, fnorm;
-  VECTOR f, v;
+  VECTOR f, d;
   VECTOR *ftip;
   int nxy, onproc, bufsize, nsr;
   BUFFER *sendbuf, *recvbuf;
   double checkperc, curperc;
+
+  FILE *tfp;
+  char dump[NAME_LENGTH];
 
   /* Create a force vector (for real time analysis) */
   ftip = (VECTOR *)malloc((Npoints.z+1)*sizeof(VECTOR));
@@ -1198,11 +1844,11 @@ void moveTip(void) {
 	} /* End minimization loop */
 	
 	/* Compute some other interesting data */
-	v.x = Tip_pos.x - x;
-	v.y = Tip_pos.y - y;
-	v.z = Tip_pos.z - z;
-	vv = sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
-	angle = atan2(sqrt(v.x*v.x + v.y*v.y),v.z)*(180.0/PI);
+	d.x = Tip_pos.x - x;
+	d.y = Tip_pos.y - y;
+	d.z = Tip_pos.z - z;
+	dd = sqrt(d.x*d.x + d.y*d.y + d.z*d.z);
+	angle = atan2(sqrt(d.x*d.x + d.y*d.y),d.z)*(180.0/PI);
 	if (angle<minangle) { minangle = angle; }
 	if (fnorm>maxforce) { maxforce = fnorm; }
 
@@ -1222,10 +1868,10 @@ void moveTip(void) {
 	sendbuf[nsr].f.x = TipSurf_force.x;
 	sendbuf[nsr].f.y = TipSurf_force.y;
 	sendbuf[nsr].f.z = TipSurf_force.z;
-	sendbuf[nsr].v.x = v.x;
-	sendbuf[nsr].v.y = v.y;
-	sendbuf[nsr].v.z = v.z;
-	sendbuf[nsr].vv = vv;
+	sendbuf[nsr].d.x = d.x;
+	sendbuf[nsr].d.y = d.y;
+	sendbuf[nsr].d.z = d.z;
+	sendbuf[nsr].dd = dd;
 	sendbuf[nsr].e = TipSurf_energy;
 	sendbuf[nsr].angle = angle;
 	nsr++;
@@ -1238,6 +1884,16 @@ void moveTip(void) {
       /* Compute the frequency shift for the given F(z) */
       //computeDeltaF(x,y,ftip);
 
+      if ((ix==(Npoints.x/2)) && (iy==(Npoints.y/2))) {
+	sprintf(dump,"test-%d-%d.xyz",ix,iy); 
+	tfp = fopen(dump,"w");
+	fprintf(tfp,"%d\n\n",Natoms);
+	for (i=0; i<Natoms; ++i) {
+	  fprintf(tfp,"%s %8.4f %8.4f %8.4f\n",Surf_type[i],Surf_pos[i].x,Surf_pos[i].y,Surf_pos[i].z);
+	}
+	fclose(tfp);
+      }
+
       /* Keep track of counting */
       Ntotal += nmax;
 
@@ -1246,7 +1902,11 @@ void moveTip(void) {
   } /* End loop in x */
 
   /* Dump to file (if it happened that the buffer contains anything at all */
+#if !SERIAL
   MPI_Allreduce(&nsr,&n,1,MPI_INT,MPI_SUM,Universe);
+#else
+  n = nsr;
+#endif
   if (n>0) { dumpToFiles(sendbuf,recvbuf,nsr); }
 
   /* Say one last thing */
@@ -1261,8 +1921,10 @@ void closeUniverse(void) {
   
   int i;
   
+#if !SERIAL
   /* Wait! */
   MPI_Barrier(Universe);
+#endif
 
   /* Close each separate file stream [ONLY ON ROOT PROCESSOR] */
   if (Me == RootProc) {
@@ -1291,11 +1953,19 @@ void finalize(void) {
   /* Time difference */
   dtime = (TimeEnd.tv_sec - TimeStart.tv_sec + (TimeEnd.tv_usec - TimeStart.tv_usec)/1e6);
   timesum = 0.0;
+#if !SERIAL
   MPI_Allreduce(&dtime,&timesum,1,MPI_DOUBLE,MPI_SUM,Universe);
+#else
+  timesum += dtime;
+#endif
 
   /* Collect number of steps from all processors */
   nsum = 0;
+#if !SERIAL
   MPI_Allreduce(&Ntotal,&nsum,1,MPI_INT,MPI_SUM,Universe);
+#else
+  nsum += Ntotal;
+#endif
 
   /* Print some miscelleneous information */
   debugline(RootProc,"Simulation run finished");
@@ -1321,15 +1991,22 @@ void openParallelUniverse(int argc, char *argv[]) {
   
   int i;
   
+#if !SERIAL
   /* Start MPI */
   MPI_Init(&argc,&argv);
-  
+#endif  
+
   /* Determine the size of the universe and which processor we are on */
   RootProc = 0;
+#if !SERIAL
   Universe = MPI_COMM_WORLD;
   MPI_Comm_rank(Universe,&Me);
   MPI_Comm_size(Universe,&NProcessors);
-  
+#else
+  Me = 0;
+  NProcessors = 1;
+#endif
+
   /* Initialize the checker on how many x,y points for each processor */
   PointsOnProc = (int *)malloc(NProcessors*sizeof(int));
   for (i=0; i<NProcessors; ++i) { PointsOnProc[i] = 0; }
@@ -1345,15 +2022,23 @@ void closeParallelUniverse(void) {
   int *pop;
   
   /* How many x,y points on each processor */
+#if !SERIAL
   MPI_Barrier(Universe);
+#endif
   pop = (int *)malloc(NProcessors*sizeof(int));
   for (i=0; i<NProcessors; ++i) { pop[i] = 0; }
+#if !SERIAL
   MPI_Allreduce(PointsOnProc,pop,NProcessors,MPI_INT,MPI_SUM,Universe);
+#else
+  pop[Me] += PointsOnProc[Me];
+#endif
   debugline(RootProc,"How many x,y points did each processor handle:");
   for (i=0; i<NProcessors; ++i) { debugline(RootProc,"  Processor %2d: %6d x,y points",i,pop[i]); }
 
+#if !SERIAL
   /* Close MPI */
   MPI_Finalize();
+#endif
 
   /* Go home */
   return;

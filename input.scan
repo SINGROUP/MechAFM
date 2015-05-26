@@ -1,4 +1,4 @@
-xyzfile      boron-graphene-nanoribbon.xyz
+xyzfile      graphene.xyz
 paramfile    parameters.dat
 tipatom      O
 dummyatom    X
@@ -16,6 +16,8 @@ maxsteps     5000
 
 coulomb	     on
 
+rigidgrid    off
+
 flexible     on
 
 zhigh	     10.0
@@ -24,5 +26,5 @@ dx	     0.5
 dy	     0.5
 dz	     0.1
 
-bufsize	     1000
+bufsize	     10000
 gzip	     on
