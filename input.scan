@@ -4,9 +4,9 @@ tipatom      O
 dummyatom    X
 
 planeatom    C
-#zplane	     0.000
+#zplane      0.000
 
-units	     kcal/mol
+units        kcal/mol
 
 minterm      f
 etol         0.01
@@ -14,17 +14,17 @@ ftol         0.01
 cfac         0.001
 maxsteps     5000
 
-coulomb	     on
+coulomb      on
 
 rigidgrid    off
 
-flexible     on
+flexible     off
 
-zhigh	     10.0
-zlow	     6.0
-dx	     0.5
-dy	     0.5
-dz	     0.1
+zhigh        10.0
+zlow         6.0
+dx           0.5
+dy           0.5
+dz           0.1
 
-bufsize	     10000
-gzip	     on
+bufsize      10000
+gzip         on
