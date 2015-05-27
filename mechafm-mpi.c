@@ -35,7 +35,7 @@ TO DO:
 #include <sys/time.h>
 
 #if !SERIAL
-#include <mpi.h>
+    #include <mpi.h>
 #endif
 
 /* Some macro definitions */
@@ -56,17 +56,13 @@ typedef struct vector {
     double x, y, z;
 } VECTOR;
 
-VECTOR NULL_vector = {
-    0.0,0.0,0.0
-};
+VECTOR NULL_vector = {0.0, 0.0, 0.0};
 
 typedef struct ivector {
     int x, y, z;
 } IVECTOR;
 
-IVECTOR NULL_ivector = {
-    0,0,0
-};
+IVECTOR NULL_ivector = {0, 0, 0};
 
 /* Define a structure for all input options */
 typedef struct InputOptions {
@@ -129,14 +125,10 @@ typedef struct buffer {
 } BUFFER;
 
 /* A simple list to distinguish different minimization criteria */
-enum{
-    MIN_E,MIN_F,MIN_EF
-};
+enum{MIN_E,MIN_F,MIN_EF};
 
 /* A simple list to distinguish the chosen unit system */
-enum{
-    U_KCAL,U_KJ,U_EV
-};
+enum{U_KCAL,U_KJ,U_EV};
 
 /* Time thingies */
 struct timeval TimeStart, TimeEnd;
@@ -196,7 +188,7 @@ void interactTipSurfaceFromGrid(void);
 
 /* Some parallel specific global variables */
 #if !SERIAL
-MPI_Comm Universe;                               /* The entire parallel universe */
+    MPI_Comm Universe;                               /* The entire parallel universe */
 #endif
 int NProcessors;                                     /* Total number of processors */
 int Me;                                                      /* The current processor */
@@ -269,7 +261,8 @@ char *strlow(char *string) {
 int checkForComments(char *line) {
     int moveon = FALSE;
     if (line[0] == '#') {
-        moveon = TRUE; }
+        moveon = TRUE;
+    }
     else if (line[0] == '%') {
         moveon = TRUE;
     }
@@ -639,7 +632,9 @@ void readXYZFile(void) {
         if (firstline) {
             sscanf(line, "%s", value);
             if (isint(value)) {
-                Natoms = atoi(value); realxyz = TRUE; break;
+                Natoms = atoi(value);
+                realxyz = TRUE;
+                break;
             }
             firstline = FALSE;
         }
@@ -674,7 +669,8 @@ void readXYZFile(void) {
     while (fgets(line, LINE_LENGTH, fp)!=NULL) {
         /* If it is a real XYZ file, skip the first two lines */
         if ( (realxyz) && (n<2) ) {
-            n++; continue;
+            n++;
+            continue;
         }
         /* Skip empty and commented lines */
         if (checkForComments(line)) {
@@ -685,7 +681,8 @@ void readXYZFile(void) {
             strcpy(dump,line);
             pch = strtok(dump," \t\n\r\f");
             while (pch!=NULL) {
-                pch = strtok(NULL," \t\n\r\f"); ncols++;
+                pch = strtok(NULL," \t\n\r\f");
+                ncols++;
             }
             firstline = FALSE;
         }
@@ -702,8 +699,10 @@ void readXYZFile(void) {
     }
 
     for (i=0; i<Natoms; ++i) {
-        if (Surf_fix[i]>0) { Nfixed++;
-        } }
+        if (Surf_fix[i]>0) {
+            Nfixed++;
+        }
+    }
 
     //if ( Me == RootProc ) {
     //  fprintf(stdout,"\n[%d] *** ncols = %d\n\n",Me,ncols);
@@ -718,8 +717,8 @@ void readXYZFile(void) {
         nplaneatoms = 0;
         for (i=0; i<Natoms; ++i) {
             if (strcmp(Surf_type[i],Options.planeatom)==0) {
-    nplaneatoms++;
-    avgz += Surf_pos[i].z;
+                nplaneatoms++;
+                avgz += Surf_pos[i].z;
             }
         }
         avgz /= nplaneatoms;
@@ -757,8 +756,10 @@ double mixeps(double eps1, double eps2) {
 int type2num(char *atom) {
     int i;
     for (i=0; i<Ntypes; ++i) {
-        if (strcmp(SurfType2Num[i],atom)==0) { break;
-        } }
+        if (strcmp(SurfType2Num[i],atom)==0) {
+            break;
+        }
+    }
     return i;
 }
 
@@ -805,11 +806,11 @@ void readParameterFile(void) {
         if (strcmp(keyword,"atom")==0) {
             sscanf(line,"%s %s",dump,atom);
             if (strcmp(atom,Options.tipatom)==0) {
-    if (check == TRUE) {
-        error("Parameters for tip atom can only be specified once!");
-    }
-    sscanf(line,"%s %s %lf %lf %s %lf",dump,dump,&(eps_tip),&(sig_tip),dump,&(q_tip));
-    check = TRUE;
+                if (check == TRUE) {
+                    error("Parameters for tip atom can only be specified once!");
+                }
+                sscanf(line,"%s %s %lf %lf %s %lf",dump,dump,&(eps_tip),&(sig_tip),dump,&(q_tip));
+                check = TRUE;
             }
             Ntypes++;
         }
@@ -825,9 +826,9 @@ void readParameterFile(void) {
         nplaneatoms = 0;
         for (i=0; i<Natoms; ++i) {
             if (strcmp(Surf_type[i],Options.planeatom)==0) {
-    nplaneatoms++;
-    avgx += Surf_pos[i].x;
-    avgy += Surf_pos[i].y;
+                nplaneatoms++;
+                avgx += Surf_pos[i].x;
+                avgy += Surf_pos[i].y;
             }
         }
         avgx /= nplaneatoms;
@@ -910,42 +911,42 @@ void readParameterFile(void) {
             sscanf(line,"%s %s %lf %lf %lf %lf",dump,atom,&(eps),&(sig),&(mass),&(qdump));
             /* Loop all atoms in the surface and check if they match this parameter set */
             for (i=0; i<Natoms; ++i) {
-    if (strcmp(Surf_type[i],atom)==0) {
-        natoms++;
-        eps_cross = mixeps(eps,eps_tip);
-        sig_cross = mixsig(sig,sig_tip);                            /* To power 1 */
-        sig_cross = (sig_cross*sig_cross*sig_cross);    /* To power 3 */
-        sig_cross *= sig_cross;                                             /* To power 6 */
-        TipSurfParams[i].es12 = 4 * eps_cross * sig_cross * sig_cross;
-        TipSurfParams[i].es6    = 4 * eps_cross * sig_cross;
-        if (fabs(chargecheck)<TOLERANCE) {
-            Surf_q[i] = qdump;
-        }
-        TipSurfParams[i].qq     = qbase * q_tip * Surf_q[i];
-        TipSurfParams[i].morse = FALSE;
-        Surf_mass[i] = mass;
-        /* While we read these parameters and assign the tip-molecule interactions,
-             we can also build the molecule-molecule interactions (at least the diagonal) */
-        k = type2num(atom);
-        SurfSurfParams[k][k].eps = eps;
-        SurfSurfParams[k][k].sig = sig;
-    }
+                if (strcmp(Surf_type[i],atom)==0) {
+                    natoms++;
+                    eps_cross = mixeps(eps,eps_tip);
+                    sig_cross = mixsig(sig,sig_tip);                            /* To power 1 */
+                    sig_cross = (sig_cross*sig_cross*sig_cross);    /* To power 3 */
+                    sig_cross *= sig_cross;                                             /* To power 6 */
+                    TipSurfParams[i].es12 = 4 * eps_cross * sig_cross * sig_cross;
+                    TipSurfParams[i].es6    = 4 * eps_cross * sig_cross;
+                    if (fabs(chargecheck)<TOLERANCE) {
+                        Surf_q[i] = qdump;
+                    }
+                    TipSurfParams[i].qq     = qbase * q_tip * Surf_q[i];
+                    TipSurfParams[i].morse = FALSE;
+                    Surf_mass[i] = mass;
+                    /* While we read these parameters and assign the tip-molecule interactions,
+                        we can also build the molecule-molecule interactions (at least the diagonal) */
+                    k = type2num(atom);
+                    SurfSurfParams[k][k].eps = eps;
+                    SurfSurfParams[k][k].sig = sig;
+                }
             }
             /* We found a dummy atom in the parameter list */
             if (strcmp(Options.dummyatom,atom)==0) {
-    if (check == TRUE) {
-        error("Parameters for dummy atom can only be specified once!");
-    }
-    check = TRUE;
-    eps_cross = mixeps(eps,eps_tip);
-    sig_cross = mixsig(sig,sig_tip);                            /* To power 1 */
-    sig_cross = (sig_cross*sig_cross*sig_cross);    /* To power 3 */
-    sig_cross *= sig_cross;                                             /* To power 6 */
-    DummyParams.es12 = 4 * eps_cross * sig_cross * sig_cross;
-    DummyParams.es6  = 4 * eps_cross * sig_cross;
-    DummyParams.qq   = 0.0; /* Ignore Coulomb interaction between tip and dummy */
-    DummyParams.rmin = mixsig(sig,sig_tip) * SIXTHRT2; /* Needed for tip positioning */
-    DummyParams.morse = FALSE;
+                if (check == TRUE) {
+                    error("Parameters for dummy atom can only be specified once!");
+                }
+                check = TRUE;
+                eps_cross = mixeps(eps,eps_tip);
+                sig_cross = mixsig(sig,sig_tip);                            /* To power 1 */
+                sig_cross = (sig_cross*sig_cross*sig_cross);    /* To power 3 */
+                sig_cross *= sig_cross;                                             /* To power 6 */
+                DummyParams.es12 = 4 * eps_cross * sig_cross * sig_cross;
+                DummyParams.es6  = 4 * eps_cross * sig_cross;
+                DummyParams.qq   = 0.0; /* Ignore Coulomb interaction between tip and dummy */
+                DummyParams.rmin = mixsig(sig,sig_tip) * SIXTHRT2; /* Needed for tip positioning */
+                DummyParams.morse = FALSE;
             }
         }
         if (strcmp(keyword,"harm")==0) {
@@ -1003,29 +1004,30 @@ void readParameterFile(void) {
             strcpy(dump,line);
             pch = strtok(dump," \t\n\r\f");
             while (pch!=NULL) {
-                pch = strtok(NULL," \t\n\r\f"); ncols++;
+                pch = strtok(NULL," \t\n\r\f");
+                ncols++;
             }
             /* Lennard-Jones potential */
             if (strcmp(style,"lj")==0) {
-    /* Check if number of columns is correct for LJ */
-    if (ncols>(4+2)) {
-        error("Only two parameters (eps,sig) allowed for LJ");
-    }
-    /* Read overwrite parameters */
-    sscanf(line,"%s %s %s %s %lf %lf",dump,dump,dump,dump,&(eps),&(sig));
-    sig6 = sig*sig*sig;
-    sig6 *= sig6;
-    es12 = 4 * eps * sig6 * sig6;
-    es6  = 4 * eps * sig6;
+                /* Check if number of columns is correct for LJ */
+                if (ncols>(4+2)) {
+                    error("Only two parameters (eps,sig) allowed for LJ");
+                }
+                /* Read overwrite parameters */
+                sscanf(line,"%s %s %s %s %lf %lf",dump,dump,dump,dump,&(eps),&(sig));
+                sig6 = sig*sig*sig;
+                sig6 *= sig6;
+                es12 = 4 * eps * sig6 * sig6;
+                es6  = 4 * eps * sig6;
             }
             /* Morse potential */
             else if (strcmp(style,"morse")==0) {
-    /* Check if number of columns is correct for LJ */
-    if (ncols>(4+3)) {
-        error("Only three parameters (De,a,re) allowed for Morse");
-    }
-    /* Read overwrite parameters */
-    sscanf(line,"%s %s %s %s %lf %lf %lf",dump,dump,dump,dump,&(De),&(a),&(re));
+                /* Check if number of columns is correct for LJ */
+                if (ncols>(4+3)) {
+                    error("Only three parameters (De,a,re) allowed for Morse");
+                }
+                /* Read overwrite parameters */
+                sscanf(line,"%s %s %s %s %lf %lf %lf",dump,dump,dump,dump,&(De),&(a),&(re));
             }
             /* Try and catch */
             else {
@@ -1033,55 +1035,55 @@ void readParameterFile(void) {
             }
             /* Store the changes */
             if ((strcmp(atom1,Options.tipatom)==0) || (strcmp(atom2,Options.tipatom)==0)) {
-    if (strcmp(atom1,Options.tipatom)==0) {
-        strcpy(atom,atom2);
-    }
-    if (strcmp(atom2,Options.tipatom)==0) {
-        strcpy(atom,atom1);
-    }
-    /* Lennard-Jones potential */
-    if (strcmp(style,"lj")==0) {
-        for (i=0; i<Natoms; ++i) {
-            if (strcmp(Surf_type[i],atom)==0) {
-                TipSurfParams[i].es12 = es12;
-                TipSurfParams[i].es6    = es6;
-                TipSurfParams[i].morse = FALSE;
-            }
-        }
-    }
-    /* Morse potential */
-    if (strcmp(style,"morse")==0) {
-        for (i=0; i<Natoms; ++i) {
-            if (strcmp(Surf_type[i],atom)==0) {
-                TipSurfParams[i].De = De;
-                TipSurfParams[i].a  = a;
-                TipSurfParams[i].re = re;
-                TipSurfParams[i].morse = TRUE;
-            }
-        }
-    }
+                if (strcmp(atom1,Options.tipatom)==0) {
+                    strcpy(atom,atom2);
+                }
+                if (strcmp(atom2,Options.tipatom)==0) {
+                    strcpy(atom,atom1);
+                }
+                /* Lennard-Jones potential */
+                if (strcmp(style,"lj")==0) {
+                    for (i=0; i<Natoms; ++i) {
+                        if (strcmp(Surf_type[i],atom)==0) {
+                            TipSurfParams[i].es12 = es12;
+                            TipSurfParams[i].es6    = es6;
+                            TipSurfParams[i].morse = FALSE;
+                        }
+                    }
+                }
+                /* Morse potential */
+                if (strcmp(style,"morse")==0) {
+                    for (i=0; i<Natoms; ++i) {
+                        if (strcmp(Surf_type[i],atom)==0) {
+                            TipSurfParams[i].De = De;
+                            TipSurfParams[i].a  = a;
+                            TipSurfParams[i].re = re;
+                            TipSurfParams[i].morse = TRUE;
+                        }
+                    }
+                }
             }
             else {
-    i = type2num(atom1);
-    j = type2num(atom2);
-    if (strcmp(style,"lj")==0) {
-        SurfSurfParams[i][j].es12 = es12;
-        SurfSurfParams[i][j].es6 = es6;
-        SurfSurfParams[j][i].es12 = SurfSurfParams[i][j].es12;
-        SurfSurfParams[j][i].es6 = SurfSurfParams[i][j].es6;
-        SurfSurfParams[i][j].morse = FALSE;
-        SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
-    }
-    if (strcmp(style,"morse")==0) {
-        SurfSurfParams[i][j].De = De;
-        SurfSurfParams[i][j].a  = a;
-        SurfSurfParams[i][j].re = re;
-        SurfSurfParams[j][i].De = SurfSurfParams[i][j].De;
-        SurfSurfParams[j][i].a  = SurfSurfParams[i][j].a;
-        SurfSurfParams[j][i].re = SurfSurfParams[i][j].re;
-        SurfSurfParams[i][j].morse = TRUE;
-        SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
-    }
+                i = type2num(atom1);
+                j = type2num(atom2);
+                if (strcmp(style,"lj")==0) {
+                    SurfSurfParams[i][j].es12 = es12;
+                    SurfSurfParams[i][j].es6 = es6;
+                    SurfSurfParams[j][i].es12 = SurfSurfParams[i][j].es12;
+                    SurfSurfParams[j][i].es6 = SurfSurfParams[i][j].es6;
+                    SurfSurfParams[i][j].morse = FALSE;
+                    SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
+                }
+                if (strcmp(style,"morse")==0) {
+                    SurfSurfParams[i][j].De = De;
+                    SurfSurfParams[i][j].a  = a;
+                    SurfSurfParams[i][j].re = re;
+                    SurfSurfParams[j][i].De = SurfSurfParams[i][j].De;
+                    SurfSurfParams[j][i].a  = SurfSurfParams[i][j].a;
+                    SurfSurfParams[j][i].re = SurfSurfParams[i][j].re;
+                    SurfSurfParams[i][j].morse = TRUE;
+                    SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
+                }
             }
         }
     }
@@ -1304,19 +1306,19 @@ void build3DForceGrid(void) {
             }
             /* Finally loop over z */
             for (iz=0; iz<=Ngrid.z; ++iz) {
-    /* Where is z */
-    Tip_pos.z = iz*GridSpacing + zoffset;
-    /* Compute the VdW/Coulomb interaction */
-    /* We cannot use the function pointer here, this has to be explicit! */
-    interactTipSurfaceDirectly();
-    /* Which point in the force grid are we storing */
-    nx = ((ix*(Ngrid.y+1)) + iy)*(Ngrid.z+1) + iz;
-    ny = nx + Ngridpoints;
-    nz = ny + Ngridpoints;
-    /* Store the force */
-    localforcegrid[nx] = TipSurf_force.x;
-    localforcegrid[ny] = TipSurf_force.y;
-    localforcegrid[nz] = TipSurf_force.z;
+                /* Where is z */
+                Tip_pos.z = iz*GridSpacing + zoffset;
+                /* Compute the VdW/Coulomb interaction */
+                /* We cannot use the function pointer here, this has to be explicit! */
+                interactTipSurfaceDirectly();
+                /* Which point in the force grid are we storing */
+                nx = ((ix*(Ngrid.y+1)) + iy)*(Ngrid.z+1) + iz;
+                ny = nx + Ngridpoints;
+                nz = ny + Ngridpoints;
+                /* Store the force */
+                localforcegrid[nx] = TipSurf_force.x;
+                localforcegrid[ny] = TipSurf_force.y;
+                localforcegrid[nz] = TipSurf_force.z;
             } /* End loop in z */
         } /* End loop in y */
     } /* End loop in x */
@@ -1452,14 +1454,14 @@ void interactTipSurfaceFromGrid(void) {
         for (iy=0; iy<=1; ++iy) {
             cgp.y = gp.y + iy;
             for (iz=0; iz<=1; ++iz) {
-    cgp.z = gp.z + iz;
-    /* Get the array index */
-    retrieveArrayIndex(cgp,&ai);
-    /* Retrieve and store the force */
-    C[n].x = fgr[ai.x];
-    C[n].y = fgr[ai.y];
-    C[n].z = fgr[ai.z];
-    n++;
+                cgp.z = gp.z + iz;
+                /* Get the array index */
+                retrieveArrayIndex(cgp,&ai);
+                /* Retrieve and store the force */
+                C[n].x = fgr[ai.x];
+                C[n].y = fgr[ai.y];
+                C[n].z = fgr[ai.z];
+                n++;
             }
         }
     }
@@ -1585,10 +1587,10 @@ void buildTopology(void) {
             tcheck = FALSE;
             sscanf(line,"%s %s %s %lf",dump,atom1,atom2,&(rzero));
             for (i=0; i<ntopobonds; ++i) {
-    if ( ( (strcmp(atom1,posbonds[i].a1)==0) && (strcmp(atom2,posbonds[i].a2)==0) ) ||
-             ( (strcmp(atom1,posbonds[i].a2)==0) && (strcmp(atom2,posbonds[i].a1)==0) ) ) {
-        tcheck = TRUE;
-    }
+                if (((strcmp(atom1,posbonds[i].a1)==0) && (strcmp(atom2,posbonds[i].a2)==0)) ||
+                   ((strcmp(atom1,posbonds[i].a2)==0) && (strcmp(atom2,posbonds[i].a1)==0))) {
+                    tcheck = TRUE;
+                }
             }
             if (tcheck) {
                 error("The topobond for %s and %s is defined at least twice!",atom1,atom2);
@@ -1625,11 +1627,11 @@ void buildTopology(void) {
             strcpy(atom1,Surf_type[i]);
             strcpy(atom2,Surf_type[j]);
             for (k=0; k<ntopobonds; ++k) {
-    if ( ( (strcmp(atom1,posbonds[k].a1)==0) && (strcmp(atom2,posbonds[k].a2)==0) ) ||
-             ( (strcmp(atom1,posbonds[k].a2)==0) && (strcmp(atom2,posbonds[k].a1)==0) ) ) {
-        tcheck = TRUE;
-        rzero = posbonds[k].r0;
-    }
+                if (((strcmp(atom1,posbonds[k].a1)==0) && (strcmp(atom2,posbonds[k].a2)==0)) ||
+                ((strcmp(atom1,posbonds[k].a2)==0) && (strcmp(atom2,posbonds[k].a1)==0))) {
+                    tcheck = TRUE;
+                    rzero = posbonds[k].r0;
+                }
             }
             //fprintf(stdout,"*** %2d %2d - %s %s - %d - %f\n",i,j,atom1,atom2,tcheck,rzero);
             if (tcheck==FALSE) {
@@ -1642,11 +1644,11 @@ void buildTopology(void) {
             d = sqrt(dx*dx + dy*dy + dz*dz);
             /* Are these two atoms forming a bond? */
             if (d<(rzero*safedist)) {
-    tmpbonds[Nbonds].a1 = i;
-    tmpbonds[Nbonds].a2 = j;
-    tmpbonds[Nbonds].r0 = d;            /* Yes, we keep the current length as rzero! */
-    tmpbonds[Nbonds].k  = kbond;    /* From the parameter file */
-    Nbonds++;
+                tmpbonds[Nbonds].a1 = i;
+                tmpbonds[Nbonds].a2 = j;
+                tmpbonds[Nbonds].r0 = d;            /* Yes, we keep the current length as rzero! */
+                tmpbonds[Nbonds].k  = kbond;    /* From the parameter file */
+                Nbonds++;
             }
         }
     }
@@ -1679,24 +1681,24 @@ void buildTopology(void) {
             /* If both bonds share one and only one atom, an angle is possible */
             /* But only if the other atom is not the same in both bonds */
             if ((a11==a21) && (a12!=a22)) {
-    tmpangles[Nangles].a1 = a12;
-    tmpangles[Nangles].a2 = a11;
-    tmpangles[Nangles].a3 = a22;
+                tmpangles[Nangles].a1 = a12;
+                tmpangles[Nangles].a2 = a11;
+                tmpangles[Nangles].a3 = a22;
             }
             else if ((a11==a22) && (a12!=a21)) {
-    tmpangles[Nangles].a1 = a12;
-    tmpangles[Nangles].a2 = a11;
-    tmpangles[Nangles].a3 = a21;
+                tmpangles[Nangles].a1 = a12;
+                tmpangles[Nangles].a2 = a11;
+                tmpangles[Nangles].a3 = a21;
             }
             else if ((a12==a21) && (a11!=a22)) {
-    tmpangles[Nangles].a1 = a11;
-    tmpangles[Nangles].a2 = a12;
-    tmpangles[Nangles].a3 = a22;
+                tmpangles[Nangles].a1 = a11;
+                tmpangles[Nangles].a2 = a12;
+                tmpangles[Nangles].a3 = a22;
             }
             else if ((a12==a22) && (a11!=a21)) {
-    tmpangles[Nangles].a1 = a11;
-    tmpangles[Nangles].a2 = a12;
-    tmpangles[Nangles].a3 = a21;
+                tmpangles[Nangles].a1 = a11;
+                tmpangles[Nangles].a2 = a12;
+                tmpangles[Nangles].a3 = a21;
             }
             else {
                 continue;
@@ -1964,14 +1966,14 @@ void dumpToFiles(BUFFER *sendbuf, BUFFER *recvbuf, int bufsize) {
             /* Write data to file (only the root processor can do this) */
             /* PLEASE NOTE: DATA IS SENT IN STRIPED FORM, THEY ARE NOT ORDERED! */
             for (nsr=0; nsr<curbufsize[i]; ++nsr) {
-    f = recvbuf[nsr].iz;
-    /* The file buffer can be a gzip pipe or an ASCII file stream */
-    fprintf(FStreams[f],"%d %d %d ",recvbuf[nsr].iz,recvbuf[nsr].ix,recvbuf[nsr].iy);
-    fprintf(FStreams[f],"%6.3f %6.3f %6.3f ",recvbuf[nsr].pos.x,recvbuf[nsr].pos.y,recvbuf[nsr].pos.z);
-    fprintf(FStreams[f],"%8.4f %8.4f %8.4f ",recvbuf[nsr].f.x,recvbuf[nsr].f.y,recvbuf[nsr].f.z);
-    fprintf(FStreams[f],"%6.3f %6.3f %6.3f ",recvbuf[nsr].d.x,recvbuf[nsr].d.y,recvbuf[nsr].d.z);
-    fprintf(FStreams[f],"%6.3f %8.4f ",recvbuf[nsr].dd,recvbuf[nsr].angle);
-    fprintf(FStreams[f],"%8.4f %d\n",recvbuf[nsr].e,recvbuf[nsr].n);
+                f = recvbuf[nsr].iz;
+                /* The file buffer can be a gzip pipe or an ASCII file stream */
+                fprintf(FStreams[f],"%d %d %d ",recvbuf[nsr].iz,recvbuf[nsr].ix,recvbuf[nsr].iy);
+                fprintf(FStreams[f],"%6.3f %6.3f %6.3f ",recvbuf[nsr].pos.x,recvbuf[nsr].pos.y,recvbuf[nsr].pos.z);
+                fprintf(FStreams[f],"%8.4f %8.4f %8.4f ",recvbuf[nsr].f.x,recvbuf[nsr].f.y,recvbuf[nsr].f.z);
+                fprintf(FStreams[f],"%6.3f %6.3f %6.3f ",recvbuf[nsr].d.x,recvbuf[nsr].d.y,recvbuf[nsr].d.z);
+                fprintf(FStreams[f],"%6.3f %8.4f ",recvbuf[nsr].dd,recvbuf[nsr].angle);
+                fprintf(FStreams[f],"%8.4f %d\n",recvbuf[nsr].e,recvbuf[nsr].n);
             }
         }
 #if !SERIAL
@@ -2042,12 +2044,12 @@ void openUniverse(void) {
         for (i=0; i<=Npoints.z; ++i) {
             z = Options.zhigh - i*Options.dz;
             if ( Options.gzip == TRUE ) {
-    sprintf(outfile,"gzip -6 > scan-%06.3f.dat.gz",z);
-    FStreams[i] = popen(outfile,"w");
+                sprintf(outfile,"gzip -6 > scan-%06.3f.dat.gz",z);
+                FStreams[i] = popen(outfile,"w");
             }
             else {
-    sprintf(outfile,"scan-%06.3f.dat",z);
-    FStreams[i] = fopen(outfile,"w");
+                sprintf(outfile,"scan-%06.3f.dat",z);
+                FStreams[i] = fopen(outfile,"w");
             }
         }
     }
@@ -2105,8 +2107,8 @@ void moveTip(void) {
             /* Check the progress and report every so often */
             n = ix*(Npoints.y+1) + iy;
             if ( (Me == RootProc) && ((((double)n)/(nxy)) >= curperc) ) {
-    debugline(RootProc,"Finished approximately %4.1f %% of the simulation",100*curperc);
-    curperc += checkperc;
+                debugline(RootProc,"Finished approximately %4.1f %% of the simulation",100*curperc);
+                curperc += checkperc;
             }
 
             /* Compute on which processor this x,y combination should be run */
@@ -2126,11 +2128,11 @@ void moveTip(void) {
 
             /* If the molecule is flexible, reset it to its original position, before beginning the approach */
             if (Options.flexible) {
-    for (i=0; i<Natoms; ++i) {
-        Surf_pos[i].x = Surf_pos_org[i].x;
-        Surf_pos[i].y = Surf_pos_org[i].y;
-        Surf_pos[i].z = Surf_pos_org[i].z;
-    }
+                for (i=0; i<Natoms; ++i) {
+                    Surf_pos[i].x = Surf_pos_org[i].x;
+                    Surf_pos[i].y = Surf_pos_org[i].y;
+                    Surf_pos[i].z = Surf_pos_org[i].z;
+                }
             }
 
             /* Approach and optimize */
@@ -2138,119 +2140,120 @@ void moveTip(void) {
             minangle = 9e99;
             maxforce = -9e99;
             for (iz=0; iz<=Npoints.z; ++iz) {
-    z = Options.zhigh - iz*Options.dz; /* Current z */
+                z = Options.zhigh - iz*Options.dz; /* Current z */
 
-    /* Move tip and dummy atom toward the surface */
-    Dummy_pos.z -= Options.dz;
-    Tip_pos.z -= Options.dz;
+                /* Move tip and dummy atom toward the surface */
+                Dummy_pos.z -= Options.dz;
+                Tip_pos.z -= Options.dz;
 
-    /* Collect the force */
-    ftip[iz] = NULL_vector;
+                /* Collect the force */
+                ftip[iz] = NULL_vector;
 
-    /* Relax/Minimize the configuration */
-    ediff = 5*Options.etol;
-    for (n=0; n<Options.maxsteps; ++n) {
-        nmax++;
+                /* Relax/Minimize the configuration */
+                ediff = 5*Options.etol;
+                for (n=0; n<Options.maxsteps; ++n) {
+                    nmax++;
 
-        /* Compute all interaction energies */
-        interactTipSurface();
-        interactTipDummy();
-        interactTipHarmonic();
+                    /* Compute all interaction energies */
+                    interactTipSurface();
+                    interactTipDummy();
+                    interactTipHarmonic();
 
-        /* Total energy and force computed */
-        e = TipSurf_energy + TipDummy_energy + TipHarmonic_energy;
-        f.x = TipSurf_force.x + TipDummy_force.x + TipHarmonic_force.x;
-        f.y = TipSurf_force.y + TipDummy_force.y + TipHarmonic_force.y;
-        f.z = TipSurf_force.z + TipDummy_force.z + TipHarmonic_force.z;
-        fnorm = sqrt(f.x*f.x + f.y*f.y + f.z*f.z);
+                    /* Total energy and force computed */
+                    e = TipSurf_energy + TipDummy_energy + TipHarmonic_energy;
+                    f.x = TipSurf_force.x + TipDummy_force.x + TipHarmonic_force.x;
+                    f.y = TipSurf_force.y + TipDummy_force.y + TipHarmonic_force.y;
+                    f.z = TipSurf_force.z + TipDummy_force.z + TipHarmonic_force.z;
+                    fnorm = sqrt(f.x*f.x + f.y*f.y + f.z*f.z);
 
-        /* Energy difference */
-        if (n>0) {
-            ediff = e - eold;
-        }
-        eold = e;
+                    /* Energy difference */
+                    if (n>0) {
+                        ediff = e - eold;
+                    }
+                    eold = e;
 
-        /* Are the forces/energies tolerable */
-        if (Options.minterm == MIN_E) {
-            check = (fabs(ediff)<Options.etol);
-        }
-        else if (Options.minterm == MIN_F) {
-            check = (fabs(fnorm)<Options.ftol);
-        }
-        else if (Options.minterm == MIN_EF) {
-            check = ((fabs(ediff)<Options.etol)&&(fabs(fnorm)<Options.ftol));
-        }
-        if (check) {
-            break;
-        }
+                    /* Are the forces/energies tolerable */
+                    if (Options.minterm == MIN_E) {
+                        check = (fabs(ediff)<Options.etol);
+                    }
+                    else if (Options.minterm == MIN_F) {
+                        check = (fabs(fnorm)<Options.ftol);
+                    }
+                    else if (Options.minterm == MIN_EF) {
+                        check = ((fabs(ediff)<Options.etol)&&(fabs(fnorm)<Options.ftol));
+                    }
+                    if (check) {
+                        break;
+                    }
 
-        /* If they are not tolerable, update position of the tip atom based on the force */
-        Tip_pos.x += Options.cfac * f.x;
-        Tip_pos.y += Options.cfac * f.y;
-        Tip_pos.z += Options.cfac * f.z;
+                    /* If they are not tolerable, update position of the tip atom based on the force */
+                    Tip_pos.x += Options.cfac * f.x;
+                    Tip_pos.y += Options.cfac * f.y;
+                    Tip_pos.z += Options.cfac * f.z;
 
-        /* If the molecule is supposed to behave flexible, we need to update its positions too */
-        if (Options.flexible) {
-            updateFlexibleMolecule();
-        }
+                    /* If the molecule is supposed to behave flexible, we need to update its positions too */
+                    if (Options.flexible) {
+                        updateFlexibleMolecule();
+                    }
 
-    } /* End minimization loop */
+                } /* End minimization loop */
 
-    /* Compute some other interesting data */
-    d.x = Tip_pos.x - x;
-    d.y = Tip_pos.y - y;
-    d.z = Tip_pos.z - z;
-    dd = sqrt(d.x*d.x + d.y*d.y + d.z*d.z);
-    angle = atan2(sqrt(d.x*d.x + d.y*d.y),d.z)*(180.0/PI);
-    if (angle<minangle) {
-        minangle = angle;
-    }
-    if (fnorm>maxforce) {
-        maxforce = fnorm;
-    }
+                /* Compute some other interesting data */
+                d.x = Tip_pos.x - x;
+                d.y = Tip_pos.y - y;
+                d.z = Tip_pos.z - z;
+                dd = sqrt(d.x*d.x + d.y*d.y + d.z*d.z);
+                angle = atan2(sqrt(d.x*d.x + d.y*d.y),d.z)*(180.0/PI);
+                if (angle<minangle) {
+                    minangle = angle;
+                }
+                if (fnorm>maxforce) {
+                    maxforce = fnorm;
+                }
 
-    /* Collect the final forces on the tip because of the surface */
-    ftip[iz].x = TipSurf_force.x;
-    ftip[iz].y = TipSurf_force.y;
-    ftip[iz].z = TipSurf_force.z;
+                /* Collect the final forces on the tip because of the surface */
+                ftip[iz].x = TipSurf_force.x;
+                ftip[iz].y = TipSurf_force.y;
+                ftip[iz].z = TipSurf_force.z;
 
-    /* Store data in send buffers */
-    sendbuf[nsr].ix = ix;
-    sendbuf[nsr].iy = iy;
-    sendbuf[nsr].iz = iz;
-    sendbuf[nsr].n  = n;
-    sendbuf[nsr].pos.x = x;
-    sendbuf[nsr].pos.y = y;
-    sendbuf[nsr].pos.z = z;
-    sendbuf[nsr].f.x = TipSurf_force.x;
-    sendbuf[nsr].f.y = TipSurf_force.y;
-    sendbuf[nsr].f.z = TipSurf_force.z;
-    sendbuf[nsr].d.x = d.x;
-    sendbuf[nsr].d.y = d.y;
-    sendbuf[nsr].d.z = d.z;
-    sendbuf[nsr].dd = dd;
-    sendbuf[nsr].e = TipSurf_energy;
-    sendbuf[nsr].angle = angle;
-    nsr++;
+                /* Store data in send buffers */
+                sendbuf[nsr].ix = ix;
+                sendbuf[nsr].iy = iy;
+                sendbuf[nsr].iz = iz;
+                sendbuf[nsr].n  = n;
+                sendbuf[nsr].pos.x = x;
+                sendbuf[nsr].pos.y = y;
+                sendbuf[nsr].pos.z = z;
+                sendbuf[nsr].f.x = TipSurf_force.x;
+                sendbuf[nsr].f.y = TipSurf_force.y;
+                sendbuf[nsr].f.z = TipSurf_force.z;
+                sendbuf[nsr].d.x = d.x;
+                sendbuf[nsr].d.y = d.y;
+                sendbuf[nsr].d.z = d.z;
+                sendbuf[nsr].dd = dd;
+                sendbuf[nsr].e = TipSurf_energy;
+                sendbuf[nsr].angle = angle;
+                nsr++;
 
             } /* End loop in z */
 
             /* Dump to file (only when the buffer is full, this can and should only happen after a full z approach) */
             if (nsr==bufsize) {
-                dumpToFiles(sendbuf,recvbuf,bufsize); nsr = 0;
+                dumpToFiles(sendbuf,recvbuf,bufsize);
+                nsr = 0;
             }
 
             /* Compute the frequency shift for the given F(z) */
             //computeDeltaF(x,y,ftip);
 
             if ((ix==(Npoints.x/2)) && (iy==(Npoints.y/2))) {
-    sprintf(dump,"test-%d-%d.xyz",ix,iy);
-    tfp = fopen(dump,"w");
-    fprintf(tfp,"%d\n\n",Natoms);
-    for (i=0; i<Natoms; ++i) {
-        fprintf(tfp,"%s %8.4f %8.4f %8.4f\n",Surf_type[i],Surf_pos[i].x,Surf_pos[i].y,Surf_pos[i].z);
-    }
-    fclose(tfp);
+                sprintf(dump,"test-%d-%d.xyz",ix,iy);
+                tfp = fopen(dump,"w");
+                fprintf(tfp,"%d\n\n",Natoms);
+                for (i=0; i<Natoms; ++i) {
+                    fprintf(tfp,"%s %8.4f %8.4f %8.4f\n",Surf_type[i],Surf_pos[i].x,Surf_pos[i].y,Surf_pos[i].z);
+                }
+                fclose(tfp);
             }
 
             /* Keep track of counting */
