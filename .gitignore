@@ -33,3 +33,8 @@
 
 # Folders
 /bin/
+
+# Extra files
+*.pyc
+scan-*
+test*

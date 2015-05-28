@@ -137,63 +137,63 @@ struct timeval TimeStart, TimeEnd;
  ** GLOBAL VARIABLES **
  **********************/
 
-char InputFileName[NAME_LENGTH];     /* File name of the input file */
-InputOptions Options;                            /* Structure containing all relevant input options */
-int Natoms;                                              /* Number of surface atoms */
-int Nbonds;                                              /* Number of bonds in flexible molecule */
-int Nangles;                                             /* Number of angles in flexible molecule */
-int Ntypes;                                              /* Number of surface atom types (flexible molecule) */
-int Nfixed;                                              /* Number of fixed atoms (flexible molecule) */
-VECTOR *Surf_pos;                                    /* Vector containing positions of all surface atoms */
-VECTOR *Surf_vel;                                    /* Vector containing velocities of all surface atoms (needed for flexible/FIRE minimizer) */
-VECTOR *Surf_pos_org;                            /* Copy of the surface position vector, needed for flexible reset */
-VECTOR *Surf_force;                              /* Vector containing the surface forces (needed for flexible/FIRE minimizer) */
-double *Surf_q;                                      /* List containing charges of all surface atoms */
-double *Surf_mass;                               /* List containing masses of all surface atoms */
-int *Surf_fix;                                       /* List containing a boolean to signal fixed or free atoms (needed for flexible) */
-char **Surf_type;                                    /* List containing types of all surface atoms */
-VECTOR Box;                                              /* Vector containing the size of the universe */
-InteractionList *TipSurfParams;      /* Structured list for all tip-surface particle interaction parameters */
-InteractionList DummyParams;             /* List for particle interaction parameters with dummy atom */
-InteractionList Harmonic;                    /* List for the harmonic constraint parameters on the tip atom */
-InteractionList **SurfSurfParams;  /* 2D array for all surface-surface particle interaction parameters (flexible molecule) */
-char **SurfType2Num;                             /* Dictionary hash to go from atom types to numbers in the 2D array (flexible molecule) */
-BondInteraction *Bonds;                      /* List of all possible bonds (flexible molecule) */
-AngleInteraction *Angles;                    /* List of all possible angles (flexible molecule) */
-InteractionList Substrate;               /* Substrate support parameters (flexible molecule) */
-VECTOR Tip_pos;                                      /* Position of the tip atom */
-VECTOR Tip_vel;                                      /* Velocities of the tip atom */
-double Tip_mass;                                     /* Mass of the tip atom */
-VECTOR Dummy_pos;                                    /* Position of the dummy atom */
-VECTOR TipSurf_force;                            /* Force on tip atom caused by the surface */
-VECTOR TipDummy_force;                       /* Force on tip atom caused by the dummy atom */
-VECTOR TipHarmonic_force;                    /* Force on tip atom caused by the harmonic constraint */
-double TipSurf_energy;                       /* Energy of tip atom caused by the surface */
-double TipDummy_energy;                      /* Energy of tip atom caused by the dummy atom */
-double TipHarmonic_energy;               /* Energy of tip atom caused by the harmonic constraint */
-IVECTOR Npoints;                                     /* Number of points (x,y,z) for the tip */
-long int Ntotal;                                     /* Total number of minimization loops used */
-FILE **FStreams;                                     /* Array with the entire file stream */
+char InputFileName[NAME_LENGTH];        /* File name of the input file */
+InputOptions Options;                   /* Structure containing all relevant input options */
+int Natoms;                             /* Number of surface atoms */
+int Nbonds;                             /* Number of bonds in flexible molecule */
+int Nangles;                            /* Number of angles in flexible molecule */
+int Ntypes;                             /* Number of surface atom types (flexible molecule) */
+int Nfixed;                             /* Number of fixed atoms (flexible molecule) */
+VECTOR *Surf_pos;                       /* Vector containing positions of all surface atoms */
+VECTOR *Surf_vel;                       /* Vector containing velocities of all surface atoms (needed for flexible/FIRE minimizer) */
+VECTOR *Surf_pos_org;                   /* Copy of the surface position vector, needed for flexible reset */
+VECTOR *Surf_force;                     /* Vector containing the surface forces (needed for flexible/FIRE minimizer) */
+double *Surf_q;                         /* List containing charges of all surface atoms */
+double *Surf_mass;                      /* List containing masses of all surface atoms */
+int *Surf_fix;                          /* List containing a boolean to signal fixed or free atoms (needed for flexible) */
+char **Surf_type;                       /* List containing types of all surface atoms */
+VECTOR Box;                             /* Vector containing the size of the universe */
+InteractionList *TipSurfParams;         /* Structured list for all tip-surface particle interaction parameters */
+InteractionList DummyParams;            /* List for particle interaction parameters with dummy atom */
+InteractionList Harmonic;               /* List for the harmonic constraint parameters on the tip atom */
+InteractionList **SurfSurfParams;       /* 2D array for all surface-surface particle interaction parameters (flexible molecule) */
+char **SurfType2Num;                    /* Dictionary hash to go from atom types to numbers in the 2D array (flexible molecule) */
+BondInteraction *Bonds;                 /* List of all possible bonds (flexible molecule) */
+AngleInteraction *Angles;               /* List of all possible angles (flexible molecule) */
+InteractionList Substrate;              /* Substrate support parameters (flexible molecule) */
+VECTOR Tip_pos;                         /* Position of the tip atom */
+VECTOR Tip_vel;                         /* Velocities of the tip atom */
+double Tip_mass;                        /* Mass of the tip atom */
+VECTOR Dummy_pos;                       /* Position of the dummy atom */
+VECTOR TipSurf_force;                   /* Force on tip atom caused by the surface */
+VECTOR TipDummy_force;                  /* Force on tip atom caused by the dummy atom */
+VECTOR TipHarmonic_force;               /* Force on tip atom caused by the harmonic constraint */
+double TipSurf_energy;                  /* Energy of tip atom caused by the surface */
+double TipDummy_energy;                 /* Energy of tip atom caused by the dummy atom */
+double TipHarmonic_energy;              /* Energy of tip atom caused by the harmonic constraint */
+IVECTOR Npoints;                        /* Number of points (x,y,z) for the tip */
+long int Ntotal;                        /* Total number of minimization loops used */
+FILE **FStreams;                        /* Array with the entire file stream */
 
 /* Some grid computing thingies */
-double *ForceGridRigid;                      /* 3D force grid for use with rigid tips (interpolation) */
-IVECTOR Ngrid;                                       /* Size of 3D force grid */
-int Ngridpoints;                                     /* Total number of gridpoints */
-double GridSpacing;                              /* The size of the cubes of the grid */
+double *ForceGridRigid;                 /* 3D force grid for use with rigid tips (interpolation) */
+IVECTOR Ngrid;                          /* Size of 3D force grid */
+int Ngridpoints;                        /* Total number of gridpoints */
+double GridSpacing;                     /* The size of the cubes of the grid */
 
 /* Function pointers */
-void (*interactTipSurface)(void);  /* For the tip surface interaction */
+void (*interactTipSurface)(void);       /* For the tip surface interaction */
 void interactTipSurfaceDirectly(void);
 void interactTipSurfaceFromGrid(void);
 
 /* Some parallel specific global variables */
 #if !SERIAL
-    MPI_Comm Universe;                               /* The entire parallel universe */
+    MPI_Comm Universe;                  /* The entire parallel universe */
 #endif
-int NProcessors;                                     /* Total number of processors */
-int Me;                                                      /* The current processor */
-int RootProc;                                            /* The main processor */
-int *PointsOnProc;                               /* How many x,y points on this processor */
+int NProcessors;                        /* Total number of processors */
+int Me;                                 /* The current processor */
+int RootProc;                           /* The main processor */
+int *PointsOnProc;                      /* How many x,y points on this processor */
 
 /**********************
  ** HEADER FUNCTIONS **
@@ -294,14 +294,14 @@ int isint(char *str) {
 void parseCommandLine(int argc, char *argv[]) {
     if (Me==RootProc) {
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
-        fprintf(stdout,"|                                           Mechanical AFM Model                                        |\n");
-        fprintf(stdout,"|  Based on: P. Hapala et al, Phys. Rev. B, 90:085421 (2014)    |\n");
+        fprintf(stdout,"|                   Mechanical AFM Model                      |\n");
+        fprintf(stdout,"|  Based on: P. Hapala et al, Phys. Rev. B, 90:085421 (2014)  |\n");
 #if SERIAL
-        fprintf(stdout,"|                        This C implemenation by Peter Spijker                      |\n");
+        fprintf(stdout,"|           This C implemenation by Peter Spijker             |\n");
 #else
-        fprintf(stdout,"|                    This MPI-C implemenation by Peter Spijker                  |\n");
+        fprintf(stdout,"|         This MPI-C implemenation by Peter Spijker           |\n");
 #endif
-        fprintf(stdout,"|                       2014-2015 (c) Aalto University, Finland                     |\n");
+        fprintf(stdout,"|          2014-2015 (c) Aalto University, Finland            |\n");
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
     }
     if ((argc < 2) || (argc > 2)) {
@@ -976,7 +976,7 @@ void readParameterFile(void) {
         for (j=0; j<Ntypes; ++j) {
             eps_cross = mixeps(SurfSurfParams[i][i].eps,SurfSurfParams[j][j].eps);
             sig_cross = mixsig(SurfSurfParams[i][i].sig,SurfSurfParams[j][j].sig);
-            sig_cross = mixsig(sig,sig_tip);                            /* To power 1 */
+            // sig_cross = mixsig(sig,sig_tip);                            /* To power 1 */
             sig_cross = (sig_cross*sig_cross*sig_cross);    /* To power 3 */
             sig_cross *= sig_cross;                                             /* To power 6 */
             SurfSurfParams[i][j].es12 = 4 * eps_cross * sig_cross * sig_cross;

@@ -16,7 +16,7 @@ maxsteps     5000
 
 coulomb      on
 
-rigidgrid    off
+rigidgrid    on
 
 flexible     off
 
