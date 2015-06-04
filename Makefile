@@ -1,11 +1,11 @@
 ## Parameters and files
 MEXEC = mechafm-mpi
 SEXEC = mechafm-serial
-CFILES = mechafm-mpi.c
+CFILES = src/mechafm-mpi.cpp
 
 ## Compiler
 # On local machine
-MCC = /usr/bin/mpicc
+MCC = /usr/bin/mpic++
 SCC = /usr/bin/gcc
 
 ## Local directory tree ##
@@ -33,18 +33,18 @@ FILES = $(CFILES)
 ## Make the executable (MPI) ##
 $(MEXEC): $(FILES)
 	$(MCC) $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $^ $(MATHFLAG) $(MPI_LIB) -o $(MEXEC)
-	mkdir -p bin
-	mv $(MEXEC) bin
+	mkdir -p ../bin
+	mv $(MEXEC) ../bin
 
 ## Make the executable (serial) ##
 $(SEXEC): $(FILES)
 	$(SCC) $(FULLFLAG) $(SERIAL) $^ $(MATHFLAG) -o $(SEXEC)
-	mkdir -p bin
-	mv $(SEXEC) bin
+	mkdir -p ../bin
+	mv $(SEXEC) ../bin
 
 ## Make clean ##
 clean:
-	rm -rf bin/$(MEXEC) bin/$(SEXEC) *~
+	rm -rf ../bin/$(MEXEC) ../bin/$(SEXEC) *~
 
 ## Make all ##
 all: $(MEXEC) $(SEXEC)
