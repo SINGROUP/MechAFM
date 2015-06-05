@@ -1,5 +1,5 @@
-xyzfile      graphene.xyz
-paramfile    parameters.dat
+xyzfile      examples/graphene.xyz
+paramfile    examples/parameters.dat
 tipatom      O
 dummyatom    X
 
