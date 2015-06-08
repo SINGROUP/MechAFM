@@ -6,7 +6,7 @@ CFILES = src/mechafm-mpi.cpp src/messages.cpp src/messages.hpp
 ## Compiler
 # On local machine
 MCC = /usr/bin/mpic++
-SCC = /usr/bin/gcc
+SCC = /usr/bin/c++
 
 ## Local directory tree ##
 INCDIR = src/
@@ -30,7 +30,7 @@ MPI_LIB  = #-lmpich
 
 ## Reshuffle all files ##
 FILES = $(CFILES)
-objects = main.o messages.o utility.o parse.o physics.o grid.o flexible.o
+objects = main.o messages.o utility.o parse.o physics.o grid.o flexible.o vector.o
 
 ############################################
 ## Actual make code below (do not change) ##
@@ -50,7 +50,12 @@ $(SEXEC): $(FILES)
 	mkdir -p $(BINDIR)
 	mv $(SEXEC) $(BINDIR)
 
-main.o: mechafm-mpi.cpp messages.hpp globals.hpp utility.hpp parse.hpp physics.hpp grid.hpp flexible.hpp
+main.o: mechafm-mpi.cpp messages.hpp globals.hpp utility.hpp parse.hpp physics.hpp \
+		grid.hpp flexible.hpp simulation.hpp
+	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
+simulation.o: simulation.cpp simulation.hpp 
+	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
+system.o: system.cpp system.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 messages.o: messages.cpp messages.hpp globals.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
@@ -64,9 +69,12 @@ grid.o: grid.cpp grid.hpp globals.hpp messages.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 flexible.o: flexible.cpp flexible.hpp globals.hpp messages.hpp parse.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
+vector.o: vector.hpp
+	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 
 ## Make clean ##
 clean:
+	rm -f *.o
 	rm -rf $(BINDIR)$(MEXEC) $(BINDIR)$(SEXEC)
 	rm -rf $(BUILDDIR)
 

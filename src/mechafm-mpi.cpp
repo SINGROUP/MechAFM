@@ -44,93 +44,21 @@ TO DO:
 #include "utility.hpp"
 #include "parse.hpp"
 #include "physics.hpp"
-
+#include "simulation.hpp"
+#include "system.hpp"
 
 /**********************
  ** GLOBAL VARIABLES **
  **********************/
-
-char InputFileName[NAME_LENGTH];        /* File name of the input file */
-InputOptions Options;                   /* Structure containing all relevant input options */
-int Natoms;                             /* Number of surface atoms */
-int Nbonds;                             /* Number of bonds in flexible molecule */
-int Nangles;                            /* Number of angles in flexible molecule */
-int Ntypes;                             /* Number of surface atom types (flexible molecule) */
-int Nfixed;                             /* Number of fixed atoms (flexible molecule) */
-VECTOR *Surf_pos;                       /* Vector containing positions of all surface atoms */
-VECTOR *Surf_vel;                       /* Vector containing velocities of all surface atoms (needed for flexible/FIRE minimizer) */
-VECTOR *Surf_pos_org;                   /* Copy of the surface position vector, needed for flexible reset */
-VECTOR *Surf_force;                     /* Vector containing the surface forces (needed for flexible/FIRE minimizer) */
-double *Surf_q;                         /* List containing charges of all surface atoms */
-double *Surf_mass;                      /* List containing masses of all surface atoms */
-int *Surf_fix;                          /* List containing a boolean to signal fixed or free atoms (needed for flexible) */
-char **Surf_type;                       /* List containing types of all surface atoms */
-VECTOR Box;                             /* Vector containing the size of the universe */
-InteractionList *TipSurfParams;         /* Structured list for all tip-surface particle interaction parameters */
-InteractionList DummyParams;            /* List for particle interaction parameters with dummy atom */
-InteractionList Harmonic;               /* List for the harmonic constraint parameters on the tip atom */
-InteractionList **SurfSurfParams;       /* 2D array for all surface-surface particle interaction parameters (flexible molecule) */
-char **SurfType2Num;                    /* Dictionary hash to go from atom types to numbers in the 2D array (flexible molecule) */
-BondInteraction *Bonds;                 /* List of all possible bonds (flexible molecule) */
-AngleInteraction *Angles;               /* List of all possible angles (flexible molecule) */
-InteractionList Substrate;              /* Substrate support parameters (flexible molecule) */
-VECTOR Tip_pos;                         /* Position of the tip atom */
-VECTOR Tip_vel;                         /* Velocities of the tip atom */
-double Tip_mass;                        /* Mass of the tip atom */
-VECTOR Dummy_pos;                       /* Position of the dummy atom */
-VECTOR TipSurf_force;                   /* Force on tip atom caused by the surface */
-VECTOR TipDummy_force;                  /* Force on tip atom caused by the dummy atom */
-VECTOR TipHarmonic_force;               /* Force on tip atom caused by the harmonic constraint */
-double TipSurf_energy;                  /* Energy of tip atom caused by the surface */
-double TipDummy_energy;                 /* Energy of tip atom caused by the dummy atom */
-double TipHarmonic_energy;              /* Energy of tip atom caused by the harmonic constraint */
-IVECTOR Npoints;                        /* Number of points (x,y,z) for the tip */
-long int Ntotal;                        /* Total number of minimization loops used */
-FILE **FStreams;                        /* Array with the entire file stream */
-
-/* Some grid computing thingies */
-double *ForceGridRigid;                 /* 3D force grid for use with rigid tips (interpolation) */
-IVECTOR Ngrid;                          /* Size of 3D force grid */
-int Ngridpoints;                        /* Total number of gridpoints */
-double GridSpacing;                     /* The size of the cubes of the grid */
 
 /* Function pointers */
 void (*interactTipSurface)(void);       // For the tip surface interaction
 void interactTipSurfaceDirectly(void);
 void interactTipSurfaceFromGrid(void);
 
-/* Some parallel specific global variables */
-#if !SERIAL
-    MPI_Comm Universe;                  /* The entire parallel universe */
-#endif
-int NProcessors;                        /* Total number of processors */
-int Me;                                 /* The current processor */
-int RootProc;                           /* The main processor */
-int *PointsOnProc;                      /* How many x,y points on this processor */
-
-struct timeval TimeStart, TimeEnd;
-
 IVECTOR NULL_ivector = {0, 0, 0};
 VECTOR NULL_vector = {0.0, 0.0, 0.0};
 
-/**********************
- ** HEADER FUNCTIONS **
- **********************/
-/**************************
- ** FILE INPUT FUNCTIONS **
- **************************/
-/***************************
- ** INTERACTION FUNCTIONS **
- ***************************/
-/*********************************
- ** FLEXIBLE MOLECULE FUNCTIONS **
- *********************************/
-/***************************
- ** FILE OUTPUT FUNCTIONS **
- ***************************/
-/************************************
- ** FREQUENCY SHIFT APPROXIMATIONS **
- ************************************/
 /*************************************************
  ** EVERYTHING TO DO WITH THE SIMULATION ITSELF **
  *************************************************/
@@ -476,7 +404,7 @@ void finalize(void) {
  ***************************/
 
 /* Initialize our parallel world */
-void openParallelUniverse(int argc, char *argv[]) {
+void openParallelUniverse(int argc, char *argv[], Simulation& simulation) {
 
     int i;
 
@@ -488,7 +416,7 @@ void openParallelUniverse(int argc, char *argv[]) {
     /* Determine the size of the universe and which processor we are on */
     RootProc = 0;
 #if !SERIAL
-    Universe = MPI_COMM_WORLD;
+    simulation.Universe = MPI_COMM_WORLD;
     MPI_Comm_rank(Universe,&Me);
     MPI_Comm_size(Universe,&NProcessors);
 #else
@@ -545,8 +473,9 @@ void closeParallelUniverse(void) {
 
 int main(int argc, char *argv[]) {
 
+    Simulation simulation;
     /* Set up the parallel routines */
-    openParallelUniverse(argc,argv);
+    openParallelUniverse(argc, argv, simulation);
 
     /* Initialize the simulation */
     parseCommandLine(argc,argv);    /* Read the command line */
@@ -563,6 +492,7 @@ int main(int argc, char *argv[]) {
     openUniverse();
     moveTip();
     closeUniverse();
+
 
     /* Some final thoughts */
     finalize();
