@@ -4,7 +4,7 @@
     #include <mpi.h>
 #endif
 
-#include "vector.hpp"
+#include "vectors.hpp"
 
 /* Some macro definitions */
 #define LINE_LENGTH 512

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vector.hpp"
+#include "vectors.hpp"
 
 /* Define a structure to quickly compute nonbonded interactions */
 typedef struct InteractionList {

@@ -56,9 +56,6 @@ void (*interactTipSurface)(void);       // For the tip surface interaction
 void interactTipSurfaceDirectly(void);
 void interactTipSurfaceFromGrid(void);
 
-IVECTOR NULL_ivector = {0, 0, 0};
-VECTOR NULL_vector = {0.0, 0.0, 0.0};
-
 /*************************************************
  ** EVERYTHING TO DO WITH THE SIMULATION ITSELF **
  *************************************************/
@@ -405,32 +402,20 @@ void finalize(void) {
 
 /* Initialize our parallel world */
 void openParallelUniverse(int argc, char *argv[], Simulation& simulation) {
-
-    int i;
-
 #if !SERIAL
     /* Start MPI */
     MPI_Init(&argc,&argv);
 #endif
-
     /* Determine the size of the universe and which processor we are on */
-    RootProc = 0;
+    simulation.root_processor_ = 0;
 #if !SERIAL
-    simulation.Universe = MPI_COMM_WORLD;
-    MPI_Comm_rank(Universe,&Me);
-    MPI_Comm_size(Universe,&NProcessors);
+    simulation.universe = MPI_COMM_WORLD;
+    MPI_Comm_rank(Universe, &simulation.me_);
+    MPI_Comm_size(Universe, &simulation.n_processors_);
 #else
-    Me = 0;
-    NProcessors = 1;
+    simulation.me_ = 0;
+    simulation.n_processors_ = 1;
 #endif
-
-    /* Initialize the checker on how many x,y points for each processor */
-    PointsOnProc = (int *)malloc(NProcessors*sizeof(int));
-    for (i=0; i<NProcessors; ++i) {
-        PointsOnProc[i] = 0;
-    }
-
-    /* Go home */
     return;
 }
 
@@ -478,7 +463,7 @@ int main(int argc, char *argv[]) {
     openParallelUniverse(argc, argv, simulation);
 
     /* Initialize the simulation */
-    parseCommandLine(argc,argv);    /* Read the command line */
+    parseCommandLine(argc, argv, simulation);        /* Read the command line */
     readInputFile();                            /* Read input file */
     readXYZFile();                              /* Read the XYZ file */
     readParameterFile();                    /* Read the parameter file */

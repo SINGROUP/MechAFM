@@ -8,6 +8,7 @@
 #include "messages.hpp"
 #include "utility.hpp"
 #include "physics.hpp"
+#include "simulation.hpp"
 
 /* Filter out comment and empty lines in a file */
 int checkForComments(char *line) {
@@ -36,7 +37,7 @@ int type2num(char *atom) {
 }
 
 /* Read stuff from the command line */
-void parseCommandLine(int argc, char *argv[]) {
+void parseCommandLine(int argc, char *argv[], Simulation& simulation) {
     if (Me==RootProc) {
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
         fprintf(stdout,"|                   Mechanical AFM Model                      |\n");

@@ -1,6 +1,11 @@
 #pragma once
 
-#include "vector.hpp"
+#include <vector>
+
+#include "system.hpp"
+#include "vectors.hpp"
+
+using namespace std;
 
 /* Define a structure for all input options */
 typedef struct InputOptions {
@@ -22,6 +27,7 @@ class Simulation {
  public:
     Simulation(): {};
     ~Simulation() {};
+    System system;
     char input_file_name_[NAME_LENGTH];        /* File name of the input file */
     InputOptions options_;                   /* Structure containing all relevant input options */
     Vec3d box_;                             /* Vector containing the size of the universe */
@@ -36,12 +42,12 @@ class Simulation {
 
     /* Some parallel specific global variables */
 #if !SERIAL
-        MPI_Comm Universe;                  /* The entire parallel universe */
+        MPI_Comm universe;                  /* The entire parallel universe */
 #endif
-    int NProcessors;                        /* Total number of processors */
-    int Me;                                 /* The current processor */
-    int RootProc;                           /* The main processor */
-    int *PointsOnProc;                      /* How many x,y points on this processor */
+    int n_processors_;                        /* Total number of processors */
+    int me_;                                 /* The current processor */
+    int root_processor_;                           /* The main processor */
+    vector<int> points_per_processor;       /* How many x,y points on this processor */
 
 struct timeval TimeStart, TimeEnd;
 
