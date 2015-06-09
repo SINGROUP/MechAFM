@@ -16,12 +16,20 @@ typedef struct InputOptions {
     char planeatom[NAME_LENGTH];
     double dx, dy, dz;
     double zlow, zhigh, zplane;
-    int coulomb, units;
-    int maxsteps, minterm;
+    Units units;
+    bool coulomb;
+    int maxsteps;
+    MinimizationCriteria minterm;
     double etol, ftol, cfac;
     int bufsize, gzip;
-    int flexible, rigidgrid;
+    bool flexible, rigidgrid;
 } InputOptions;
+
+/* A simple list to distinguish different minimization criteria */
+enum MinimizationCriteria {MIN_E, MIN_F, MIN_EF};
+
+/* A simple list to distinguish the chosen unit system */
+enum Units {U_KCAL, U_KJ, U_EV};
 
 class Simulation {
  public:

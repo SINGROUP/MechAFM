@@ -464,18 +464,18 @@ int main(int argc, char *argv[]) {
 
     /* Initialize the simulation */
     parseCommandLine(argc, argv, simulation);        /* Read the command line */
-    readInputFile();                            /* Read input file */
-    readXYZFile();                              /* Read the XYZ file */
-    readParameterFile();                    /* Read the parameter file */
+    readInputFile(simulation);                            /* Read input file */
+    readXYZFile(simulation);                              /* Read the XYZ file */
+    readParameterFile(simulation);                    /* Read the parameter file */
 
     /* If the molecule is flexible, build the topology */
-    if (Options.flexible) {
-        buildTopology();
-    }
+    // if (Options.flexible) {
+        // buildTopology();
+    // }
 
     /* The simulation itself */
     openUniverse();
-    moveTip();
+    //moveTip();
     closeUniverse();
 
 

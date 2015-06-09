@@ -1,6 +1,10 @@
 #pragma once
 
+#include <vector>
+
 #include "vectors.hpp"
+
+using namespace std;
 
 /* Define a structure to quickly compute nonbonded interactions */
 typedef struct InteractionList {
@@ -39,29 +43,30 @@ typedef struct AngleInteraction {
     double k;
 } AngleInteraction;
 
-/* A simple list to distinguish different minimization criteria */
-enum{MIN_E,MIN_F,MIN_EF};
-
-/* A simple list to distinguish the chosen unit system */
-enum{U_KCAL,U_KJ,U_EV};
-
 class System {
  public:
      System(): {};
      ~System() {};
-    int Natoms;                             /* Number of surface atoms */
+    int n_atoms_;                             /* Number of surface atoms */
     int Nbonds;                             /* Number of bonds in flexible molecule */
     int Nangles;                            /* Number of angles in flexible molecule */
-    int Ntypes;                             /* Number of surface atom types (flexible molecule) */
-    int Nfixed;                             /* Number of fixed atoms (flexible molecule) */
-    VECTOR *Surf_pos;                       /* Vector containing positions of all surface atoms */
-    VECTOR *Surf_vel;                       /* Vector containing velocities of all surface atoms (needed for flexible/FIRE minimizer) */
-    VECTOR *Surf_pos_org;                   /* Copy of the surface position vector, needed for flexible reset */
-    VECTOR *Surf_force;                     /* Vector containing the surface forces (needed for flexible/FIRE minimizer) */
-    double *Surf_q;                         /* List containing charges of all surface atoms */
-    double *Surf_mass;                      /* List containing masses of all surface atoms */
-    int *Surf_fix;                          /* List containing a boolean to signal fixed or free atoms (needed for flexible) */
-    char **Surf_type;                       /* List containing types of all surface atoms */
+    int n_types_;                             /* Number of surface atom types (flexible molecule) */
+    int n_fixed_;                             /* Number of fixed atoms (flexible molecule) */
+    // VECTOR *Surf_pos;                       [> Vector containing positions of all surface atoms <]
+    // VECTOR *Surf_vel;                       [> Vector containing velocities of all surface atoms (needed for flexible/FIRE minimizer) <]
+    // VECTOR *Surf_pos_org;                   [> Copy of the surface position vector, needed for flexible reset <]
+    // VECTOR *Surf_force;                     [> Vector containing the surface forces (needed for flexible/FIRE minimizer) <]
+    // double *Surf_q;                         [> List containing charges of all surface atoms <]
+    // double *Surf_mass;                      [> List containing masses of all surface atoms <]
+    // int *Surf_fix;                          [> List containing a boolean to signal fixed or free atoms (needed for flexible) <]
+    // char **Surf_type;                       [> List containing types of all surface atoms <]
+    vector<Vec3d> positions_;
+    vector<Vec3d> velocities_;
+    vector<Vec3d> forces_;
+    vector<double> charges_;
+    vector<double> masses_;
+    vector<bool> fixed_;
+    vector<string> types_;
     InteractionList *TipSurfParams;         /* Structured list for all tip-surface particle interaction parameters */
     InteractionList DummyParams;            /* List for particle interaction parameters with dummy atom */
     InteractionList Harmonic;               /* List for the harmonic constraint parameters on the tip atom */
@@ -79,7 +84,7 @@ class System {
     double TipSurf_energy;                  /* Energy of tip atom caused by the surface */
     double TipDummy_energy;                 /* Energy of tip atom caused by the dummy atom */
     double TipHarmonic_energy;              /* Energy of tip atom caused by the harmonic constraint */
-    IVECTOR Npoints;                        /* Number of points (x,y,z) for the tip */
+    Vec3i Npoints;                        /* Number of points (x,y,z) for the tip */
     long int Ntotal;                        /* Total number of minimization loops used */
 
  private:
