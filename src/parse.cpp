@@ -9,6 +9,7 @@
 #include "utility.hpp"
 #include "physics.hpp"
 #include "simulation.hpp"
+#include "vectors.hpp"
 
 /* Filter out comment and empty lines in a file */
 int checkForComments(char *line) {
@@ -26,19 +27,19 @@ int checkForComments(char *line) {
 }
 
 /* Retrieve the index of the specific atom type */
-int type2num(char *atom) {
-    int i;
-    for (i=0; i<Ntypes; ++i) {
-        if (strcmp(SurfType2Num[i],atom)==0) {
-            break;
-        }
-    }
-    return i;
-}
+// int type2num(char *atom) {
+    // int i;
+    // for (i = 0; i < Natoms; ++i) {
+        // if (strcmp(SurfType2Num[i],atom)==0) {
+            // break;
+        // }
+    // }
+    // return i;
+// }
 
 /* Read stuff from the command line */
 void parseCommandLine(int argc, char *argv[], Simulation& simulation) {
-    if (Me==RootProc) {
+    if (simulation.onRootProcessor()) {
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
         fprintf(stdout,"|                   Mechanical AFM Model                      |\n");
         fprintf(stdout,"|  Based on: P. Hapala et al, Phys. Rev. B, 90:085421 (2014)  |\n");
@@ -51,7 +52,7 @@ void parseCommandLine(int argc, char *argv[], Simulation& simulation) {
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
     }
     if ((argc < 2) || (argc > 2)) {
-        error("Specify an input file to be read!");
+        error(simulation, "Specify an input file to be read!");
     }
     else {
         sprintf(simulation.input_file_name_, "%s", argv[1]);
@@ -78,7 +79,7 @@ void readInputFile(Simulation& simulation) {
     sprintf(options.paramfile, "");
     sprintf(options.tipatom, "");
     sprintf(options.dummyatom, "");
-    options.minterm = -1;
+    options.minterm = NOT_SET;
 
     /* Initialize the other options */
     sprintf(options.planeatom, "");
@@ -103,7 +104,7 @@ void readInputFile(Simulation& simulation) {
     /* Check if the file exists */
     fp = fopen(simulation.input_file_name_, "r");
     if (fp==NULL) {
-        error("The file %s does not exist!", simulation.input_file_name_);
+        error(simulation, "The file %s does not exist!", simulation.input_file_name_);
     }
 
     /* Scan the file line by line */
@@ -171,7 +172,7 @@ void readInputFile(Simulation& simulation) {
                 options.gzip = FALSE;
             }
             else {
-                error("Option %s must be either on or off!", keyword);
+                error(simulation, "Option %s must be either on or off!", keyword);
             }
         }
         else if (strcmp(keyword, "flexible") == 0) {
@@ -182,7 +183,7 @@ void readInputFile(Simulation& simulation) {
                 options.flexible = false;
             }
             else {
-                error("Option %s must be either on or off!", keyword);
+                error(simulation, "Option %s must be either on or off!", keyword);
             }
         }
         else if (strcmp(keyword, "rigidgrid") == 0) {
@@ -193,7 +194,7 @@ void readInputFile(Simulation& simulation) {
                 options.rigidgrid = false;
             }
             else {
-                error("Option %s must be either on or off!", keyword);
+                error(simulation, "Option %s must be either on or off!", keyword);
             }
         }
         else if (strcmp(keyword, "coulomb") == 0) {
@@ -204,7 +205,7 @@ void readInputFile(Simulation& simulation) {
                 options.coulomb = false;
             }
             else {
-                error("Option %s must be either on or off!", keyword);
+                error(simulation, "Option %s must be either on or off!", keyword);
             }
         }
         else if (strcmp(keyword, "minterm") == 0) {
@@ -218,7 +219,7 @@ void readInputFile(Simulation& simulation) {
                 options.minterm = MIN_EF;
             }
             else {
-                error("Option %s must be either e, f or ef!", keyword);
+                error(simulation, "Option %s must be either e, f or ef!", keyword);
             }
             sprintf(tmp_minterm, "%s", value);
         }
@@ -239,36 +240,36 @@ void readInputFile(Simulation& simulation) {
                 options.units = U_EV;
             }
             else {
-                error("Option %s must be either kcal/mol (default), kJ/mol or eV!", keyword);
+                error(simulation, "Option %s must be either kcal/mol (default), kJ/mol or eV!", keyword);
             }
             sprintf(tmp_units, "%s", value);
         }
         else {
-            error("Unknown option %s!", keyword);
+            error(simulation, "Unknown option %s!", keyword);
         }
     }
 
     /* Check if all necessary options are initialized */
     if (strcmp(options.xyzfile, "") == 0) {
-        error("Specify at least an xyzfile!");
+        error(simulation, "Specify at least an xyzfile!");
     }
     if (strcmp(options.paramfile, "") == 0) {
-        error("Specify at least a parameter file!");
+        error(simulation, "Specify at least a parameter file!");
     }
     if (strcmp(options.tipatom, "") == 0) {
-        error("Specify at least a tip atom!");
+        error(simulation, "Specify at least a tip atom!");
     }
     if (strcmp(options.dummyatom, "") == 0) {
-        error("Specify at least a dummy atom!");
+        error(simulation, "Specify at least a dummy atom!");
     }
-    if (options.minterm < 0) {
-        error("Specify at least a minimization termination criterion (e, f, or ef)!");
+    if (options.minterm == NOT_SET) {
+        error(simulation, "Specify at least a minimization termination criterion (e, f, or ef)!");
     }
     if ((strcmp(options.planeatom, "") == 0) && (options.zplane <= NEGVAL)) {
-        error("Specify at least a plane or a plane atom!");
+        error(simulation, "Specify at least a plane or a plane atom!");
     }
     else if ((strcmp(options.planeatom, "") != 0) && (options.zplane > NEGVAL)) {
-        error("Specify only a plane or a plane atom!");
+        error(simulation, "Specify only a plane or a plane atom!");
     }
 
     /* Close file */
@@ -302,7 +303,7 @@ void readInputFile(Simulation& simulation) {
 
     /* Do some sanity checking */
     if ((options.rigidgrid) && (options.flexible)) {
-        error("Cannot use a flexible molecule with a static force grid!");
+        error(simulation, "Cannot use a flexible molecule with a static force grid!");
     }
 
     // [> Set function pointers <]
@@ -314,42 +315,42 @@ void readInputFile(Simulation& simulation) {
     // }
 
     /* Talk to me */
-    debugline(RootProc, "");
-    debugline(RootProc, "Input settings for %s:", simulation.input_file_name_);
-    debugline(RootProc, "");
-    debugline(RootProc, "xyzfile:           %-s", options.xyzfile);
-    debugline(RootProc, "paramfile:         %-s", options.paramfile);
-    debugline(RootProc, "tipatom:           %-s", options.tipatom);
-    debugline(RootProc, "dummyatom:         %-s", options.dummyatom);
+    debugline(simulation, simulation.root_processor_, "");
+    debugline(simulation, simulation.root_processor_, "Input settings for %s:", simulation.input_file_name_);
+    debugline(simulation, simulation.root_processor_, "");
+    debugline(simulation, simulation.root_processor_, "xyzfile:           %-s", options.xyzfile);
+    debugline(simulation, simulation.root_processor_, "paramfile:         %-s", options.paramfile);
+    debugline(simulation, simulation.root_processor_, "tipatom:           %-s", options.tipatom);
+    debugline(simulation, simulation.root_processor_, "dummyatom:         %-s", options.dummyatom);
     if (strcmp(options.planeatom, "")!=0) {
-        debugline(RootProc, "planeatom:         %-s", options.planeatom);
+        debugline(simulation, simulation.root_processor_, "planeatom:         %-s", options.planeatom);
     }
     else if (options.zplane > NEGVAL) {
-        debugline(RootProc, "zplane:            %-8.4f", options.zplane);
+        debugline(simulation, simulation.root_processor_, "zplane:            %-8.4f", options.zplane);
     }
-    debugline(RootProc, "");
-    debugline(RootProc, "units:             %-s", tmp_units);
-    debugline(RootProc, "");
-    debugline(RootProc, "minterm:           %-s", tmp_minterm);
-    debugline(RootProc, "etol:              %-8.4f", options.etol);
-    debugline(RootProc, "ftol:              %-8.4f", options.ftol);
-    debugline(RootProc, "cfac:              %-8.4f", options.cfac);
-    debugline(RootProc, "maxsteps:          %-8d", options.maxsteps);
-    debugline(RootProc, "");
-    debugline(RootProc, "zhigh:             %-8.4f", options.zhigh);
-    debugline(RootProc, "zlow:              %-8.4f", options.zlow);
-    debugline(RootProc, "dx:                %-8.4f", options.dx);
-    debugline(RootProc, "dy:                %-8.4f", options.dy);
-    debugline(RootProc, "dz:                %-8.4f", options.dz);
-    debugline(RootProc, "");
-    debugline(RootProc, "coulomb:           %-s", tmp_coulomb);
-    debugline(RootProc, "");
-    debugline(RootProc, "flexible:          %-s", tmp_flexible);
-    debugline(RootProc, "rigidgrid:         %-s", tmp_rigidgrid);
-    debugline(RootProc, "");
-    debugline(RootProc, "bufsize:           %-8d", options.bufsize);
-    debugline(RootProc, "gzip:              %-s", tmp_gzip);
-    debugline(RootProc, "");
+    debugline(simulation, simulation.root_processor_, "");
+    debugline(simulation, simulation.root_processor_, "units:             %-s", tmp_units);
+    debugline(simulation, simulation.root_processor_, "");
+    debugline(simulation, simulation.root_processor_, "minterm:           %-s", tmp_minterm);
+    debugline(simulation, simulation.root_processor_, "etol:              %-8.4f", options.etol);
+    debugline(simulation, simulation.root_processor_, "ftol:              %-8.4f", options.ftol);
+    debugline(simulation, simulation.root_processor_, "cfac:              %-8.4f", options.cfac);
+    debugline(simulation, simulation.root_processor_, "maxsteps:          %-8d", options.maxsteps);
+    debugline(simulation, simulation.root_processor_, "");
+    debugline(simulation, simulation.root_processor_, "zhigh:             %-8.4f", options.zhigh);
+    debugline(simulation, simulation.root_processor_, "zlow:              %-8.4f", options.zlow);
+    debugline(simulation, simulation.root_processor_, "dx:                %-8.4f", options.dx);
+    debugline(simulation, simulation.root_processor_, "dy:                %-8.4f", options.dy);
+    debugline(simulation, simulation.root_processor_, "dz:                %-8.4f", options.dz);
+    debugline(simulation, simulation.root_processor_, "");
+    debugline(simulation, simulation.root_processor_, "coulomb:           %-s", tmp_coulomb);
+    debugline(simulation, simulation.root_processor_, "");
+    debugline(simulation, simulation.root_processor_, "flexible:          %-s", tmp_flexible);
+    debugline(simulation, simulation.root_processor_, "rigidgrid:         %-s", tmp_rigidgrid);
+    debugline(simulation, simulation.root_processor_, "");
+    debugline(simulation, simulation.root_processor_, "bufsize:           %-8d", options.bufsize);
+    debugline(simulation, simulation.root_processor_, "gzip:              %-s", tmp_gzip);
+    debugline(simulation, simulation.root_processor_, "");
     return;
 }
 
@@ -367,7 +368,7 @@ void readXYZFile(Simulation& simulation) {
     /* Read the file once, to determine the number of atoms */
     fp = fopen(options.xyzfile, "r");
     if (fp == NULL) {
-        error("No such file: %s!", options.xyzfile);
+        error(simulation, "No such file: %s!", options.xyzfile);
     }
     system.n_atoms_ = 0;
     firstline = TRUE;
@@ -381,7 +382,7 @@ void readXYZFile(Simulation& simulation) {
         if (firstline) {
             sscanf(line, "%s", value);
             if (isint(value)) {
-                Natoms = atoi(value);
+                system.n_atoms_ = atoi(value);
                 realxyz = TRUE;
                 break;
             }
@@ -458,7 +459,7 @@ void readXYZFile(Simulation& simulation) {
         system.fixed_.push_back(fixed);
     }
 
-    for (int i = 0; i < Natoms; ++i) {
+    for (int i = 0; i < system.n_atoms_; ++i) {
         if (system.fixed_[i] > 0) {
             system.n_fixed_++;
         }
@@ -478,7 +479,7 @@ void readXYZFile(Simulation& simulation) {
         avgz = 0.0;
         nplaneatoms = 0;
         for (int i = 0; i < system.n_atoms_; ++i) {
-            if (strcmp(system.types_[i], options.planeatom)==0) {
+            if (strcmp(system.types_[i].c_str(), options.planeatom)==0) {
                 nplaneatoms++;
                 avgz += system.positions_[i].z;
             }
@@ -506,7 +507,7 @@ void readXYZFile(Simulation& simulation) {
 void readParameterFile(Simulation& simulation) {
 
     InputOptions& options = simulation.options_;
-    System& system = simulation.system_;
+    System& system = simulation.system;
 
     FILE *fp;
     char atom[ATOM_LENGTH], keyword[NAME_LENGTH], dump[NAME_LENGTH], line[LINE_LENGTH];
@@ -518,12 +519,12 @@ void readParameterFile(Simulation& simulation) {
     double chargecheck, qdump;
 
     /* Initialize the universe */
-    simulation.box_ = Vec3d(-1);
+    simulation.box_ = Vec3d(-1.0);
 
     /* Open the parameter file */
     fp = fopen(options.paramfile,"r");
     if (fp==NULL) {
-        error("No parameter file %s found!", options.paramfile);
+        error(simulation, "No parameter file %s found!", options.paramfile);
     }
 
     /* Scan the parameter file for the universe size and for the tip atom definitions */
@@ -538,19 +539,19 @@ void readParameterFile(Simulation& simulation) {
         sscanf(line, "%s", keyword);
         /* Process the separate keywords */
         if (strcmp(keyword, "box") == 0) {
-            Vec3d box = simulation.box_;
-            if ((box_.x < 0) && (box_.y < 0) && (box_.z < 0)) {
+            Vec3d& box = simulation.box_;
+            if ((box.x < 0) && (box.y < 0) && (box.z < 0)) {
                 sscanf(line, "%s %lf %lf %lf", dump, &(box.x), &(box.y), &(box.z));
             }
             else {
-                error("Keyword box cannot be defined more than once in parameter file!");
+                error(simulation, "Keyword box cannot be defined more than once in parameter file!");
             }
         }
         if (strcmp(keyword, "atom") == 0) {
             sscanf(line, "%s %s", dump, atom);
             if (strcmp(atom, options.tipatom) == 0) {
                 if (check == TRUE) {
-                    error("Parameters for tip atom can only be specified once!");
+                    error(simulation, "Parameters for tip atom can only be specified once!");
                 }
                 sscanf(line, "%s %s %lf %lf %s %lf", dump, dump, &(eps_tip),
                                                      &(sig_tip), dump,&(q_tip));
@@ -560,16 +561,17 @@ void readParameterFile(Simulation& simulation) {
         }
     }
     if (!check) {
-        error("Parameters for tip atom not defined in parameter file!");
+        error(simulation, "Parameters for tip atom not defined in parameter file!");
     }
     rewind(fp);
 
     /* Now we know the size of the universe, put the molecule in the center of it */
     if (strcmp(options.planeatom, "") != 0) {
-        double avgx = avgy = 0.0;
+        double avgx = 0.0;
+        double avgy = 0.0;
         int nplaneatoms = 0;
         for (int i = 0; i < system.n_atoms_; ++i) {
-            if (strcmp(system.types_[i], options.planeatom) == 0) {
+            if (strcmp(system.types_[i].c_str(), options.planeatom) == 0) {
                 nplaneatoms++;
                 avgx += system.positions_[i].x;
                 avgy += system.positions_[i].y;
@@ -591,7 +593,7 @@ void readParameterFile(Simulation& simulation) {
     // [> Create a list with all the possible surface atom particle types <]
     // Ntypes -= 2;    [> Subtract the tip and dummy atoms <]
     // if (Ntypes<1) {
-        // error("Either the tip and/or dummy atom is not specified, or there is no molecule defined. Fix it!");
+        // error(simulation, "Either the tip and/or dummy atom is not specified, or there is no molecule defined. Fix it!");
     // }
     // SurfSurfParams = (InteractionList **)malloc(Ntypes*sizeof(InteractionList *));
     // SurfType2Num = (char **)malloc(Ntypes*sizeof(char *));
@@ -612,7 +614,7 @@ void readParameterFile(Simulation& simulation) {
         // }
     // }
     // if (k!=Ntypes) {
-        // error("Lost an atom type somewhere along the way");
+        // error(simulation, "Lost an atom type somewhere along the way");
     // }
 
     // [> The constant part of the Coulomb equation (depends on chosen unit system) <]
@@ -679,7 +681,7 @@ void readParameterFile(Simulation& simulation) {
             // [> We found a dummy atom in the parameter list <]
             // if (strcmp(options.dummyatom,atom)==0) {
                 // if (check == TRUE) {
-                    // error("Parameters for dummy atom can only be specified once!");
+                    // error(simulation, "Parameters for dummy atom can only be specified once!");
                 // }
                 // check = TRUE;
                 // eps_cross = mixeps(eps,eps_tip);
@@ -695,24 +697,24 @@ void readParameterFile(Simulation& simulation) {
         // }
         // if (strcmp(keyword,"harm")==0) {
             // if (hcheck == TRUE) {
-                // error("Parameters for harmonic spring can only be specified once!");
+                // error(simulation, "Parameters for harmonic spring can only be specified once!");
             // }
             // sscanf(line,"%s %s %lf %lf",dump,atom,&(Harmonic.k),&(Harmonic.r0));
             // Harmonic.morse = FALSE;
             // if (strcmp(atom,options.tipatom)!=0) {
-                // error("Harmonic spring should be defined on tip atom!");
+                // error(simulation, "Harmonic spring should be defined on tip atom!");
             // }
             // hcheck = TRUE;
         // }
     // }
     // if (natoms != Natoms) {
-        // error("Not all atoms have been assigned parameters! (%d/%d)",natoms,Natoms);
+        // error(simulation, "Not all atoms have been assigned parameters! (%d/%d)",natoms,Natoms);
     // }
     // if (check == FALSE) {
-        // error("Parameters for dummy atom not defined in parameter file!");
+        // error(simulation, "Parameters for dummy atom not defined in parameter file!");
     // }
     // if (hcheck == FALSE) {
-        // error("No harmonic spring parameters found in parameter file!");
+        // error(simulation, "No harmonic spring parameters found in parameter file!");
     // }
 
     // [> Build the entire interaction matrix for surface-surface interactions <]
@@ -755,7 +757,7 @@ void readParameterFile(Simulation& simulation) {
             // if (strcmp(style,"lj")==0) {
                 // [> Check if number of columns is correct for LJ <]
                 // if (ncols>(4+2)) {
-                    // error("Only two parameters (eps,sig) allowed for LJ");
+                    // error(simulation, "Only two parameters (eps,sig) allowed for LJ");
                 // }
                 // [> Read overwrite parameters <]
                 // sscanf(line,"%s %s %s %s %lf %lf",dump,dump,dump,dump,&(eps),&(sig));
@@ -768,14 +770,14 @@ void readParameterFile(Simulation& simulation) {
             // else if (strcmp(style,"morse")==0) {
                 // [> Check if number of columns is correct for LJ <]
                 // if (ncols>(4+3)) {
-                    // error("Only three parameters (De,a,re) allowed for Morse");
+                    // error(simulation, "Only three parameters (De,a,re) allowed for Morse");
                 // }
                 // [> Read overwrite parameters <]
                 // sscanf(line,"%s %s %s %s %lf %lf %lf",dump,dump,dump,dump,&(De),&(a),&(re));
             // }
             // [> Try and catch <]
             // else {
-                // error("Unknown pair style overwrite '%s'",style);
+                // error(simulation, "Unknown pair style overwrite '%s'",style);
             // }
             // [> Store the changes <]
             // if ((strcmp(atom1,options.tipatom)==0) || (strcmp(atom2,options.tipatom)==0)) {

@@ -1,8 +1,9 @@
 #pragma once
 
 #include "globals.hpp"
+#include "simulation.hpp"
 
-void error(char *message, ...);
-void warning(char *message, ...);
-void debugline(int proc, char *message, ...);
-void dumpToFiles(BUFFER *sendbuf, BUFFER *recvbuf, int bufsize);
+void error(Simulation& simulation, char *message, ...);
+void warning(Simulation& simulation, char *message, ...);
+void debugline(Simulation& simulation, int proc, char *message, ...);
+void dumpToFiles(Simulation& simulation, BUFFER *sendbuf, BUFFER *recvbuf, int bufsize);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "simulation.hpp";
+#include "simulation.hpp"
 
 int checkForComments(char *line);
 int type2num(char *atom);

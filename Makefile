@@ -21,7 +21,7 @@ SERIAL   = -DSERIAL
 OPTIM    = -O3 -fomit-frame-pointer
 MATHFLAG = -lm
 WARNFLAG = -Wshadow -Wno-format-zero-length -Wno-write-strings
-FULLFLAG = $(OPTIM) $(WARNFLAG) -I$(INCDIR)
+FULLFLAG = $(OPTIM) $(WARNFLAG) -I$(INCDIR) -std=c++11
 
 ## Parallel thingies
 MPI_INC  = -I/usr/lib/openmpi/include/
@@ -30,7 +30,7 @@ MPI_LIB  = #-lmpich
 
 ## Reshuffle all files ##
 FILES = $(CFILES)
-objects = main.o messages.o utility.o parse.o physics.o grid.o flexible.o vector.o
+objects = main.o messages.o utility.o parse.o vectors.o system.o simulation.o
 
 ############################################
 ## Actual make code below (do not change) ##
@@ -45,23 +45,25 @@ $(MEXEC): $(objects)
 	mv -u *.o $(BUILDDIR)
 
 ## Make the executable (serial) ##
-$(SEXEC): $(FILES)
-	$(SCC) $(FULLFLAG) $(SERIAL) $^ $(MATHFLAG) -o $(SEXEC)
+$(SEXEC): $(objects)
+	$(SCC) $(FULLFLAG) $(SERIAL) $^ $(MATHFLAG) -o $@
 	mkdir -p $(BINDIR)
-	mv $(SEXEC) $(BINDIR)
+	mv $@ $(BINDIR)
+	mkdir -p $(BUILDDIR)
+	mv -u *.o $(BUILDDIR)
 
-main.o: mechafm-mpi.cpp messages.hpp globals.hpp utility.hpp parse.hpp physics.hpp \
-		grid.hpp flexible.hpp simulation.hpp
+main.o: mechafm-mpi.cpp messages.hpp globals.hpp utility.hpp parse.hpp \
+		simulation.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-simulation.o: simulation.cpp simulation.hpp 
+simulation.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-system.o: system.cpp system.hpp
+system.o: system.cpp system.hpp globals.hpp vectors.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 messages.o: messages.cpp messages.hpp globals.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 utility.o: utility.cpp utility.hpp globals.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-parse.o: parse.cpp parse.hpp globals.hpp messages.hpp utility.hpp physics.hpp
+parse.o: parse.cpp parse.hpp globals.hpp messages.hpp utility.hpp physics.hpp vectors.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 physics.o: physics.cpp physics.hpp  globals.hpp grid.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
@@ -69,7 +71,7 @@ grid.o: grid.cpp grid.hpp globals.hpp messages.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 flexible.o: flexible.cpp flexible.hpp globals.hpp messages.hpp parse.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-vector.o: vector.hpp
+vectors.o: vectors.cpp vectors.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 
 ## Make clean ##

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
+#include "globals.hpp"
 #include "vectors.hpp"
 
 using namespace std;
@@ -45,7 +47,7 @@ typedef struct AngleInteraction {
 
 class System {
  public:
-     System(): {};
+     System() {};
      ~System() {};
     int n_atoms_;                             /* Number of surface atoms */
     int Nbonds;                             /* Number of bonds in flexible molecule */
@@ -74,18 +76,16 @@ class System {
     BondInteraction *Bonds;                 /* List of all possible bonds (flexible molecule) */
     AngleInteraction *Angles;               /* List of all possible angles (flexible molecule) */
     InteractionList Substrate;              /* Substrate support parameters (flexible molecule) */
-    VECTOR Tip_pos;                         /* Position of the tip atom */
-    VECTOR Tip_vel;                         /* Velocities of the tip atom */
+    Vec3d Tip_pos;                         /* Position of the tip atom */
+    Vec3d Tip_vel;                         /* Velocities of the tip atom */
     double Tip_mass;                        /* Mass of the tip atom */
-    VECTOR Dummy_pos;                       /* Position of the dummy atom */
-    VECTOR TipSurf_force;                   /* Force on tip atom caused by the surface */
-    VECTOR TipDummy_force;                  /* Force on tip atom caused by the dummy atom */
-    VECTOR TipHarmonic_force;               /* Force on tip atom caused by the harmonic constraint */
+    Vec3d Dummy_pos;                       /* Position of the dummy atom */
+    Vec3d TipSurf_force;                   /* Force on tip atom caused by the surface */
+    Vec3d TipDummy_force;                  /* Force on tip atom caused by the dummy atom */
+    Vec3d TipHarmonic_force;               /* Force on tip atom caused by the harmonic constraint */
     double TipSurf_energy;                  /* Energy of tip atom caused by the surface */
     double TipDummy_energy;                 /* Energy of tip atom caused by the dummy atom */
     double TipHarmonic_energy;              /* Energy of tip atom caused by the harmonic constraint */
-    Vec3i Npoints;                        /* Number of points (x,y,z) for the tip */
-    long int Ntotal;                        /* Total number of minimization loops used */
 
  private:
 };

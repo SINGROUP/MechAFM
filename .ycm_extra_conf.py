@@ -51,28 +51,26 @@ flags = [
 # For a C project, you would set this to 'c' instead of 'c++'.
 '-x',
 'c++',
-'-isystem',
+'-I',
 '/usr/include/c++/4.8',
-'-isystem',
+'-I',
 '/usr/include/c++/4.8/backward',
-'-isystem',
+'-I',
 '/usr/include/x86_64-linux-gnu/c++/4.8',
-'-isystem',
+'-I',
 '/usr/lib/gcc/x86_64-linux-gnu/4.8/include',
-'-isystem',
+'-I',
 '/usr/lib/gcc/x86_64-linux-gnu/4.8/include-fixed',
-'-isystem',
+'-I',
 '/usr/local/include',
-'-isystem',
+'-I',
 '/usr/include/x86_64-linux-gnu',
-'-isystem',
+'-I',
 '/usr/include',
 '-I',
 'src/',
 '-I',
-'/usr/lib/openmpi/include/',
-'-L',
-'/usr/lib/openmpi/lib/'
+'/usr/lib/openmpi/include/'
 ]
 
 

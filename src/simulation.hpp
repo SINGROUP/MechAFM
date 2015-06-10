@@ -1,11 +1,23 @@
 #pragma once
 
+#if !SERIAL
+    #include <mpi.h>
+#endif
+#include <chrono>
 #include <vector>
 
+#include "globals.hpp"
 #include "system.hpp"
 #include "vectors.hpp"
 
 using namespace std;
+
+/* A simple list to distinguish different minimization criteria */
+enum MinimizationCriteria {MIN_E, MIN_F, MIN_EF, NOT_SET};
+
+/* A simple list to distinguish the chosen unit system */
+enum Units {U_KCAL, U_KJ, U_EV};
+
 
 /* Define a structure for all input options */
 typedef struct InputOptions {
@@ -25,22 +37,22 @@ typedef struct InputOptions {
     bool flexible, rigidgrid;
 } InputOptions;
 
-/* A simple list to distinguish different minimization criteria */
-enum MinimizationCriteria {MIN_E, MIN_F, MIN_EF};
-
-/* A simple list to distinguish the chosen unit system */
-enum Units {U_KCAL, U_KJ, U_EV};
-
 class Simulation {
  public:
-    Simulation(): {};
+    Simulation() {};
     ~Simulation() {};
+    inline bool onRootProcessor() {
+        return me_ == root_processor_;
+    }
+
     System system;
     char input_file_name_[NAME_LENGTH];        /* File name of the input file */
     InputOptions options_;                   /* Structure containing all relevant input options */
     Vec3d box_;                             /* Vector containing the size of the universe */
+    Vec3i n_points_;                        /* Number of points (x,y,z) for the tip */
+    long int n_total_;                        /* Total number of minimization loops used */
     char **SurfType2Num;                    /* Dictionary hash to go from atom types to numbers in the 2D array (flexible molecule) */
-    FILE **FStreams;                        /* Array with the entire file stream */
+    vector<FILE*> fstreams_;                        /* Array with the entire file stream */
 
     /* Some grid computing thingies */
     double *ForceGridRigid;                 /* 3D force grid for use with rigid tips (interpolation) */
@@ -55,9 +67,9 @@ class Simulation {
     int n_processors_;                        /* Total number of processors */
     int me_;                                 /* The current processor */
     int root_processor_;                           /* The main processor */
-    vector<int> points_per_processor;       /* How many x,y points on this processor */
+    vector<int> points_per_processor_;       /* How many x,y points on this processor */
 
-struct timeval TimeStart, TimeEnd;
+    chrono::time_point<chrono::system_clock> time_start_, time_end_;
 
 
  private:
