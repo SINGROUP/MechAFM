@@ -24,26 +24,17 @@ TO DO:
 ****/
 
 /* Load system headers */
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include <string.h>
 #include <unistd.h>
-#include <ctype.h>
-#include <glob.h>
-#include <sys/time.h>
 #if !SERIAL
     #include <mpi.h>
 #endif
 #include <chrono>
 
-#include "flexible.hpp"
 #include "globals.hpp"
 #include "messages.hpp"
-#include "utility.hpp"
 #include "parse.hpp"
-#include "physics.hpp"
 #include "simulation.hpp"
 #include "system.hpp"
 

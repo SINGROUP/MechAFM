@@ -399,13 +399,6 @@ void readXYZFile(Simulation& simulation) {
     //if (Me == RootProc) fprintf(stdout,"\n*** natoms = %d\n\n",Natoms);
 
     /* Initialize the global surface atoms vector and lists */
-    // Surf_pos = (VECTOR *)malloc(Natoms*sizeof(VECTOR));
-    // Surf_q = (double *)malloc(Natoms*sizeof(double));
-    // Surf_mass = (double *)malloc(Natoms*sizeof(double));
-    // Surf_type = (char **)malloc(Natoms*sizeof(char*));
-    // Surf_fix = (int *)malloc(Natoms*sizeof(int));
-    // Surf_vel = (VECTOR *)malloc(Natoms*sizeof(VECTOR));
-    // Surf_force = (VECTOR *)malloc(Natoms*sizeof(VECTOR));
     system.positions_.reserve(system.n_atoms_);
     system.charges_.reserve(system.n_atoms_);
     system.masses_.reserve(system.n_atoms_);
@@ -472,9 +465,18 @@ void readXYZFile(Simulation& simulation) {
     //  }
     //}
 
+    setSystemZ(simulation);
+
+    return;
+}
+
+void setSystemZ(Simulation& simulation) {
     /* Put the plane atoms at 0 (in z) or as specified separately*/
     int nplaneatoms;
     double avgz;
+    InputOptions& options = simulation.options_;
+    System& system = simulation.system;
+
     if (strcmp(options.planeatom, "") != 0) {
         avgz = 0.0;
         nplaneatoms = 0;
@@ -500,7 +502,32 @@ void readXYZFile(Simulation& simulation) {
             system.positions_[i].z += options.zplane;
         }
     }
-    return;
+}
+
+void centerSystem(Simulation& simulation){
+    InputOptions& options = simulation.options_;
+    System& system = simulation.system;
+
+    if (strcmp(options.planeatom, "") != 0) {
+        double avgx = 0.0;
+        double avgy = 0.0;
+        int nplaneatoms = 0;
+        for (int i = 0; i < system.n_atoms_; ++i) {
+            if (strcmp(system.types_[i].c_str(), options.planeatom) == 0) {
+                nplaneatoms++;
+                avgx += system.positions_[i].x;
+                avgy += system.positions_[i].y;
+            }
+        }
+        avgx /= nplaneatoms;
+        avgy /= nplaneatoms;
+        double dx = (simulation.box_.x / 2) - avgx;
+        double dy = (simulation.box_.y / 2) - avgy;
+        for (int i = 0; i < system.n_atoms_; ++i) {
+            system.positions_[i].x += dx;
+            system.positions_[i].y += dy;
+        }
+    }
 }
 
 /* Read the parameter file */
@@ -566,28 +593,16 @@ void readParameterFile(Simulation& simulation) {
     rewind(fp);
 
     /* Now we know the size of the universe, put the molecule in the center of it */
-    if (strcmp(options.planeatom, "") != 0) {
-        double avgx = 0.0;
-        double avgy = 0.0;
-        int nplaneatoms = 0;
-        for (int i = 0; i < system.n_atoms_; ++i) {
-            if (strcmp(system.types_[i].c_str(), options.planeatom) == 0) {
-                nplaneatoms++;
-                avgx += system.positions_[i].x;
-                avgy += system.positions_[i].y;
-            }
-        }
-        avgx /= nplaneatoms;
-        avgy /= nplaneatoms;
-        double dx = (simulation.box_.x / 2) - avgx;
-        double dy = (simulation.box_.y / 2) - avgy;
-        for (int i = 0; i < system.n_atoms_; ++i) {
-            system.positions_[i].x += dx;
-            system.positions_[i].y += dy;
-        }
-    }
+    centerSystem(simulation);
 
     /* Set up the interaction list */
+    parseInteractions(simulation, fp);
+
+    fclose(fp);
+    return;
+}
+
+void parseInteractions(Simulation& simulation, FILE* fp){
     // TipSurfParams = (InteractionList *)malloc(Natoms*sizeof(InteractionList));
 
     // [> Create a list with all the possible surface atom particle types <]
@@ -630,10 +645,10 @@ void readParameterFile(Simulation& simulation) {
     // }
     // qbase /= epermv;
 
-    // [> Quickly check whether charges were read from the XYZ file                                                     <]
+    // [> Quickly check whether charges were read from the XYZ file <]
     // [> NOTE: if only zero charges are specified in the XYZ file, this check sort of fails, <]
-    // [>           as the RMSQE will be zero in that case. If you want zero charge, make sure      <]
-    // [>           the charges in the parameter file are also set to zero!                                             <]
+    // [>       as the RMSQE will be zero in that case. If you want zero charge, make sure      <]
+    // [>       the charges in the parameter file are also set to zero! <]
     // chargecheck = 0.0;
     // for (i=0; i<Natoms; ++i) {
         // chargecheck += (Surf_q[i]*Surf_q[i]);
@@ -840,7 +855,4 @@ void readParameterFile(Simulation& simulation) {
     //      fprintf(stdout,"%d %d - %8.4f %8.4f - %8.4f %8.4f %8.4f\n",i,j,SurfSurfParams[i][j].es12,SurfSurfParams[i][j].es6,SurfSurfParams[i][j].De,SurfSurfParams[i][j].a,SurfSurfParams[i][j].re);
     //  }
     //}
-
-    fclose(fp);
-    return;
 }

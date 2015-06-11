@@ -52,8 +52,7 @@ $(SEXEC): $(objects)
 	mkdir -p $(BUILDDIR)
 	mv -u *.o $(BUILDDIR)
 
-main.o: mechafm-mpi.cpp messages.hpp globals.hpp utility.hpp parse.hpp \
-		simulation.hpp
+main.o: mechafm-mpi.cpp messages.hpp globals.hpp parse.hpp simulation.hpp system.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 simulation.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
@@ -63,13 +62,7 @@ messages.o: messages.cpp messages.hpp globals.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 utility.o: utility.cpp utility.hpp globals.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-parse.o: parse.cpp parse.hpp globals.hpp messages.hpp utility.hpp physics.hpp vectors.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-physics.o: physics.cpp physics.hpp  globals.hpp grid.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-grid.o: grid.cpp grid.hpp globals.hpp messages.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-flexible.o: flexible.cpp flexible.hpp globals.hpp messages.hpp parse.hpp
+parse.o: parse.cpp parse.hpp globals.hpp messages.hpp utility.hpp vectors.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
 vectors.o: vectors.cpp vectors.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
