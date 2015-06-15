@@ -18,7 +18,7 @@ struct AtomParameters {
 };
 
 struct OverwriteParameters {
-    unordered_set<string> atoms;
+    unordered_multiset<string> atoms;
     double eps;
     double sig;
     bool morse;
@@ -28,11 +28,18 @@ struct OverwriteParameters {
 
 };
 
+struct PossibleBond {
+    unordered_multiset<string> atoms;
+    double r0;
+};
+
 struct InteractionParameters {
     double qbase;
     double tip_dummy_k, tip_dummy_r0;
+    double bond_k, angle_k, substrate_k;
     unordered_map<string, AtomParameters> atom_parameters;
     vector<OverwriteParameters> overwrite_parameters;
+    vector<PossibleBond> possible_bonds_;
 };
 
 /* Mixing rule functions */

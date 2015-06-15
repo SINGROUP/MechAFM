@@ -25,10 +25,10 @@ typedef struct InteractionList {
 } InteractionList;
 
 /* Define a structure to figure out possible bonds */
-typedef struct PossibleBonds {
+typedef struct PosBonds {
     char a1[NAME_LENGTH], a2[NAME_LENGTH];
     double r0;
-} PossibleBonds;
+} PosBonds;
 
 /* Define a structure to compute bonds */
 typedef struct BondInteraction {

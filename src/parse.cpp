@@ -221,20 +221,26 @@ void readInputFile(Simulation& simulation) {
             sprintf(tmp_minterm, "%s", value);
         }
         else if (strcmp(keyword, "units") == 0) {
+            double epermv = 1.0;
             if (strcmp(value, "kcal/mol") == 0) {
                 options.units = U_KCAL;
+                simulation.interaction_parameters_.qbase = 332.06371 / epermv;
             }
             else if (strcmp(value, "kcal") == 0) {
                 options.units = U_KCAL;
+                simulation.interaction_parameters_.qbase = 332.06371 / epermv;
             }
             else if (strcmp(value, "kJ/mol") == 0) {
                 options.units = U_KJ;
+                simulation.interaction_parameters_.qbase = 1389.354563 / epermv;
             }
             else if (strcmp(value, "kJ") == 0) {
                 options.units = U_KJ;
+                simulation.interaction_parameters_.qbase = 1389.354563 / epermv;
             }
             else if (strcmp(value, "eV") == 0) {
                 options.units = U_EV;
+                simulation.interaction_parameters_.qbase = 14.39964901 / epermv;
             }
             else {
                 error(simulation, "Option %s must be either kcal/mol (default), kJ/mol or eV!", keyword);
@@ -549,7 +555,7 @@ void readParameterFile(Simulation& simulation) {
 
     /* Open the parameter file */
     fp = fopen(options.paramfile,"r");
-    if (fp==NULL) {
+    if (fp == NULL) {
         error(simulation, "No parameter file %s found!", options.paramfile);
     }
 
@@ -614,7 +620,7 @@ void readParameterFile(Simulation& simulation) {
                 // Read overwrite parameters
                 sscanf(line, "%s %s %s %s %lf %lf", dump, dump, dump, dump, &(eps), &(sig));
                 OverwriteParameters p;
-                p.atoms = unordered_set<string>{atom1, atom2};
+                p.atoms = unordered_multiset<string>{atom1, atom2};
                 p.eps = eps;
                 p.sig = sig;
                 p.morse = false;
@@ -629,7 +635,7 @@ void readParameterFile(Simulation& simulation) {
                 // Read overwrite parameters
                 sscanf(line, "%s %s %s %s %lf %lf %lf", dump, dump, dump, dump, &(De), &(a), &(re));
                 OverwriteParameters p;
-                p.atoms = unordered_set<string>{atom1, atom2};
+                p.atoms = unordered_multiset<string>{atom1, atom2};
                 p.de = De;
                 p.a = a;
                 p.re = re;
@@ -649,19 +655,10 @@ void readParameterFile(Simulation& simulation) {
     // Now we know the size of the universe, put the molecule in the center of it
     centerSystem(simulation);
 
-    // The constant part of the Coulomb equation (depends on chosen unit system)
-    double qbase;
-    double epermv = 1.0;
-    if (options.units == U_KCAL) {
-        qbase = 332.06371;
+    if (options.flexible) {
+        rewind(fp);
+        readFlexibleParameters(simulation, fp);
     }
-    else if (options.units == U_KJ) {
-        qbase = 1389.354563;
-    }
-    else if (options.units == U_EV) {
-        qbase = 14.39964901;
-    }
-    parameters.qbase = qbase / epermv;
 
     // // Debug printing
     // for (i=0; i<Ntypes; ++i) {
@@ -672,4 +669,83 @@ void readParameterFile(Simulation& simulation) {
 
     fclose(fp);
     return;
+}
+
+void readFlexibleParameters(Simulation& simulation, FILE* fp) {
+
+    InputOptions& options = simulation.options_;
+    InteractionParameters& parameters = simulation.interaction_parameters_;
+    System& system = simulation.system;
+
+    char line[LINE_LENGTH];
+    char keyword[NAME_LENGTH], dump[NAME_LENGTH];
+    char atom1[NAME_LENGTH], atom2[NAME_LENGTH];
+
+    // Read the parameter file and parse everything we need
+    // for modeling a flexible molecule
+    double kbond, kangle, ksubst, r0;
+    bool bcheck, acheck, scheck, tcheck;
+    bcheck = acheck = scheck = false;
+    while (fgets(line, LINE_LENGTH, fp)!=NULL) {
+        /* Skip empty and commented lines */
+        if (checkForComments(line)) {
+            continue;
+        }
+        /* Read line to determine keyword */
+        sscanf(line,"%s",keyword);
+        /* The strength of the harmonic bond from the parameter file */
+        if (strcmp(keyword, "bond") == 0) {
+            if (bcheck == true) {
+                warning(simulation, "Parameters for harmonic bond defined multiple times!");
+            }
+            sscanf(line,"%s %lf", dump, &(kbond));
+            parameters.bond_k = kbond;
+            bcheck = true;
+        }
+        /* The strength of the harmonic angle from the parameter file */
+        if (strcmp(keyword, "angle") == 0) {
+            if (acheck == true) {
+                warning(simulation, "Parameters for harmonic angle defined multiple times!");
+            }
+            sscanf(line,"%s %lf", dump, &(kangle));
+            parameters.angle_k = kangle;
+            acheck = true;
+        }
+        /* The strength of the harmonic substrate support from the parameter file */
+        if (strcmp(keyword, "substrate") == 0) {
+            if (scheck == true) {
+                warning(simulation, "Parameters for harmonic substrate support defined multiple times!");
+            }
+            sscanf(line, "%s %lf", dump, &(ksubst));
+            parameters.substrate_k = ksubst;
+            scheck = true;
+        }
+        /* Collect the bonds, possibly present in the system */
+        if (strcmp(keyword, "topobond") == 0) {
+            tcheck = false;
+            sscanf(line, "%s %s %s %lf", dump, atom1, atom2, &(r0));
+            unordered_multiset<string> atoms{atom1, atom2};
+            for (const auto& bond : parameters.possible_bonds_) {
+                if (bond.atoms == atoms){
+                    tcheck = true;
+                }
+            }
+            if (tcheck) {
+                warning(simulation, "The topobond for %s and %s is defined at least twice!", atom1, atom2);
+            }
+            PossibleBond pb;
+            pb.atoms = atoms;
+            pb.r0 = r0;
+            parameters.possible_bonds_.push_back(pb);
+        }
+    }
+    if (bcheck == false) {
+        error(simulation, "No harmonic bond parameters found in parameter file!");
+    }
+    if (acheck == false) {
+        error(simulation, "No harmonic angle parameters found in parameter file!");
+    }
+    if (scheck == false) {
+        error(simulation, "No harmonic substrate support parameters found in parameter file!");
+    }
 }

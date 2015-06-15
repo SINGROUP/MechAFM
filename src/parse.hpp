@@ -10,3 +10,4 @@ void readXYZFile(Simulation& simulation);
 void setSystemZ(Simulation& simulation);
 void centerSystem(Simulation& simulation);
 void readParameterFile(Simulation& simulation);
+void readFlexibleParameters(Simulation& simulation, FILE* fp);
