@@ -26,7 +26,7 @@ MPI_BUILD = -D MPI_BUILD
 MPI_INC  = -I/usr/lib/openmpi/include/
 MPI_PATH = -L/usr/lib/openmpi/lib/
 MPI_LIB  = #-lmpich
-MPI_FLAGS = $(MPI_INC) $(MPI_PATH) $(MPI_LIB) $(MPI)
+MPI_FLAGS = $(MPI_INC) $(MPI_PATH) $(MPI_LIB) $(MPI_BUILD)
 
 
 mpi_objects = main-mpi.o messages-mpi.o simulation-mpi.o 
@@ -43,7 +43,7 @@ $(MEXEC): $(mpi_objects) $(shared_objects)
 	mkdir -p $(BINDIR)
 	mv mechafm-$@ $(BINDIR)
 	mkdir -p $(BUILDDIR)
-	mv -u *.o $(BUILDDIR)
+	mv -f *.o $(BUILDDIR)
 
 ## Make the executable (serial) ##
 $(SEXEC): $(serial_objects) $(shared_objects)
@@ -51,7 +51,7 @@ $(SEXEC): $(serial_objects) $(shared_objects)
 	mkdir -p $(BINDIR)
 	mv mechafm-$@ $(BINDIR)
 	mkdir -p $(BUILDDIR)
-	mv -u *.o $(BUILDDIR)
+	mv -f *.o $(BUILDDIR)
 
 main-mpi.o: mechafm.cpp messages.hpp globals.hpp parse.hpp simulation.hpp system.hpp
 	$(MCC) -c $(FULLFLAG) $< $(MATHFLAG) $(MPI_FLAGS) -o $@
