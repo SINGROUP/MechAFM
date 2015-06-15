@@ -54,6 +54,23 @@ class System {
     int Nangles;                            /* Number of angles in flexible molecule */
     int n_types_;                             /* Number of surface atom types (flexible molecule) */
     int n_fixed_;                             /* Number of fixed atoms (flexible molecule) */
+    Vec3d Tip_pos;                         /* Position of the tip atom */
+    Vec3d Tip_vel;                         /* Velocities of the tip atom */
+    double Tip_mass;                        /* Mass of the tip atom */
+    Vec3d Dummy_pos;                       /* Position of the dummy atom */
+    vector<Vec3d> positions_;
+    vector<Vec3d> velocities_;
+    vector<Vec3d> forces_;
+    vector<double> charges_;
+    vector<double> masses_;
+    vector<bool> fixed_;
+    vector<string> types_;
+    Vec3d TipSurf_force;                   /* Force on tip atom caused by the surface */
+    Vec3d TipDummy_force;                  /* Force on tip atom caused by the dummy atom */
+    Vec3d TipHarmonic_force;               /* Force on tip atom caused by the harmonic constraint */
+    double TipSurf_energy;                  /* Energy of tip atom caused by the surface */
+    double TipDummy_energy;                 /* Energy of tip atom caused by the dummy atom */
+    double TipHarmonic_energy;              /* Energy of tip atom caused by the harmonic constraint */
     // VECTOR *Surf_pos;                       [> Vector containing positions of all surface atoms <]
     // VECTOR *Surf_vel;                       [> Vector containing velocities of all surface atoms (needed for flexible/FIRE minimizer) <]
     // VECTOR *Surf_pos_org;                   [> Copy of the surface position vector, needed for flexible reset <]
@@ -62,30 +79,13 @@ class System {
     // double *Surf_mass;                      [> List containing masses of all surface atoms <]
     // int *Surf_fix;                          [> List containing a boolean to signal fixed or free atoms (needed for flexible) <]
     // char **Surf_type;                       [> List containing types of all surface atoms <]
-    vector<Vec3d> positions_;
-    vector<Vec3d> velocities_;
-    vector<Vec3d> forces_;
-    vector<double> charges_;
-    vector<double> masses_;
-    vector<bool> fixed_;
-    vector<string> types_;
-    InteractionList *TipSurfParams;         /* Structured list for all tip-surface particle interaction parameters */
-    InteractionList DummyParams;            /* List for particle interaction parameters with dummy atom */
-    InteractionList Harmonic;               /* List for the harmonic constraint parameters on the tip atom */
-    InteractionList **SurfSurfParams;       /* 2D array for all surface-surface particle interaction parameters (flexible molecule) */
-    BondInteraction *Bonds;                 /* List of all possible bonds (flexible molecule) */
-    AngleInteraction *Angles;               /* List of all possible angles (flexible molecule) */
-    InteractionList Substrate;              /* Substrate support parameters (flexible molecule) */
-    Vec3d Tip_pos;                         /* Position of the tip atom */
-    Vec3d Tip_vel;                         /* Velocities of the tip atom */
-    double Tip_mass;                        /* Mass of the tip atom */
-    Vec3d Dummy_pos;                       /* Position of the dummy atom */
-    Vec3d TipSurf_force;                   /* Force on tip atom caused by the surface */
-    Vec3d TipDummy_force;                  /* Force on tip atom caused by the dummy atom */
-    Vec3d TipHarmonic_force;               /* Force on tip atom caused by the harmonic constraint */
-    double TipSurf_energy;                  /* Energy of tip atom caused by the surface */
-    double TipDummy_energy;                 /* Energy of tip atom caused by the dummy atom */
-    double TipHarmonic_energy;              /* Energy of tip atom caused by the harmonic constraint */
+    // InteractionList *TipSurfParams;         [> Structured list for all tip-surface particle interaction parameters <]
+    // InteractionList DummyParams;            [> List for particle interaction parameters with dummy atom <]
+    // InteractionList Harmonic;               [> List for the harmonic constraint parameters on the tip atom <]
+    // InteractionList **SurfSurfParams;       [> 2D array for all surface-surface particle interaction parameters (flexible molecule) <]
+    // BondInteraction *Bonds;                 [> List of all possible bonds (flexible molecule) <]
+    // AngleInteraction *Angles;               [> List of all possible angles (flexible molecule) <]
+    // InteractionList Substrate;              [> Substrate support parameters (flexible molecule) <]
 
  private:
 };

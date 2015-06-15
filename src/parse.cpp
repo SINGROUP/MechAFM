@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "globals.hpp"
 #include "messages.hpp"
@@ -311,42 +312,42 @@ void readInputFile(Simulation& simulation) {
     // }
 
     /* Talk to me */
-    debugline(simulation, simulation.root_processor_, "");
-    debugline(simulation, simulation.root_processor_, "Input settings for %s:", simulation.input_file_name_);
-    debugline(simulation, simulation.root_processor_, "");
-    debugline(simulation, simulation.root_processor_, "xyzfile:           %-s", options.xyzfile);
-    debugline(simulation, simulation.root_processor_, "paramfile:         %-s", options.paramfile);
-    debugline(simulation, simulation.root_processor_, "tipatom:           %-s", options.tipatom);
-    debugline(simulation, simulation.root_processor_, "dummyatom:         %-s", options.dummyatom);
-    if (strcmp(options.planeatom, "")!=0) {
-        debugline(simulation, simulation.root_processor_, "planeatom:         %-s", options.planeatom);
+    pretty_print(simulation, "");
+    pretty_print(simulation, "Input settings for %s:", simulation.input_file_name_);
+    pretty_print(simulation, "");
+    pretty_print(simulation, "xyzfile:           %-s", options.xyzfile);
+    pretty_print(simulation, "paramfile:         %-s", options.paramfile);
+    pretty_print(simulation, "tipatom:           %-s", options.tipatom);
+    pretty_print(simulation, "dummyatom:         %-s", options.dummyatom);
+    if (strcmp(options.planeatom, "") != 0) {
+        pretty_print(simulation, "planeatom:         %-s", options.planeatom);
     }
     else if (options.zplane > NEGVAL) {
-        debugline(simulation, simulation.root_processor_, "zplane:            %-8.4f", options.zplane);
+        pretty_print(simulation, "zplane:            %-8.4f", options.zplane);
     }
-    debugline(simulation, simulation.root_processor_, "");
-    debugline(simulation, simulation.root_processor_, "units:             %-s", tmp_units);
-    debugline(simulation, simulation.root_processor_, "");
-    debugline(simulation, simulation.root_processor_, "minterm:           %-s", tmp_minterm);
-    debugline(simulation, simulation.root_processor_, "etol:              %-8.4f", options.etol);
-    debugline(simulation, simulation.root_processor_, "ftol:              %-8.4f", options.ftol);
-    debugline(simulation, simulation.root_processor_, "cfac:              %-8.4f", options.cfac);
-    debugline(simulation, simulation.root_processor_, "maxsteps:          %-8d", options.maxsteps);
-    debugline(simulation, simulation.root_processor_, "");
-    debugline(simulation, simulation.root_processor_, "zhigh:             %-8.4f", options.zhigh);
-    debugline(simulation, simulation.root_processor_, "zlow:              %-8.4f", options.zlow);
-    debugline(simulation, simulation.root_processor_, "dx:                %-8.4f", options.dx);
-    debugline(simulation, simulation.root_processor_, "dy:                %-8.4f", options.dy);
-    debugline(simulation, simulation.root_processor_, "dz:                %-8.4f", options.dz);
-    debugline(simulation, simulation.root_processor_, "");
-    debugline(simulation, simulation.root_processor_, "coulomb:           %-s", tmp_coulomb);
-    debugline(simulation, simulation.root_processor_, "");
-    debugline(simulation, simulation.root_processor_, "flexible:          %-s", tmp_flexible);
-    debugline(simulation, simulation.root_processor_, "rigidgrid:         %-s", tmp_rigidgrid);
-    debugline(simulation, simulation.root_processor_, "");
-    debugline(simulation, simulation.root_processor_, "bufsize:           %-8d", options.bufsize);
-    debugline(simulation, simulation.root_processor_, "gzip:              %-s", tmp_gzip);
-    debugline(simulation, simulation.root_processor_, "");
+    pretty_print(simulation, "");
+    pretty_print(simulation, "units:             %-s", tmp_units);
+    pretty_print(simulation, "");
+    pretty_print(simulation, "minterm:           %-s", tmp_minterm);
+    pretty_print(simulation, "etol:              %-8.4f", options.etol);
+    pretty_print(simulation, "ftol:              %-8.4f", options.ftol);
+    pretty_print(simulation, "cfac:              %-8.4f", options.cfac);
+    pretty_print(simulation, "maxsteps:          %-8d", options.maxsteps);
+    pretty_print(simulation, "");
+    pretty_print(simulation, "zhigh:             %-8.4f", options.zhigh);
+    pretty_print(simulation, "zlow:              %-8.4f", options.zlow);
+    pretty_print(simulation, "dx:                %-8.4f", options.dx);
+    pretty_print(simulation, "dy:                %-8.4f", options.dy);
+    pretty_print(simulation, "dz:                %-8.4f", options.dz);
+    pretty_print(simulation, "");
+    pretty_print(simulation, "coulomb:           %-s", tmp_coulomb);
+    pretty_print(simulation, "");
+    pretty_print(simulation, "flexible:          %-s", tmp_flexible);
+    pretty_print(simulation, "rigidgrid:         %-s", tmp_rigidgrid);
+    pretty_print(simulation, "");
+    pretty_print(simulation, "bufsize:           %-8d", options.bufsize);
+    pretty_print(simulation, "gzip:              %-s", tmp_gzip);
+    pretty_print(simulation, "");
     return;
 }
 
@@ -435,12 +436,15 @@ void readXYZFile(Simulation& simulation) {
         int fixed = 0;
         if (ncols == 4) {
             sscanf(line, "%s %lf %lf %lf", type, &x, &y, &z);
+            options.xyz_charges = false;
         } else if (ncols == 5) {
             sscanf(line, "%s %lf %lf %lf %lf", type, &x, &y, &z, &q);
+            options.xyz_charges = true;
         } else if (ncols == 6) {
             sscanf(line, "%s %lf %lf %lf %lf %d", type, &x, &y, &z, &q, &fixed);
+            options.xyz_charges = true;
         } else {
-            continue;
+            error(simulation, "Invalid number of columns in the xyz file.");
         }
         system.types_.push_back(std::string(type));
         system.positions_.push_back(Vec3d(x, y, z));
@@ -530,16 +534,15 @@ void centerSystem(Simulation& simulation){
 void readParameterFile(Simulation& simulation) {
 
     InputOptions& options = simulation.options_;
+    InteractionParameters& parameters = simulation.interaction_parameters_;
     System& system = simulation.system;
 
     FILE *fp;
     char atom[ATOM_LENGTH], keyword[NAME_LENGTH], dump[NAME_LENGTH], line[LINE_LENGTH];
     char atom1[ATOM_LENGTH], atom2[ATOM_LENGTH], style[NAME_LENGTH], *pch;
-    double eps, sig, eps_cross, sig_cross, mass, es6, es12;
-    double sig6, De, a, re;
-    double eps_tip, sig_tip, q_tip, qbase, epermv;
-    int check, hcheck, natoms, ncols;
-    double chargecheck, qdump;
+    double eps, sig, mass;
+    double De, a, re;
+    double qdump;
 
     /* Initialize the universe */
     simulation.box_ = Vec3d(-1.0);
@@ -550,9 +553,9 @@ void readParameterFile(Simulation& simulation) {
         error(simulation, "No parameter file %s found!", options.paramfile);
     }
 
-    /* Scan the parameter file for the universe size and for the tip atom definitions */
-    check = FALSE;
-    system.n_types_ = 0;
+    // Scan the parameter file for the universe size, atom definitions,
+    // harmonic spring and check for pair style overwrites
+    bool hcheck = false;
     while (fgets(line, LINE_LENGTH, fp) != NULL) {
         /* Skip empty and commented lines */
         if (checkForComments(line)) {
@@ -571,284 +574,102 @@ void readParameterFile(Simulation& simulation) {
             }
         }
         if (strcmp(keyword, "atom") == 0) {
-            sscanf(line, "%s %s", dump, atom);
-            if (strcmp(atom, options.tipatom) == 0) {
-                if (check == TRUE) {
-                    error(simulation, "Parameters for tip atom can only be specified once!");
-                }
-                sscanf(line, "%s %s %lf %lf %s %lf", dump, dump, &(eps_tip),
-                                                     &(sig_tip), dump,&(q_tip));
-                check = TRUE;
+            sscanf(line, "%s %s %lf %lf %lf %lf", dump, atom, &(eps), &(sig), &(mass), &(qdump));
+            if (parameters.atom_parameters.count(atom) != 0){
+                warning(simulation, "Parameters for atom type %s defined multiple times.", atom);
             }
-            system.n_types_++;
+            auto& p = parameters.atom_parameters[atom];
+            p.eps = eps;
+            p.sig = sig;
+            p.q = qdump;
+            p.mass = mass;
+        }
+        if (strcmp(keyword, "harm") == 0) {
+            if (hcheck) {
+                error(simulation, "Parameters for harmonic spring can only be specified once!");
+            }
+            sscanf(line,"%s %s %lf %lf", dump, atom, &(parameters.tip_dummy_k),
+                                                     &(parameters.tip_dummy_r0));
+            if (strcmp(atom, options.tipatom) != 0) {
+                error(simulation, "Harmonic spring should be defined on tip atom!");
+            }
+            hcheck = true;
+        }
+        if (strcmp(keyword, "pair_ovwrt") == 0) {
+            sscanf(line, "%s %s %s %s", dump, atom1, atom2, style);
+            // Check number of columns
+            int ncols = 0;
+            strcpy(dump, line);
+            pch = strtok(dump, " \t\n\r\f");
+            while (pch != NULL) {
+                pch = strtok(NULL, " \t\n\r\f");
+                ncols++;
+            }
+            // Lennard-Jones potential
+            if (strcmp(style, "lj") == 0) {
+                // Check if number of columns is correct for LJ
+                if (ncols > (4+2)) {
+                    error(simulation, "Only two parameters (eps, sig) allowed for LJ");
+                }
+                // Read overwrite parameters
+                sscanf(line, "%s %s %s %s %lf %lf", dump, dump, dump, dump, &(eps), &(sig));
+                OverwriteParameters p;
+                p.atoms = unordered_set<string>{atom1, atom2};
+                p.eps = eps;
+                p.sig = sig;
+                p.morse = false;
+                parameters.overwrite_parameters.push_back(p);
+            }
+            // Morse potential
+            else if (strcmp(style,"morse")==0) {
+                // Check if number of columns is correct for Morse
+                if (ncols>(4+3)) {
+                    error(simulation, "Only three parameters (De, a, re) allowed for Morse");
+                }
+                // Read overwrite parameters
+                sscanf(line, "%s %s %s %s %lf %lf %lf", dump, dump, dump, dump, &(De), &(a), &(re));
+                OverwriteParameters p;
+                p.atoms = unordered_set<string>{atom1, atom2};
+                p.de = De;
+                p.a = a;
+                p.re = re;
+                p.morse = true;
+                parameters.overwrite_parameters.push_back(p);
+            }
+            // Try and catch
+            else {
+                error(simulation, "Unknown pair style overwrite '%s'",style);
+            }
         }
     }
-    if (!check) {
-        error(simulation, "Parameters for tip atom not defined in parameter file!");
+    if (hcheck == false) {
+        error(simulation, "No harmonic spring parameters found in parameter file!");
     }
-    rewind(fp);
 
-    /* Now we know the size of the universe, put the molecule in the center of it */
+    // Now we know the size of the universe, put the molecule in the center of it
     centerSystem(simulation);
 
-    /* Set up the interaction list */
-    parseInteractions(simulation, fp);
+    // The constant part of the Coulomb equation (depends on chosen unit system)
+    double qbase;
+    double epermv = 1.0;
+    if (options.units == U_KCAL) {
+        qbase = 332.06371;
+    }
+    else if (options.units == U_KJ) {
+        qbase = 1389.354563;
+    }
+    else if (options.units == U_EV) {
+        qbase = 14.39964901;
+    }
+    parameters.qbase = qbase / epermv;
+
+    // // Debug printing
+    // for (i=0; i<Ntypes; ++i) {
+        // for (j=0; j<Ntypes; ++j) {
+            // fprintf(stdout,"%d %d - %8.4f %8.4f - %8.4f %8.4f %8.4f\n",i,j,SurfSurfParams[i][j].es12,SurfSurfParams[i][j].es6,SurfSurfParams[i][j].De,SurfSurfParams[i][j].a,SurfSurfParams[i][j].re);
+        // }
+    // }
 
     fclose(fp);
     return;
-}
-
-void parseInteractions(Simulation& simulation, FILE* fp){
-    // TipSurfParams = (InteractionList *)malloc(Natoms*sizeof(InteractionList));
-
-    // [> Create a list with all the possible surface atom particle types <]
-    // Ntypes -= 2;    [> Subtract the tip and dummy atoms <]
-    // if (Ntypes<1) {
-        // error(simulation, "Either the tip and/or dummy atom is not specified, or there is no molecule defined. Fix it!");
-    // }
-    // SurfSurfParams = (InteractionList **)malloc(Ntypes*sizeof(InteractionList *));
-    // SurfType2Num = (char **)malloc(Ntypes*sizeof(char *));
-    // for (i=0; i<Ntypes; ++i) {
-        // SurfSurfParams[i] = (InteractionList *)malloc(Ntypes*sizeof(InteractionList));
-        // SurfType2Num[i] = (char *)malloc(ATOM_LENGTH*sizeof(char));
-    // }
-    // for (j=0, k=0; j<Natoms; ++j) {
-        // check = FALSE;
-        // for (i=0; i<Ntypes; ++i) {
-            // if (strcmp(Surf_type[j],SurfType2Num[i])==0) {
-                // check = TRUE;
-            // }
-        // }
-        // if (!check) {
-            // strcpy(SurfType2Num[k],Surf_type[j]);
-            // k++;
-        // }
-    // }
-    // if (k!=Ntypes) {
-        // error(simulation, "Lost an atom type somewhere along the way");
-    // }
-
-    // [> The constant part of the Coulomb equation (depends on chosen unit system) <]
-    // epermv = 1.0;
-    // if (options.units == U_KCAL) {
-        // qbase = 332.06371;
-    // }
-    // else if (options.units == U_KJ) {
-        // qbase = 1389.354563;
-    // }
-    // else if (options.units == U_EV) {
-        // qbase = 14.39964901;
-    // }
-    // qbase /= epermv;
-
-    // [> Quickly check whether charges were read from the XYZ file <]
-    // [> NOTE: if only zero charges are specified in the XYZ file, this check sort of fails, <]
-    // [>       as the RMSQE will be zero in that case. If you want zero charge, make sure      <]
-    // [>       the charges in the parameter file are also set to zero! <]
-    // chargecheck = 0.0;
-    // for (i=0; i<Natoms; ++i) {
-        // chargecheck += (Surf_q[i]*Surf_q[i]);
-    // }
-    // if (fabs(chargecheck)<TOLERANCE) {
-        // warning("The RMSQ-error for the charges read from the XYZ-file is zero. Charges will be read from the parameter file. If you want zero charge, set the charge in the parameter file to zero.");
-    // }
-
-    // [> Read the parameter file again, but this time, create the interaction list
-         // for the surface atoms, for the dummy atom, and also for the harmonic spring */
-    // check = hcheck = FALSE;
-    // natoms = 0;
-    // while (fgets(line, LINE_LENGTH, fp)!=NULL) {
-        // [> Skip empty and commented lines <]
-        // if (checkForComments(line)) {
-            // continue;
-        // }
-        // [> Read line to determine keyword <]
-        // sscanf(line,"%s",keyword);
-        // if (strcmp(keyword,"atom")==0) {
-            // sscanf(line,"%s %s %lf %lf %lf %lf",dump,atom,&(eps),&(sig),&(mass),&(qdump));
-            // [> Loop all atoms in the surface and check if they match this parameter set <]
-            // for (i=0; i<Natoms; ++i) {
-                // if (strcmp(Surf_type[i],atom)==0) {
-                    // natoms++;
-                    // eps_cross = mixeps(eps,eps_tip);
-                    // sig_cross = mixsig(sig,sig_tip);                            [> To power 1 <]
-                    // sig_cross = (sig_cross*sig_cross*sig_cross);    [> To power 3 <]
-                    // sig_cross *= sig_cross;                                             [> To power 6 <]
-                    // TipSurfParams[i].es12 = 4 * eps_cross * sig_cross * sig_cross;
-                    // TipSurfParams[i].es6    = 4 * eps_cross * sig_cross;
-                    // if (fabs(chargecheck)<TOLERANCE) {
-                        // Surf_q[i] = qdump;
-                    // }
-                    // TipSurfParams[i].qq     = qbase * q_tip * Surf_q[i];
-                    // TipSurfParams[i].morse = FALSE;
-                    // Surf_mass[i] = mass;
-                    // [> While we read these parameters and assign the tip-molecule interactions,
-                        // we can also build the molecule-molecule interactions (at least the diagonal) */
-                    // k = type2num(atom);
-                    // SurfSurfParams[k][k].eps = eps;
-                    // SurfSurfParams[k][k].sig = sig;
-                // }
-            // }
-            // [> We found a dummy atom in the parameter list <]
-            // if (strcmp(options.dummyatom,atom)==0) {
-                // if (check == TRUE) {
-                    // error(simulation, "Parameters for dummy atom can only be specified once!");
-                // }
-                // check = TRUE;
-                // eps_cross = mixeps(eps,eps_tip);
-                // sig_cross = mixsig(sig,sig_tip);                            [> To power 1 <]
-                // sig_cross = (sig_cross*sig_cross*sig_cross);    [> To power 3 <]
-                // sig_cross *= sig_cross;                                             [> To power 6 <]
-                // DummyParams.es12 = 4 * eps_cross * sig_cross * sig_cross;
-                // DummyParams.es6  = 4 * eps_cross * sig_cross;
-                // DummyParams.qq   = 0.0; [> Ignore Coulomb interaction between tip and dummy <]
-                // DummyParams.rmin = mixsig(sig,sig_tip) * SIXTHRT2; [> Needed for tip positioning <]
-                // DummyParams.morse = FALSE;
-            // }
-        // }
-        // if (strcmp(keyword,"harm")==0) {
-            // if (hcheck == TRUE) {
-                // error(simulation, "Parameters for harmonic spring can only be specified once!");
-            // }
-            // sscanf(line,"%s %s %lf %lf",dump,atom,&(Harmonic.k),&(Harmonic.r0));
-            // Harmonic.morse = FALSE;
-            // if (strcmp(atom,options.tipatom)!=0) {
-                // error(simulation, "Harmonic spring should be defined on tip atom!");
-            // }
-            // hcheck = TRUE;
-        // }
-    // }
-    // if (natoms != Natoms) {
-        // error(simulation, "Not all atoms have been assigned parameters! (%d/%d)",natoms,Natoms);
-    // }
-    // if (check == FALSE) {
-        // error(simulation, "Parameters for dummy atom not defined in parameter file!");
-    // }
-    // if (hcheck == FALSE) {
-        // error(simulation, "No harmonic spring parameters found in parameter file!");
-    // }
-
-    // [> Build the entire interaction matrix for surface-surface interactions <]
-    // for (i=0; i<Ntypes; ++i) {
-        // for (j=0; j<Ntypes; ++j) {
-            // eps_cross = mixeps(SurfSurfParams[i][i].eps,SurfSurfParams[j][j].eps);
-            // sig_cross = mixsig(SurfSurfParams[i][i].sig,SurfSurfParams[j][j].sig);
-            // // sig_cross = mixsig(sig,sig_tip);                            [> To power 1 <]
-            // sig_cross = (sig_cross*sig_cross*sig_cross);    [> To power 3 <]
-            // sig_cross *= sig_cross;                                             [> To power 6 <]
-            // SurfSurfParams[i][j].es12 = 4 * eps_cross * sig_cross * sig_cross;
-            // SurfSurfParams[i][j].es6    = 4 * eps_cross * sig_cross;
-            // SurfSurfParams[j][i].es12 = SurfSurfParams[i][j].es12;
-            // SurfSurfParams[j][i].es6    = SurfSurfParams[i][j].es6;
-            // SurfSurfParams[i][j].morse = FALSE;
-            // SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
-        // }
-    // }
-
-    // [> Finally check for pair style overwrites <]
-    // rewind(fp);
-    // while (fgets(line, LINE_LENGTH, fp)!=NULL) {
-        // [> Skip empty and commented lines <]
-        // if (checkForComments(line)) {
-            // continue;
-        // }
-        // [> Read line to determine keyword <]
-        // sscanf(line,"%s",keyword);
-        // if (strcmp(keyword,"pair_ovwrt")==0) {
-            // sscanf(line,"%s %s %s %s",dump,atom1,atom2,style);
-            // [> Check number of columns <]
-            // ncols = 0;
-            // strcpy(dump,line);
-            // pch = strtok(dump," \t\n\r\f");
-            // while (pch!=NULL) {
-                // pch = strtok(NULL," \t\n\r\f");
-                // ncols++;
-            // }
-            // [> Lennard-Jones potential <]
-            // if (strcmp(style,"lj")==0) {
-                // [> Check if number of columns is correct for LJ <]
-                // if (ncols>(4+2)) {
-                    // error(simulation, "Only two parameters (eps,sig) allowed for LJ");
-                // }
-                // [> Read overwrite parameters <]
-                // sscanf(line,"%s %s %s %s %lf %lf",dump,dump,dump,dump,&(eps),&(sig));
-                // sig6 = sig*sig*sig;
-                // sig6 *= sig6;
-                // es12 = 4 * eps * sig6 * sig6;
-                // es6  = 4 * eps * sig6;
-            // }
-            // [> Morse potential <]
-            // else if (strcmp(style,"morse")==0) {
-                // [> Check if number of columns is correct for LJ <]
-                // if (ncols>(4+3)) {
-                    // error(simulation, "Only three parameters (De,a,re) allowed for Morse");
-                // }
-                // [> Read overwrite parameters <]
-                // sscanf(line,"%s %s %s %s %lf %lf %lf",dump,dump,dump,dump,&(De),&(a),&(re));
-            // }
-            // [> Try and catch <]
-            // else {
-                // error(simulation, "Unknown pair style overwrite '%s'",style);
-            // }
-            // [> Store the changes <]
-            // if ((strcmp(atom1,options.tipatom)==0) || (strcmp(atom2,options.tipatom)==0)) {
-                // if (strcmp(atom1,options.tipatom)==0) {
-                    // strcpy(atom,atom2);
-                // }
-                // if (strcmp(atom2,options.tipatom)==0) {
-                    // strcpy(atom,atom1);
-                // }
-                // [> Lennard-Jones potential <]
-                // if (strcmp(style,"lj")==0) {
-                    // for (i=0; i<Natoms; ++i) {
-                        // if (strcmp(Surf_type[i],atom)==0) {
-                            // TipSurfParams[i].es12 = es12;
-                            // TipSurfParams[i].es6    = es6;
-                            // TipSurfParams[i].morse = FALSE;
-                        // }
-                    // }
-                // }
-                // [> Morse potential <]
-                // if (strcmp(style,"morse")==0) {
-                    // for (i=0; i<Natoms; ++i) {
-                        // if (strcmp(Surf_type[i],atom)==0) {
-                            // TipSurfParams[i].De = De;
-                            // TipSurfParams[i].a  = a;
-                            // TipSurfParams[i].re = re;
-                            // TipSurfParams[i].morse = TRUE;
-                        // }
-                    // }
-                // }
-            // }
-            // else {
-                // i = type2num(atom1);
-                // j = type2num(atom2);
-                // if (strcmp(style,"lj")==0) {
-                    // SurfSurfParams[i][j].es12 = es12;
-                    // SurfSurfParams[i][j].es6 = es6;
-                    // SurfSurfParams[j][i].es12 = SurfSurfParams[i][j].es12;
-                    // SurfSurfParams[j][i].es6 = SurfSurfParams[i][j].es6;
-                    // SurfSurfParams[i][j].morse = FALSE;
-                    // SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
-                // }
-                // if (strcmp(style,"morse")==0) {
-                    // SurfSurfParams[i][j].De = De;
-                    // SurfSurfParams[i][j].a  = a;
-                    // SurfSurfParams[i][j].re = re;
-                    // SurfSurfParams[j][i].De = SurfSurfParams[i][j].De;
-                    // SurfSurfParams[j][i].a  = SurfSurfParams[i][j].a;
-                    // SurfSurfParams[j][i].re = SurfSurfParams[i][j].re;
-                    // SurfSurfParams[i][j].morse = TRUE;
-                    // SurfSurfParams[j][i].morse = SurfSurfParams[i][j].morse;
-                // }
-            // }
-        // }
-    // }
-
-    /* Debug printing */
-    //for (i=0; i<Ntypes; ++i) {
-    //  for (j=0; j<Ntypes; ++j) {
-    //      fprintf(stdout,"%d %d - %8.4f %8.4f - %8.4f %8.4f %8.4f\n",i,j,SurfSurfParams[i][j].es12,SurfSurfParams[i][j].es6,SurfSurfParams[i][j].De,SurfSurfParams[i][j].a,SurfSurfParams[i][j].re);
-    //  }
-    //}
 }

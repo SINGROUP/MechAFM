@@ -35,6 +35,18 @@ void warning(Simulation& simulation, char *message, ...) {
     }
 }
 
+/* Print a message to the user if we're the root.*/
+void pretty_print(Simulation& simulation, char *message, ...) {
+    va_list arg;
+    static char ws[LINE_LENGTH];
+    va_start(arg, message);
+    vsprintf(ws, message, arg);
+    va_end(arg);
+    if (simulation.onRootProcessor()) {
+        fprintf(stdout, "+- %s\n", ws);
+    }
+}
+
 /* Print some debug information to the screen */
 void debugline(Simulation& simulation, int proc, char *message, ...) {
     va_list arg;

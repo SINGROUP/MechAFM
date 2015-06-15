@@ -4,9 +4,11 @@
     #include <mpi.h>
 #endif
 #include <chrono>
+#include <string>
 #include <vector>
 
 #include "globals.hpp"
+#include "interactions.hpp"
 #include "system.hpp"
 #include "vectors.hpp"
 
@@ -20,7 +22,7 @@ enum Units {U_KCAL, U_KJ, U_EV};
 
 
 /* Define a structure for all input options */
-typedef struct InputOptions {
+struct InputOptions {
     char xyzfile[NAME_LENGTH];
     char paramfile[NAME_LENGTH];
     char tipatom[NAME_LENGTH];
@@ -35,19 +37,19 @@ typedef struct InputOptions {
     double etol, ftol, cfac;
     int bufsize, gzip;
     bool flexible, rigidgrid;
-} InputOptions;
+    bool xyz_charges;
+};
 
 class Simulation {
  public:
     Simulation() {};
     ~Simulation() {};
-    inline bool onRootProcessor() {
-        return me_ == root_processor_;
-    }
+    inline bool onRootProcessor() {return me_ == root_processor_;}
 
     System system;
     char input_file_name_[NAME_LENGTH];        /* File name of the input file */
     InputOptions options_;                   /* Structure containing all relevant input options */
+    InteractionParameters interaction_parameters_;
     Vec3d box_;                             /* Vector containing the size of the universe */
     Vec3i n_points_;                        /* Number of points (x,y,z) for the tip */
     long int n_total_;                        /* Total number of minimization loops used */
