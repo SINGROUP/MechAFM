@@ -1,9 +1,5 @@
 #pragma once
 
-#if !SERIAL
-    #include <mpi.h>
-#endif
-
 #include "vectors.hpp"
 
 /* Some macro definitions */
@@ -24,8 +20,3 @@ typedef struct buffer {
     double angle, e, dd;
     Vec3d pos, f, d;
 } BUFFER;
-
-/* Function pointers */
-extern void (*interactTipSurface)(void);       // For the tip surface interaction
-extern void interactTipSurfaceDirectly(void);
-extern void interactTipSurfaceFromGrid(void);

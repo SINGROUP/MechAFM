@@ -1,6 +1,6 @@
 #pragma once
 
-#if !SERIAL
+#if MPI_BUILD
     #include <mpi.h>
 #endif
 #include <chrono>
@@ -61,7 +61,7 @@ class Simulation {
     double GridSpacing;                     /* The size of the cubes of the grid */
 
     /* Some parallel specific global variables */
-#if !SERIAL
+#if MPI_BUILD
         MPI_Comm universe;                  /* The entire parallel universe */
 #endif
     int n_processors_;                        /* Total number of processors */
@@ -70,7 +70,6 @@ class Simulation {
     vector<int> points_per_processor_;       /* How many x,y points on this processor */
 
     chrono::time_point<chrono::system_clock> time_start_, time_end_;
-
 
  private:
 };

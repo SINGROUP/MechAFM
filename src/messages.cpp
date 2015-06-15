@@ -1,6 +1,6 @@
 #include "messages.hpp"
 
-#if !SERIAL
+#if MPI_BUILD
     #include <mpi.h>
 #endif
 #include <stdarg.h>
@@ -17,7 +17,7 @@ void error(Simulation& simulation, char *message, ...) {
     vsprintf(ws, message, arg);
     va_end(arg);
     fprintf(stderr, "+- ERROR (on proc %d): %s\n", simulation.me_, ws);
-#if !SERIAL
+#if MPI_BUILD
     MPI_Finalize();
 #endif
     exit(1);
@@ -50,7 +50,7 @@ void debugline(Simulation& simulation, int proc, char *message, ...) {
 // void dumpToFiles(BUFFER *sendbuf, BUFFER *recvbuf, int bufsize) {
 
     // int i, f, nsr, *curbufsize, *lcbs;
-// #if !SERIAL
+// #if MPI_BUILD
     // MPI_Status mpistatus;
 // #endif
 
@@ -61,13 +61,13 @@ void debugline(Simulation& simulation, int proc, char *message, ...) {
         // lcbs[i] = 0;
     // }
     // lcbs[Me] = bufsize;
-// #if !SERIAL
+// #if MPI_BUILD
     // MPI_Allreduce(lcbs,curbufsize,NProcessors,MPI_INT,MPI_SUM,Universe);
 // #else
     // curbufsize[Me] = lcbs[Me];
 // #endif
 
-// #if !SERIAL
+// #if MPI_BUILD
     // [> Send the data to the root processor <]
     // if (Me != RootProc) {
         // MPI_Send(sendbuf,curbufsize[Me]*sizeof(BUFFER),MPI_CHAR,RootProc,0,Universe);
@@ -81,7 +81,7 @@ void debugline(Simulation& simulation, int proc, char *message, ...) {
             // if (i==0) {
                 // recvbuf = sendbuf;
             // }
-// #if !SERIAL
+// #if MPI_BUILD
             // [> For all other processors we need to receive the data <]
             // else {
                 // MPI_Recv(recvbuf,curbufsize[i]*sizeof(BUFFER),MPI_CHAR,i,0,Universe,&mpistatus);
@@ -100,7 +100,7 @@ void debugline(Simulation& simulation, int proc, char *message, ...) {
                 // fprintf(FStreams[f],"%8.4f %d\n",recvbuf[nsr].e,recvbuf[nsr].n);
             // }
         // }
-// #if !SERIAL
+// #if MPI_BUILD
     // }
 // #endif
 

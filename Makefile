@@ -1,7 +1,6 @@
 ## Parameters and files
-MEXEC = mechafm-mpi
-SEXEC = mechafm-serial
-CFILES = src/mechafm-mpi.cpp src/messages.cpp src/messages.hpp
+MEXEC = mpi
+SEXEC = serial
 
 ## Compiler
 # On local machine
@@ -17,61 +16,70 @@ BINDIR = bin/
 VPATH = $(SRCDIR) $(BUILDDIR) $(BINDIR)
 
 ## Flag settings ##
-SERIAL   = -DSERIAL
 OPTIM    = -O3 -fomit-frame-pointer
 MATHFLAG = -lm
 WARNFLAG = -Wshadow -Wno-format-zero-length -Wno-write-strings
 FULLFLAG = $(OPTIM) $(WARNFLAG) -I$(INCDIR) -std=c++11
 
 ## Parallel thingies
+MPI_BUILD = -D MPI_BUILD
 MPI_INC  = -I/usr/lib/openmpi/include/
 MPI_PATH = -L/usr/lib/openmpi/lib/
 MPI_LIB  = #-lmpich
+MPI_FLAGS = $(MPI_INC) $(MPI_PATH) $(MPI_LIB) $(MPI)
 
-## Reshuffle all files ##
-FILES = $(CFILES)
-objects = main.o messages.o utility.o parse.o vectors.o system.o simulation.o
+
+mpi_objects = main-mpi.o messages-mpi.o simulation-mpi.o 
+serial_objects = main-serial.o messages-serial.o simulation-serial.o 
+shared_objects = parse.o vectors.o system.o utility.o
 
 ############################################
 ## Actual make code below (do not change) ##
 ############################################
 
 ## Make the executable (MPI) ##
-$(MEXEC): $(objects)
-	$(MCC) $(FULLFLAG) $^ $(MATHFLAG) $(MPI_LIB) -o $@
+$(MEXEC): $(mpi_objects) $(shared_objects)
+	$(MCC) $(FULLFLAG) $^ $(MATHFLAG) $(MPI_FLAGS) -o mechafm-$@
 	mkdir -p $(BINDIR)
-	mv $@ $(BINDIR)
+	mv mechafm-$@ $(BINDIR)
 	mkdir -p $(BUILDDIR)
 	mv -u *.o $(BUILDDIR)
 
 ## Make the executable (serial) ##
-$(SEXEC): $(objects)
-	$(SCC) $(FULLFLAG) $(SERIAL) $^ $(MATHFLAG) -o $@
+$(SEXEC): $(serial_objects) $(shared_objects)
+	$(SCC) $(FULLFLAG) $^ $(MATHFLAG) -o mechafm-$@
 	mkdir -p $(BINDIR)
-	mv $@ $(BINDIR)
+	mv mechafm-$@ $(BINDIR)
 	mkdir -p $(BUILDDIR)
 	mv -u *.o $(BUILDDIR)
 
-main.o: mechafm-mpi.cpp messages.hpp globals.hpp parse.hpp simulation.hpp system.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-simulation.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
+main-mpi.o: mechafm.cpp messages.hpp globals.hpp parse.hpp simulation.hpp system.hpp
+	$(MCC) -c $(FULLFLAG) $< $(MATHFLAG) $(MPI_FLAGS) -o $@
+main-serial.o: mechafm.cpp messages.hpp globals.hpp parse.hpp simulation.hpp system.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+messages-mpi.o: messages.cpp messages.hpp globals.hpp
+	$(MCC) -c $(FULLFLAG) $(MPI_FLAGS) $< $(MATHFLAG) -o $@
+messages-serial.o: messages.cpp messages.hpp globals.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+simulation-mpi.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp
+	$(MCC) -c $(FULLFLAG) $(MPI_FLAGS) $< $(MATHFLAG) -o $@
+simulation-serial.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+
 system.o: system.cpp system.hpp globals.hpp vectors.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
-messages.o: messages.cpp messages.hpp globals.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 utility.o: utility.cpp utility.hpp globals.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 parse.o: parse.cpp parse.hpp globals.hpp messages.hpp utility.hpp vectors.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 vectors.o: vectors.cpp vectors.hpp
-	$(MCC) -c $(FULLFLAG) $(MPI_INC) $(MPI_PATH) $< $(MATHFLAG) $(MPI_LIB) -o $@
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 
 ## Make clean ##
 clean:
 	rm -f *.o
-	rm -rf $(BINDIR)$(MEXEC) $(BINDIR)$(SEXEC)
-	rm -rf $(BUILDDIR)
+	rm -f $(BINDIR)*
+	rm -f $(BUILDDIR)*
 
 ## Make all ##
 all: $(MEXEC) $(SEXEC)

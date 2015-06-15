@@ -43,11 +43,7 @@ void parseCommandLine(int argc, char *argv[], Simulation& simulation) {
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
         fprintf(stdout,"|                   Mechanical AFM Model                      |\n");
         fprintf(stdout,"|  Based on: P. Hapala et al, Phys. Rev. B, 90:085421 (2014)  |\n");
-#if SERIAL
-        fprintf(stdout,"|           This C implemenation by Peter Spijker             |\n");
-#else
-        fprintf(stdout,"|         This MPI-C implemenation by Peter Spijker           |\n");
-#endif
+        fprintf(stdout,"|            This implemenation by Peter Spijker              |\n");
         fprintf(stdout,"|          2014-2015 (c) Aalto University, Finland            |\n");
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
     }

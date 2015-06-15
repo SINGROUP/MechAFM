@@ -1,5 +1,6 @@
 #include "utility.hpp"
 
+#include <ctype.h>
 #include <string.h>
 
 #include "globals.hpp"
@@ -9,7 +10,7 @@ char *strupp(char *string) {
     char *convert;
     convert = string;
     do {
-        *convert = toupper((unsigned char)*convert);
+        *convert = toupper((unsigned char) *convert);
     } while (*convert++);
     return string;
 }
