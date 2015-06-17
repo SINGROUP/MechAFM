@@ -373,7 +373,7 @@ void readXYZFile(Simulation& simulation) {
     if (fp == NULL) {
         error(simulation, "No such file: %s!", options.xyzfile);
     }
-    system.n_atoms_ = 0;
+    int n_atoms = 0;
     firstline = TRUE;
     realxyz = FALSE;
     while (fgets(line, LINE_LENGTH, fp) != NULL) {
@@ -385,7 +385,7 @@ void readXYZFile(Simulation& simulation) {
         if (firstline) {
             sscanf(line, "%s", value);
             if (isint(value)) {
-                system.n_atoms_ = atoi(value);
+                n_atoms = atoi(value);
                 realxyz = TRUE;
                 break;
             }
@@ -394,26 +394,21 @@ void readXYZFile(Simulation& simulation) {
         /* Otherwise continue reading the lines and count how many atoms we have */
         if (!firstline) {
             /* Count useful lines */
-            system.n_atoms_++;
+            n_atoms++;
         }
     }
     rewind(fp);
 
     //if (Me == RootProc) fprintf(stdout,"\n*** natoms = %d\n\n",Natoms);
 
-    /* Initialize the global surface atoms vector and lists */
-    system.positions_.reserve(system.n_atoms_);
-    system.charges_.reserve(system.n_atoms_);
-    system.masses_.reserve(system.n_atoms_);
-    system.types_.reserve(system.n_atoms_);
-    system.fixed_.reserve(system.n_atoms_);
-    system.velocities_.reserve(system.n_atoms_);
-    system.forces_.reserve(system.n_atoms_);
-    for (int i = 0; i < system.n_atoms_; ++i) {
-        system.masses_.push_back(0);
-    }
+    /* Initialize the system and set the tip and dummy types which aren't
+     * in the parameter file. */
+    system.initialize(n_atoms);
+    system.types_[0] = options.dummyatom;
+    system.types_[1] = options.tipatom;
 
     /* Read each line and store the data */
+    int i = 2;  // Start indexing from 2 so that we don't overwrite the tip or dummy
     int n = 0, ncols = 0;
     char dump[LINE_LENGTH], *pch;
     firstline = TRUE;
@@ -452,16 +447,11 @@ void readXYZFile(Simulation& simulation) {
         } else {
             error(simulation, "Invalid number of columns in the xyz file.");
         }
-        system.types_.push_back(std::string(type));
-        system.positions_.push_back(Vec3d(x, y, z));
-        system.charges_.push_back(q);
-        system.fixed_.push_back(fixed);
-    }
-
-    for (int i = 0; i < system.n_atoms_; ++i) {
-        if (system.fixed_[i] > 0) {
-            system.n_fixed_++;
-        }
+        system.types_[i] = std::string(type);
+        system.positions_[i] = Vec3d(x, y, z);
+        system.charges_[i] = q;
+        system.fixed_[i] = fixed;
+        i++;
     }
 
     //if ( Me == RootProc ) {
@@ -486,30 +476,31 @@ void setSystemZ(Simulation& simulation) {
     if (strcmp(options.planeatom, "") != 0) {
         avgz = 0.0;
         nplaneatoms = 0;
-        for (int i = 0; i < system.n_atoms_; ++i) {
-            if (strcmp(system.types_[i].c_str(), options.planeatom)==0) {
+        for (int i = 2; i < system.n_atoms_; ++i) {
+            if (strcmp(system.types_[i].c_str(), options.planeatom) == 0) {
                 nplaneatoms++;
                 avgz += system.positions_[i].z;
             }
         }
         avgz /= nplaneatoms;
-        for (int i = 0; i < system.n_atoms_; ++i) {
+        for (int i = 2; i < system.n_atoms_; ++i) {
             system.positions_[i].z -= avgz;
         }
     }
     else if (options.zplane > NEGVAL) {
         avgz = 0.0;
-        for (int i = 0; i < system.n_atoms_; ++i) {
+        for (int i = 2; i < system.n_atoms_; ++i) {
             avgz += system.positions_[i].z;
         }
-        avgz /= system.n_atoms_;
-        for (int i = 0; i < system.n_atoms_; ++i) {
+        avgz /= (system.n_atoms_ - 2);  // Dummy and tip aren't included
+        for (int i = 2; i < system.n_atoms_; ++i) {
             system.positions_[i].z -= avgz;
             system.positions_[i].z += options.zplane;
         }
     }
 }
 
+// TODO: Improve this
 void centerSystem(Simulation& simulation){
     InputOptions& options = simulation.options_;
     System& system = simulation.system;
@@ -518,7 +509,7 @@ void centerSystem(Simulation& simulation){
         double avgx = 0.0;
         double avgy = 0.0;
         int nplaneatoms = 0;
-        for (int i = 0; i < system.n_atoms_; ++i) {
+        for (int i = 2; i < system.n_atoms_; ++i) {
             if (strcmp(system.types_[i].c_str(), options.planeatom) == 0) {
                 nplaneatoms++;
                 avgx += system.positions_[i].x;
@@ -529,7 +520,7 @@ void centerSystem(Simulation& simulation){
         avgy /= nplaneatoms;
         double dx = (simulation.box_.x / 2) - avgx;
         double dy = (simulation.box_.y / 2) - avgy;
-        for (int i = 0; i < system.n_atoms_; ++i) {
+        for (int i = 2; i < system.n_atoms_; ++i) {
             system.positions_[i].x += dx;
             system.positions_[i].y += dy;
         }
@@ -541,7 +532,6 @@ void readParameterFile(Simulation& simulation) {
 
     InputOptions& options = simulation.options_;
     InteractionParameters& parameters = simulation.interaction_parameters_;
-    System& system = simulation.system;
 
     FILE *fp;
     char atom[ATOM_LENGTH], keyword[NAME_LENGTH], dump[NAME_LENGTH], line[LINE_LENGTH];
@@ -589,6 +579,13 @@ void readParameterFile(Simulation& simulation) {
             p.sig = sig;
             p.q = qdump;
             p.mass = mass;
+            // Add tip and dummy charges since they won't be read from the xyz file.
+            if (strcmp(options.dummyatom, atom) == 0) {
+                simulation.system.charges_[0] = qdump;
+            }
+            if (strcmp(options.tipatom, atom) == 0) {
+                simulation.system.charges_[1] = qdump;
+            }
         }
         if (strcmp(keyword, "harm") == 0) {
             if (hcheck) {
@@ -614,7 +611,7 @@ void readParameterFile(Simulation& simulation) {
             // Lennard-Jones potential
             if (strcmp(style, "lj") == 0) {
                 // Check if number of columns is correct for LJ
-                if (ncols > (4+2)) {
+                if (ncols != (4 + 2)) {
                     error(simulation, "Only two parameters (eps, sig) allowed for LJ");
                 }
                 // Read overwrite parameters
@@ -627,9 +624,9 @@ void readParameterFile(Simulation& simulation) {
                 parameters.overwrite_parameters.push_back(p);
             }
             // Morse potential
-            else if (strcmp(style,"morse")==0) {
+            else if (strcmp(style, "morse") == 0) {
                 // Check if number of columns is correct for Morse
-                if (ncols>(4+3)) {
+                if (ncols != (4 + 3)) {
                     error(simulation, "Only three parameters (De, a, re) allowed for Morse");
                 }
                 // Read overwrite parameters
@@ -675,7 +672,6 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
 
     InputOptions& options = simulation.options_;
     InteractionParameters& parameters = simulation.interaction_parameters_;
-    System& system = simulation.system;
 
     char line[LINE_LENGTH];
     char keyword[NAME_LENGTH], dump[NAME_LENGTH];

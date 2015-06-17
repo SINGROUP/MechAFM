@@ -16,10 +16,11 @@ BINDIR = bin/
 VPATH = $(SRCDIR) $(BUILDDIR) $(BINDIR)
 
 ## Flag settings ##
+DEBUG    = -g
 OPTIM    = -O3 -fomit-frame-pointer
 MATHFLAG = -lm
 WARNFLAG = -Wshadow -Wno-format-zero-length -Wno-write-strings
-FULLFLAG = $(OPTIM) $(WARNFLAG) -I$(INCDIR) -std=c++11
+FULLFLAG = $(DEBUG) $(OPTIM) $(WARNFLAG) -I$(INCDIR) -std=c++11
 
 ## Parallel thingies
 MPI_BUILD = -D MPI_BUILD
@@ -31,7 +32,7 @@ MPI_FLAGS = $(MPI_INC) $(MPI_PATH) $(MPI_LIB) $(MPI_BUILD)
 
 mpi_objects = main-mpi.o messages-mpi.o simulation-mpi.o 
 serial_objects = main-serial.o messages-serial.o simulation-serial.o 
-shared_objects = parse.o vectors.o system.o utility.o
+shared_objects = parse.o system.o utility.o interactions.o
 
 ############################################
 ## Actual make code below (do not change) ##
@@ -66,13 +67,13 @@ simulation-mpi.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.h
 simulation-serial.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 
-system.o: system.cpp system.hpp globals.hpp vectors.hpp
+system.o: system.cpp system.hpp globals.hpp vectors.hpp interactions.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 utility.o: utility.cpp utility.hpp globals.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 parse.o: parse.cpp parse.hpp globals.hpp messages.hpp utility.hpp vectors.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
-vectors.o: vectors.cpp vectors.hpp
+interactions.o: interactions.cpp interactions.hpp vectors.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 
 ## Make clean ##

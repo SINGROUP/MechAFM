@@ -49,22 +49,24 @@ class System {
  public:
      System() {};
      ~System() {};
+    void initialize(int n_atoms);
+    Vec3d calculateTipSurfaceForce();   // TODO
+
     int n_atoms_;                             /* Number of surface atoms */
-    int Nbonds;                             /* Number of bonds in flexible molecule */
+    int Nbonds;                              /* Number of bonds in flexible molecule */
     int Nangles;                            /* Number of angles in flexible molecule */
     int n_types_;                             /* Number of surface atom types (flexible molecule) */
-    int n_fixed_;                             /* Number of fixed atoms (flexible molecule) */
-    Vec3d Tip_pos;                         /* Position of the tip atom */
-    Vec3d Tip_vel;                         /* Velocities of the tip atom */
-    double Tip_mass;                        /* Mass of the tip atom */
-    Vec3d Dummy_pos;                       /* Position of the dummy atom */
+
+    // Vectors holding the system state
+    // index 0 = dummy and index 1 = tip
     vector<Vec3d> positions_;
     vector<Vec3d> velocities_;
     vector<Vec3d> forces_;
     vector<double> charges_;
     vector<double> masses_;
-    vector<bool> fixed_;
+    vector<int> fixed_;
     vector<string> types_;
+
     Vec3d TipSurf_force;                   /* Force on tip atom caused by the surface */
     Vec3d TipDummy_force;                  /* Force on tip atom caused by the dummy atom */
     Vec3d TipHarmonic_force;               /* Force on tip atom caused by the harmonic constraint */

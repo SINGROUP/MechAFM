@@ -55,6 +55,7 @@ void openUniverse(Simulation& simulation) {
     char outfile[NAME_LENGTH];
 
     /* How many points to compute the tip relaxation on */
+    simulation.n_total_ = 0;
     simulation.n_points_.x = (int)(simulation.box_.x / options.dx);
     simulation.n_points_.y = (int)(simulation.box_.y / options.dy);
     simulation.n_points_.z = (int)((options.zhigh - options.zlow) / options.dz);
@@ -239,10 +240,7 @@ int main(int argc, char *argv[]) {
     readXYZFile(simulation);
     readParameterFile(simulation);
 
-    /* If the molecule is flexible, build the topology */
-    // if (Options.flexible) {
-        // buildTopology();
-    // }
+    simulation.buildInteractions();
 
     /* The simulation itself */
     openUniverse(simulation);

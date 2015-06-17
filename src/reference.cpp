@@ -7,11 +7,11 @@
                     sig_cross = (sig_cross*sig_cross*sig_cross);    // [> To power 3 <]
                     sig_cross *= sig_cross;                                             // [> To power 6 <]
                     TipSurfParams[i].es12 = 4 * eps_cross * sig_cross * sig_cross;
-                    TipSurfParams[i].es6    = 4 * eps_cross * sig_cross;
+                    TipSurfParams[i].es6 = 4 * eps_cross * sig_cross;
                     if (fabs(chargecheck)<TOLERANCE) {
                         Surf_q[i] = qdump;
                     }
-                    TipSurfParams[i].qq     = qbase * q_tip * Surf_q[i];
+                    TipSurfParams[i].qq = qbase * q_tip * Surf_q[i];
                     TipSurfParams[i].morse = FALSE;
                     Surf_mass[i] = mass;
                     // While we read these parameters and assign the tip-molecule interactions,

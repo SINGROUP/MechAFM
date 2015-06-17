@@ -4,6 +4,7 @@
     #include <mpi.h>
 #endif
 #include <chrono>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -19,7 +20,6 @@ enum MinimizationCriteria {MIN_E, MIN_F, MIN_EF, NOT_SET};
 
 /* A simple list to distinguish the chosen unit system */
 enum Units {U_KCAL, U_KJ, U_EV};
-
 
 /* Define a structure for all input options */
 struct InputOptions {
@@ -45,20 +45,22 @@ class Simulation {
     Simulation() {};
     ~Simulation() {};
     inline bool onRootProcessor() {return me_ == root_processor_;}
+    void buildInteractions();
 
     System system;
-    char input_file_name_[NAME_LENGTH];        /* File name of the input file */
-    InputOptions options_;                   /* Structure containing all relevant input options */
+    char input_file_name_[NAME_LENGTH];     /* File name of the input file */
+    InputOptions options_;                  /* Structure containing all relevant input options */
     InteractionParameters interaction_parameters_;
     Vec3d box_;                             /* Vector containing the size of the universe */
     Vec3i n_points_;                        /* Number of points (x,y,z) for the tip */
-    long int n_total_;                        /* Total number of minimization loops used */
+    long int n_total_;                      /* Total number of minimization loops used */
     char **SurfType2Num;                    /* Dictionary hash to go from atom types to numbers in the 2D array (flexible molecule) */
-    vector<FILE*> fstreams_;                        /* Array with the entire file stream */
+    vector<FILE*> fstreams_;                /* Array with the entire file stream */
+    vector<unique_ptr<Interaction>> interactions_;
 
     /* Some grid computing thingies */
     double *ForceGridRigid;                 /* 3D force grid for use with rigid tips (interpolation) */
-    Vec3i Ngrid;                          /* Size of 3D force grid */
+    Vec3i Ngrid;                            /* Size of 3D force grid */
     int Ngridpoints;                        /* Total number of gridpoints */
     double GridSpacing;                     /* The size of the cubes of the grid */
 
@@ -66,12 +68,21 @@ class Simulation {
 #if MPI_BUILD
         MPI_Comm universe;                  /* The entire parallel universe */
 #endif
-    int n_processors_;                        /* Total number of processors */
-    int me_;                                 /* The current processor */
-    int root_processor_;                           /* The main processor */
-    vector<int> points_per_processor_;       /* How many x,y points on this processor */
+    int n_processors_;                      /* Total number of processors */
+    int me_;                                /* The current processor */
+    int root_processor_;                    /* The main processor */
+    vector<int> points_per_processor_;      /* How many x,y points on this processor */
 
     chrono::time_point<chrono::system_clock> time_start_, time_end_;
 
  private:
+    void addLJInteraction(int atom_i1, int atom_i2);
+    void addCoulombInteraction(int atom_i1, int atom_i2);
+    bool findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters op);
+    void buildTipSurfaceInteractions();
+    void buildTipGridInteractions();
+    void buildTipDummyInteractions();
+    void buildSurfaceSurfaceInteractions();
+    void buildSubstrateInteractions();
+    void buildBondInteractions();
 };

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 template<typename T>
 class Vector3 {
  public:
@@ -8,6 +10,32 @@ class Vector3 {
     Vector3(T xv, T yv, T zv):
         x(xv), y(yv), z(zv) {};
     ~Vector3() {};
+
+    T lensqr() const {
+        return (pow(x, 2) + pow(y, 2) + pow(z, 2));
+    }
+
+    double len() const {
+        return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+    }
+
+    Vector3 normalized() const {
+        double l = len();
+        return Vector3(x / l, y / l, z / l);
+    }
+
+    T dot(const Vector3& other) const {
+        return (x * other.x + y * other.y +  z * other.z);
+    }
+
+    Vector3 operator-(const Vector3& other) const {
+        return Vector3(x - other.x, y - other.y, z - other.z);
+    }
+
+    Vector3 operator+(const Vector3& other) const {
+        return Vector3(x + other.x, y + other.y, z + other.z);
+    }
+
     T x, y, z;
 };
 
@@ -22,6 +50,23 @@ class Vector2 {
     Vector2(T& xv, T& yv):
         x(xv), y(yv) {};
     ~Vector2() {};
+
+    Vector2 operator-(const Vector2& other) const {
+        return Vector2(x - other.x, y - other.y);
+    }
+
+    Vector2 operator+(const Vector2& other) const {
+        return Vector2(x + other.x, y + other.y);
+    }
+
+    double lensqr() const {
+        return (pow(x, 2) + pow(y, 2));
+    }
+
+    double len() const {
+        return sqrt(pow(x, 2) + pow(y, 2));
+    }
+
     T x, y;
 };
 
