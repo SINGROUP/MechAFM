@@ -244,7 +244,7 @@ int main(int argc, char *argv[]) {
 
     /* The simulation itself */
     openUniverse(simulation);
-    //moveTip();
+    simulation.run();
     closeUniverse(simulation);
 
     /* Some final thoughts */

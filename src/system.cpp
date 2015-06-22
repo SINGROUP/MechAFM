@@ -23,3 +23,9 @@ void System::initialize(int n_atoms) {
         types_.push_back("");
     }
 }
+
+void System::setDummyXY(double x, double y) {
+}
+
+void System::setDummyZ(double z) {
+}

@@ -32,7 +32,7 @@ MPI_FLAGS = $(MPI_INC) $(MPI_PATH) $(MPI_LIB) $(MPI_BUILD)
 
 mpi_objects = main-mpi.o messages-mpi.o simulation-mpi.o 
 serial_objects = main-serial.o messages-serial.o simulation-serial.o 
-shared_objects = parse.o system.o utility.o interactions.o
+shared_objects = parse.o system.o utility.o interactions.o minimiser.o integrators.o
 
 ############################################
 ## Actual make code below (do not change) ##
@@ -62,9 +62,9 @@ messages-mpi.o: messages.cpp messages.hpp globals.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_FLAGS) $< $(MATHFLAG) -o $@
 messages-serial.o: messages.cpp messages.hpp globals.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
-simulation-mpi.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp
+simulation-mpi.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp minimiser.hpp integrators.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_FLAGS) $< $(MATHFLAG) -o $@
-simulation-serial.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp
+simulation-serial.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp minimiser.hpp integrators.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 
 system.o: system.cpp system.hpp globals.hpp vectors.hpp interactions.hpp
@@ -74,6 +74,10 @@ utility.o: utility.cpp utility.hpp globals.hpp
 parse.o: parse.cpp parse.hpp globals.hpp messages.hpp utility.hpp vectors.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 interactions.o: interactions.cpp interactions.hpp vectors.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+minimiser.o: minimiser.cpp minimiser.hpp integrators.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+integrators.o: integrators.cpp integrators.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 
 ## Make clean ##

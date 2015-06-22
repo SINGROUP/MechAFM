@@ -50,11 +50,11 @@ class System {
      System() {};
      ~System() {};
     void initialize(int n_atoms);
-    Vec3d calculateTipSurfaceForce();   // TODO
+    inline void setTipDummyDistance(double d) {tip_dummy_d_ = d;}
+    void setDummyXY(double x, double y);
+    void setDummyZ(double z);
 
     int n_atoms_;                             /* Number of surface atoms */
-    int Nbonds;                              /* Number of bonds in flexible molecule */
-    int Nangles;                            /* Number of angles in flexible molecule */
     int n_types_;                             /* Number of surface atom types (flexible molecule) */
 
     // Vectors holding the system state
@@ -90,4 +90,5 @@ class System {
     // InteractionList Substrate;              [> Substrate support parameters (flexible molecule) <]
 
  private:
+    double tip_dummy_d_;
 };

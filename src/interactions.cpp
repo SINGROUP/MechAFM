@@ -1,22 +1,22 @@
 #include "interactions.hpp"
 
-Vec3d LJInteraction::eval(const System& system) {
+void LJInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const {
 }
 
-Vec3d MorseInteraction::eval(const System& system) {
+void MorseInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const {
 }
 
-Vec3d CoulombInteraction::eval(const System& system) {
+void CoulombInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const {
 }
 
-Vec3d Harmonic2DInteraction::eval(const System& system) {
+void Harmonic2DInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const {
 }
 
-Vec3d SubstrateInteraction::eval(const System& system) {
+void SubstrateInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const {
 }
 
-Vec3d HarmonicInteraction::eval(const System& system) {
+void HarmonicInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const {
 }
 
-Vec3d HarmonicAngleInteraction::eval(const System& system) {
+void HarmonicAngleInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const {
 }

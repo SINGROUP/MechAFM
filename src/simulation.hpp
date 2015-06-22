@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "globals.hpp"
+#include "integrators.hpp"
 #include "interactions.hpp"
+#include "minimiser.hpp"
 #include "system.hpp"
 #include "vectors.hpp"
 
@@ -38,6 +40,8 @@ struct InputOptions {
     int bufsize, gzip;
     bool flexible, rigidgrid;
     bool xyz_charges;
+    MinimiserType minimiser_type;
+    IntegratorType integrator_type;
 };
 
 class Simulation {
@@ -45,16 +49,17 @@ class Simulation {
     Simulation() {};
     ~Simulation() {};
     inline bool onRootProcessor() {return me_ == root_processor_;}
+    void run();
     void buildInteractions();
 
     System system;
+    unique_ptr<Minimiser> minimiser;
     char input_file_name_[NAME_LENGTH];     /* File name of the input file */
     InputOptions options_;                  /* Structure containing all relevant input options */
     InteractionParameters interaction_parameters_;
     Vec3d box_;                             /* Vector containing the size of the universe */
     Vec3i n_points_;                        /* Number of points (x,y,z) for the tip */
     long int n_total_;                      /* Total number of minimization loops used */
-    char **SurfType2Num;                    /* Dictionary hash to go from atom types to numbers in the 2D array (flexible molecule) */
     vector<FILE*> fstreams_;                /* Array with the entire file stream */
     vector<unique_ptr<Interaction>> interactions_;
 

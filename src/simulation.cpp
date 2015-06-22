@@ -13,6 +13,36 @@
 
 using namespace std;
 
+void Simulation::run() {
+    double x, y, z;
+
+    switch (options_.minimiser_type) {
+        case STEEPEST_DESCENT:
+            minimiser = unique_ptr<Minimiser>(new SDMinimiser());
+            break;
+        case FIRE:
+            minimiser = unique_ptr<Minimiser>(new FIREMinimiser());
+            break;
+        default:
+            error(*this, "Invalid minimiser type.");
+    }
+    minimiser->initialize(*this);
+
+    for (int i = 0; i < n_points_.x; ++i) {
+        x = i * options_.dx;
+        for (int j = 0; j < n_points_.y; ++j) {
+            y = j * options_.dy;
+            System min_system = system;  // Take a copy for each z approach
+            min_system.setDummyXY(x, y);
+            for (int k = 0; k < n_points_.z; ++k) {
+                z = k * options_.dz;
+                min_system.setDummyZ(z);
+                minimiser->minimise(min_system);
+            }
+        }
+    }
+}
+
 void Simulation::buildInteractions() {
     buildTipDummyInteractions();
     if (options_.rigidgrid) {
@@ -113,13 +143,17 @@ void Simulation::buildTipDummyInteractions() {
     // LJ / Morse
     addLJInteraction(0, 1);
 
-    // Coulomb
-    addCoulombInteraction(0, 1);
-
     // Harmonic
     double k = interaction_parameters_.tip_dummy_k;
     double r0 = interaction_parameters_.tip_dummy_r0;
     interactions_.emplace_back(new Harmonic2DInteraction(0, 1, k, r0));
+
+    // Calculate the tip and dummy initial distance
+    unordered_map<string, AtomParameters> ap = interaction_parameters_.atom_parameters;
+    auto dummy = ap.find(system.types_[0])->second;
+    auto tip = ap.find(system.types_[1])->second;
+    double d = mixsig(dummy.sig, tip.sig) * SIXTHRT2;
+    system.setTipDummyDistance(d);
 }
 
 void Simulation::buildSurfaceSurfaceInteractions() {
@@ -192,9 +226,6 @@ void Simulation::buildBondInteractions() {
                 double theta0 = acos(cos_t);
                 interactions_.emplace_back(new HarmonicAngleInteraction(
                                     shared_atom, atom1, atom2, angle_k, theta0));
-                if (onRootProcessor()) {
-                    printf("cos: %f\n", cos_t);
-                }
             }
         }
     }
