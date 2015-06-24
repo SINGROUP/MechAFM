@@ -3,11 +3,75 @@
 #include <cmath>
 
 template<typename T>
+class Vector2 {
+ public:
+    Vector2(): x(0), y(0) {};
+    Vector2(const T& val): x(val), y(val) {};
+    Vector2(const T& xv, const T& yv):
+        x(xv), y(yv) {};
+    ~Vector2() {};
+
+    double lensqr() const {
+        return (pow(x, 2) + pow(y, 2));
+    }
+
+    double len() const {
+        return sqrt(pow(x, 2) + pow(y, 2));
+    }
+
+    Vector2 operator-(const Vector2& other) const {
+        return Vector2(x - other.x, y - other.y);
+    }
+
+    Vector2& operator-=(const Vector2& other) {
+        x -= other.x;
+        y -= other.y;
+        return *this;
+    }
+
+    Vector2 operator+(const Vector2& other) const {
+        return Vector2(x + other.x, y + other.y);
+    }
+
+    Vector2& operator+=(const Vector2& other) {
+        x += other.x;
+        y += other.y;
+        return *this;
+    }
+
+    template<typename T2>
+    Vector2 operator*(const T2& a) const {
+        return Vector2(a*x, a*y);
+    }
+
+    template<typename T2>
+    Vector2& operator*=(const T2& a) {
+        x *= a;
+        y *= a;
+        return *this;
+    }
+
+    template<typename T2>
+    Vector2 operator/(const T2& a) const {
+        return Vector2(a/x, a/y);
+    }
+
+    template<typename T2>
+    Vector2& operator/=(const T2& a) {
+        x /= a;
+        y /= a;
+        return *this;
+    }
+
+    T x, y;
+};
+
+template<typename T>
 class Vector3 {
  public:
     Vector3(): x(0), y(0), z(0) {};
-    Vector3(T val): x(val), y(val), z(val) {};
-    Vector3(T xv, T yv, T zv):
+    Vector3(const T& val): x(val), y(val), z(val) {};
+    Vector3(const T& xv, const T& yv, const T& zv):
         x(xv), y(yv), z(zv) {};
     ~Vector3() {};
 
@@ -28,50 +92,86 @@ class Vector3 {
         return (x * other.x + y * other.y +  z * other.z);
     }
 
+    Vector2<T> getXY() const {
+        return Vector2<T>(x, y);
+    }
+
     Vector3 operator-(const Vector3& other) const {
         return Vector3(x - other.x, y - other.y, z - other.z);
+    }
+
+    Vector3& operator-=(const Vector3& other) {
+        x -= other.x;
+        y -= other.y;
+        z -= other.z;
+        return *this;
+    }
+
+    template<typename T2>
+    Vector3& operator-=(const Vector2<T2>& other) {
+        x -= other.x;
+        y -= other.y;
+        return *this;
     }
 
     Vector3 operator+(const Vector3& other) const {
         return Vector3(x + other.x, y + other.y, z + other.z);
     }
 
+    Vector3& operator+=(const Vector3& other) {
+        x += other.x;
+        y += other.y;
+        z += other.z;
+        return *this;
+    }
+
+    template<typename T2>
+    Vector3& operator+=(const Vector2<T2>& other) {
+        x -= other.x;
+        y -= other.y;
+        return *this;
+    }
+
+    template<typename T2>
+    Vector3 operator*(const T2& a) const {
+        return Vector3(a*x, a*y, a*z);
+    }
+
+    template<typename T2>
+    Vector3& operator*=(const T2& a) {
+        x *= a;
+        y *= a;
+        z *= a;
+        return *this;
+    }
+
+    template<typename T2>
+    Vector3 operator/(const T2& a) const {
+        return Vector3(a/x, a/y, a/z);
+    }
+
+    template<typename T2>
+    Vector3& operator/=(const T2& a) {
+        x /= a;
+        y /= a;
+        z /= a;
+        return *this;
+    }
+
     T x, y, z;
 };
 
+typedef Vector2<double> Vec2d ;
+typedef Vector2<int> Vec2i;
 typedef Vector3<double> Vec3d ;
 typedef Vector3<int> Vec3i;
 
-template<typename T>
-class Vector2 {
- public:
-    Vector2(): x(0), y(0) {};
-    Vector2(T& val): x(val), y(val) {};
-    Vector2(T& xv, T& yv):
-        x(xv), y(yv) {};
-    ~Vector2() {};
+template<typename T1, typename T2>
+Vector3<T2> operator*(const T1& a, const Vector3<T2> vec){
+    return Vector3<T2>(a * vec.x, a * vec.y, a * vec.z);
+}
 
-    Vector2 operator-(const Vector2& other) const {
-        return Vector2(x - other.x, y - other.y);
-    }
-
-    Vector2 operator+(const Vector2& other) const {
-        return Vector2(x + other.x, y + other.y);
-    }
-
-    double lensqr() const {
-        return (pow(x, 2) + pow(y, 2));
-    }
-
-    double len() const {
-        return sqrt(pow(x, 2) + pow(y, 2));
-    }
-
-    T x, y;
-};
-
-class Vec2d: public Vector2<double> {
-};
-
-class Vec2i: public Vector2<int> {
-};
+template<typename T1, typename T2>
+Vector2<T2> operator*(const T1& a, const Vector2<T2> vec){
+    return Vector2<T2>(a * vec.x, a * vec.y);
+}
