@@ -27,17 +27,6 @@ int checkForComments(char *line) {
     return moveon;
 }
 
-/* Retrieve the index of the specific atom type */
-// int type2num(char *atom) {
-    // int i;
-    // for (i = 0; i < Natoms; ++i) {
-        // if (strcmp(SurfType2Num[i],atom)==0) {
-            // break;
-        // }
-    // }
-    // return i;
-// }
-
 /* Read stuff from the command line */
 void parseCommandLine(int argc, char *argv[], Simulation& simulation) {
     if (simulation.onRootProcessor()) {
@@ -82,7 +71,7 @@ void readInputFile(Simulation& simulation) {
     sprintf(options.planeatom, "");
     options.units = U_KCAL;
     sprintf(tmp_units, "%s" ,"kcal/mol");
-    options.coulomb = FALSE;
+    options.coulomb = false;
     options.dx = 0.1;
     options.dy = 0.1;
     options.dz = 0.1;
@@ -94,9 +83,11 @@ void readInputFile(Simulation& simulation) {
     options.cfac = 0.001;
     options.maxsteps = 5000;
     options.bufsize = 1000;
-    options.gzip = TRUE;
-    options.flexible = FALSE;
-    options.rigidgrid = FALSE;
+    options.gzip = true;
+    options.flexible = false;
+    options.rigidgrid = false;
+    options.minimiser_type = STEEPEST_DESCENT;
+    options.integrator_type = EULER;
 
     /* Check if the file exists */
     fp = fopen(simulation.input_file_name_, "r");
@@ -309,14 +300,6 @@ void readInputFile(Simulation& simulation) {
         error(simulation, "Cannot use a flexible molecule with a static force grid!");
     }
 
-    // [> Set function pointers <]
-    // if (options.rigidgrid) {
-        // interactTipSurface = interactTipSurfaceFromGrid;
-    // }
-    // else {
-        // interactTipSurface = interactTipSurfaceDirectly;
-    // }
-
     /* Talk to me */
     pretty_print(simulation, "");
     pretty_print(simulation, "Input settings for %s:", simulation.input_file_name_);
@@ -350,6 +333,23 @@ void readInputFile(Simulation& simulation) {
     pretty_print(simulation, "");
     pretty_print(simulation, "flexible:          %-s", tmp_flexible);
     pretty_print(simulation, "rigidgrid:         %-s", tmp_rigidgrid);
+    pretty_print(simulation, "");
+    switch (options.minimiser_type) {
+        case STEEPEST_DESCENT:
+            pretty_print(simulation, "minimiser:         %-s", "Steepest Descent");
+            break;
+        case FIRE:
+            pretty_print(simulation, "minimiser:         %-s", "FIRE");
+            break;
+    }
+    switch (options.integrator_type) {
+        case EULER:
+            pretty_print(simulation, "integrator:        %-s", "Euler");
+            break;
+        case RK4:
+            pretty_print(simulation, "integrator:        %-s", "RK4");
+            break;
+    }
     pretty_print(simulation, "");
     pretty_print(simulation, "bufsize:           %-8d", options.bufsize);
     pretty_print(simulation, "gzip:              %-s", tmp_gzip);
