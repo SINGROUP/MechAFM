@@ -83,11 +83,11 @@ void Simulation::addLJInteraction(int atom_i1, int atom_i2) {
         auto atom1_it = ap.find(system.types_[atom_i1]);
         auto atom2_it = ap.find(system.types_[atom_i2]);
         if (atom1_it == ap.end()) {
-            error(*this, "Parameters for atom type %s not found in parameter file!",
+            error("Parameters for atom type %s not found in parameter file!",
                             system.types_[atom_i1].c_str());
         }
         if (atom2_it == ap.end()) {
-            error(*this, "Parameters for atom type %s not found in parameter file!",
+            error("Parameters for atom type %s not found in parameter file!",
                             system.types_[atom_i2].c_str());
         }
         double m_eps = mixeps(atom1_it->second.eps, atom2_it->second.eps);
@@ -109,11 +109,11 @@ void Simulation::addCoulombInteraction(int atom_i1, int atom_i2) {
         auto atom1_it = ap.find(system.types_[atom_i1]);
         auto atom2_it = ap.find(system.types_[atom_i2]);
         if (atom1_it == ap.end()) {
-            error(*this, "Parameters for atom type %s not found in parameter file!",
+            error("Parameters for atom type %s not found in parameter file!",
                             system.types_[atom_i1].c_str());
         }
         if (atom2_it == ap.end()) {
-            error(*this, "Parameters for atom type %s not found in parameter file!",
+            error("Parameters for atom type %s not found in parameter file!",
                             system.types_[atom_i2].c_str());
         }
         q1 = atom1_it->second.q;
@@ -135,7 +135,7 @@ void Simulation::buildTipSurfaceInteractions() {
 }
 
 void Simulation::buildTipGridInteractions() {
-    warning(*this, "Rigid grid not yet implemented! Using regular tip-surface interactions.");
+    warning("Rigid grid not yet implemented! Using regular tip-surface interactions.");
     buildTipSurfaceInteractions();
 }
 

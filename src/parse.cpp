@@ -38,7 +38,7 @@ void parseCommandLine(int argc, char *argv[], Simulation& simulation) {
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
     }
     if ((argc < 2) || (argc > 2)) {
-        error(simulation, "Specify an input file to be read!");
+        error("Specify an input file to be read!");
     }
     else {
         sprintf(simulation.input_file_name_, "%s", argv[1]);
@@ -92,7 +92,7 @@ void readInputFile(Simulation& simulation) {
     /* Check if the file exists */
     fp = fopen(simulation.input_file_name_, "r");
     if (fp==NULL) {
-        error(simulation, "The file %s does not exist!", simulation.input_file_name_);
+        error("The file %s does not exist!", simulation.input_file_name_);
     }
 
     /* Scan the file line by line */
@@ -160,7 +160,7 @@ void readInputFile(Simulation& simulation) {
                 options.gzip = FALSE;
             }
             else {
-                error(simulation, "Option %s must be either on or off!", keyword);
+                error("Option %s must be either on or off!", keyword);
             }
         }
         else if (strcmp(keyword, "flexible") == 0) {
@@ -171,7 +171,7 @@ void readInputFile(Simulation& simulation) {
                 options.flexible = false;
             }
             else {
-                error(simulation, "Option %s must be either on or off!", keyword);
+                error("Option %s must be either on or off!", keyword);
             }
         }
         else if (strcmp(keyword, "rigidgrid") == 0) {
@@ -182,7 +182,7 @@ void readInputFile(Simulation& simulation) {
                 options.rigidgrid = false;
             }
             else {
-                error(simulation, "Option %s must be either on or off!", keyword);
+                error("Option %s must be either on or off!", keyword);
             }
         }
         else if (strcmp(keyword, "coulomb") == 0) {
@@ -193,7 +193,7 @@ void readInputFile(Simulation& simulation) {
                 options.coulomb = false;
             }
             else {
-                error(simulation, "Option %s must be either on or off!", keyword);
+                error("Option %s must be either on or off!", keyword);
             }
         }
         else if (strcmp(keyword, "minterm") == 0) {
@@ -207,7 +207,7 @@ void readInputFile(Simulation& simulation) {
                 options.minterm = MIN_EF;
             }
             else {
-                error(simulation, "Option %s must be either e, f or ef!", keyword);
+                error("Option %s must be either e, f or ef!", keyword);
             }
             sprintf(tmp_minterm, "%s", value);
         }
@@ -234,36 +234,36 @@ void readInputFile(Simulation& simulation) {
                 simulation.interaction_parameters_.qbase = 14.39964901 / epermv;
             }
             else {
-                error(simulation, "Option %s must be either kcal/mol (default), kJ/mol or eV!", keyword);
+                error("Option %s must be either kcal/mol (default), kJ/mol or eV!", keyword);
             }
             sprintf(tmp_units, "%s", value);
         }
         else {
-            error(simulation, "Unknown option %s!", keyword);
+            error("Unknown option %s!", keyword);
         }
     }
 
     /* Check if all necessary options are initialized */
     if (strcmp(options.xyzfile, "") == 0) {
-        error(simulation, "Specify at least an xyzfile!");
+        error("Specify at least an xyzfile!");
     }
     if (strcmp(options.paramfile, "") == 0) {
-        error(simulation, "Specify at least a parameter file!");
+        error("Specify at least a parameter file!");
     }
     if (strcmp(options.tipatom, "") == 0) {
-        error(simulation, "Specify at least a tip atom!");
+        error("Specify at least a tip atom!");
     }
     if (strcmp(options.dummyatom, "") == 0) {
-        error(simulation, "Specify at least a dummy atom!");
+        error("Specify at least a dummy atom!");
     }
     if (options.minterm == NOT_SET) {
-        error(simulation, "Specify at least a minimization termination criterion (e, f, or ef)!");
+        error("Specify at least a minimization termination criterion (e, f, or ef)!");
     }
     if ((strcmp(options.planeatom, "") == 0) && (options.zplane <= NEGVAL)) {
-        error(simulation, "Specify at least a plane or a plane atom!");
+        error("Specify at least a plane or a plane atom!");
     }
     else if ((strcmp(options.planeatom, "") != 0) && (options.zplane > NEGVAL)) {
-        error(simulation, "Specify only a plane or a plane atom!");
+        error("Specify only a plane or a plane atom!");
     }
 
     /* Close file */
@@ -297,63 +297,63 @@ void readInputFile(Simulation& simulation) {
 
     /* Do some sanity checking */
     if ((options.rigidgrid) && (options.flexible)) {
-        error(simulation, "Cannot use a flexible molecule with a static force grid!");
+        error("Cannot use a flexible molecule with a static force grid!");
     }
 
     /* Talk to me */
-    pretty_print(simulation, "");
-    pretty_print(simulation, "Input settings for %s:", simulation.input_file_name_);
-    pretty_print(simulation, "");
-    pretty_print(simulation, "xyzfile:           %-s", options.xyzfile);
-    pretty_print(simulation, "paramfile:         %-s", options.paramfile);
-    pretty_print(simulation, "tipatom:           %-s", options.tipatom);
-    pretty_print(simulation, "dummyatom:         %-s", options.dummyatom);
+    pretty_print("");
+    pretty_print("Input settings for %s:", simulation.input_file_name_);
+    pretty_print("");
+    pretty_print("xyzfile:           %-s", options.xyzfile);
+    pretty_print("paramfile:         %-s", options.paramfile);
+    pretty_print("tipatom:           %-s", options.tipatom);
+    pretty_print("dummyatom:         %-s", options.dummyatom);
     if (strcmp(options.planeatom, "") != 0) {
-        pretty_print(simulation, "planeatom:         %-s", options.planeatom);
+        pretty_print("planeatom:         %-s", options.planeatom);
     }
     else if (options.zplane > NEGVAL) {
-        pretty_print(simulation, "zplane:            %-8.4f", options.zplane);
+        pretty_print("zplane:            %-8.4f", options.zplane);
     }
-    pretty_print(simulation, "");
-    pretty_print(simulation, "units:             %-s", tmp_units);
-    pretty_print(simulation, "");
-    pretty_print(simulation, "minterm:           %-s", tmp_minterm);
-    pretty_print(simulation, "etol:              %-8.4f", options.etol);
-    pretty_print(simulation, "ftol:              %-8.4f", options.ftol);
-    pretty_print(simulation, "cfac:              %-8.4f", options.cfac);
-    pretty_print(simulation, "maxsteps:          %-8d", options.maxsteps);
-    pretty_print(simulation, "");
-    pretty_print(simulation, "zhigh:             %-8.4f", options.zhigh);
-    pretty_print(simulation, "zlow:              %-8.4f", options.zlow);
-    pretty_print(simulation, "dx:                %-8.4f", options.dx);
-    pretty_print(simulation, "dy:                %-8.4f", options.dy);
-    pretty_print(simulation, "dz:                %-8.4f", options.dz);
-    pretty_print(simulation, "");
-    pretty_print(simulation, "coulomb:           %-s", tmp_coulomb);
-    pretty_print(simulation, "");
-    pretty_print(simulation, "flexible:          %-s", tmp_flexible);
-    pretty_print(simulation, "rigidgrid:         %-s", tmp_rigidgrid);
-    pretty_print(simulation, "");
+    pretty_print("");
+    pretty_print("units:             %-s", tmp_units);
+    pretty_print("");
+    pretty_print("minterm:           %-s", tmp_minterm);
+    pretty_print("etol:              %-8.4f", options.etol);
+    pretty_print("ftol:              %-8.4f", options.ftol);
+    pretty_print("cfac:              %-8.4f", options.cfac);
+    pretty_print("maxsteps:          %-8d", options.maxsteps);
+    pretty_print("");
+    pretty_print("zhigh:             %-8.4f", options.zhigh);
+    pretty_print("zlow:              %-8.4f", options.zlow);
+    pretty_print("dx:                %-8.4f", options.dx);
+    pretty_print("dy:                %-8.4f", options.dy);
+    pretty_print("dz:                %-8.4f", options.dz);
+    pretty_print("");
+    pretty_print("coulomb:           %-s", tmp_coulomb);
+    pretty_print("");
+    pretty_print("flexible:          %-s", tmp_flexible);
+    pretty_print("rigidgrid:         %-s", tmp_rigidgrid);
+    pretty_print("");
     switch (options.minimiser_type) {
         case STEEPEST_DESCENT:
-            pretty_print(simulation, "minimiser:         %-s", "Steepest Descent");
+            pretty_print("minimiser:         %-s", "Steepest Descent");
             break;
         case FIRE:
-            pretty_print(simulation, "minimiser:         %-s", "FIRE");
+            pretty_print("minimiser:         %-s", "FIRE");
             break;
     }
     switch (options.integrator_type) {
         case EULER:
-            pretty_print(simulation, "integrator:        %-s", "Euler");
+            pretty_print("integrator:        %-s", "Euler");
             break;
         case RK4:
-            pretty_print(simulation, "integrator:        %-s", "RK4");
+            pretty_print("integrator:        %-s", "RK4");
             break;
     }
-    pretty_print(simulation, "");
-    pretty_print(simulation, "bufsize:           %-8d", options.bufsize);
-    pretty_print(simulation, "gzip:              %-s", tmp_gzip);
-    pretty_print(simulation, "");
+    pretty_print("");
+    pretty_print("bufsize:           %-8d", options.bufsize);
+    pretty_print("gzip:              %-s", tmp_gzip);
+    pretty_print("");
     return;
 }
 
@@ -371,7 +371,7 @@ void readXYZFile(Simulation& simulation) {
     /* Read the file once, to determine the number of atoms */
     fp = fopen(options.xyzfile, "r");
     if (fp == NULL) {
-        error(simulation, "No such file: %s!", options.xyzfile);
+        error("No such file: %s!", options.xyzfile);
     }
     int n_atoms = 0;
     firstline = TRUE;
@@ -445,7 +445,7 @@ void readXYZFile(Simulation& simulation) {
             sscanf(line, "%s %lf %lf %lf %lf %d", type, &x, &y, &z, &q, &fixed);
             options.xyz_charges = true;
         } else {
-            error(simulation, "Invalid number of columns in the xyz file.");
+            error("Invalid number of columns in the xyz file.");
         }
         system.types_[i] = std::string(type);
         system.positions_[i] = Vec3d(x, y, z);
@@ -546,7 +546,7 @@ void readParameterFile(Simulation& simulation) {
     /* Open the parameter file */
     fp = fopen(options.paramfile,"r");
     if (fp == NULL) {
-        error(simulation, "No parameter file %s found!", options.paramfile);
+        error("No parameter file %s found!", options.paramfile);
     }
 
     // Scan the parameter file for the universe size, atom definitions,
@@ -566,13 +566,13 @@ void readParameterFile(Simulation& simulation) {
                 sscanf(line, "%s %lf %lf %lf", dump, &(box.x), &(box.y), &(box.z));
             }
             else {
-                error(simulation, "Keyword box cannot be defined more than once in parameter file!");
+                error("Keyword box cannot be defined more than once in parameter file!");
             }
         }
         if (strcmp(keyword, "atom") == 0) {
             sscanf(line, "%s %s %lf %lf %lf %lf", dump, atom, &(eps), &(sig), &(mass), &(qdump));
             if (parameters.atom_parameters.count(atom) != 0){
-                warning(simulation, "Parameters for atom type %s defined multiple times.", atom);
+                warning("Parameters for atom type %s defined multiple times.", atom);
             }
             auto& p = parameters.atom_parameters[atom];
             p.eps = eps;
@@ -589,12 +589,12 @@ void readParameterFile(Simulation& simulation) {
         }
         if (strcmp(keyword, "harm") == 0) {
             if (hcheck) {
-                error(simulation, "Parameters for harmonic spring can only be specified once!");
+                error("Parameters for harmonic spring can only be specified once!");
             }
             sscanf(line,"%s %s %lf %lf", dump, atom, &(parameters.tip_dummy_k),
                                                      &(parameters.tip_dummy_r0));
             if (strcmp(atom, options.tipatom) != 0) {
-                error(simulation, "Harmonic spring should be defined on tip atom!");
+                error("Harmonic spring should be defined on tip atom!");
             }
             hcheck = true;
         }
@@ -612,7 +612,7 @@ void readParameterFile(Simulation& simulation) {
             if (strcmp(style, "lj") == 0) {
                 // Check if number of columns is correct for LJ
                 if (ncols != (4 + 2)) {
-                    error(simulation, "Only two parameters (eps, sig) allowed for LJ");
+                    error("Only two parameters (eps, sig) allowed for LJ");
                 }
                 // Read overwrite parameters
                 sscanf(line, "%s %s %s %s %lf %lf", dump, dump, dump, dump, &(eps), &(sig));
@@ -627,7 +627,7 @@ void readParameterFile(Simulation& simulation) {
             else if (strcmp(style, "morse") == 0) {
                 // Check if number of columns is correct for Morse
                 if (ncols != (4 + 3)) {
-                    error(simulation, "Only three parameters (De, a, re) allowed for Morse");
+                    error("Only three parameters (De, a, re) allowed for Morse");
                 }
                 // Read overwrite parameters
                 sscanf(line, "%s %s %s %s %lf %lf %lf", dump, dump, dump, dump, &(De), &(a), &(re));
@@ -641,12 +641,12 @@ void readParameterFile(Simulation& simulation) {
             }
             // Try and catch
             else {
-                error(simulation, "Unknown pair style overwrite '%s'",style);
+                error("Unknown pair style overwrite '%s'",style);
             }
         }
     }
     if (hcheck == false) {
-        error(simulation, "No harmonic spring parameters found in parameter file!");
+        error("No harmonic spring parameters found in parameter file!");
     }
 
     // Now we know the size of the universe, put the molecule in the center of it
@@ -692,7 +692,7 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
         /* The strength of the harmonic bond from the parameter file */
         if (strcmp(keyword, "bond") == 0) {
             if (bcheck == true) {
-                warning(simulation, "Parameters for harmonic bond defined multiple times!");
+                warning("Parameters for harmonic bond defined multiple times!");
             }
             sscanf(line,"%s %lf", dump, &(kbond));
             parameters.bond_k = kbond;
@@ -701,7 +701,7 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
         /* The strength of the harmonic angle from the parameter file */
         if (strcmp(keyword, "angle") == 0) {
             if (acheck == true) {
-                warning(simulation, "Parameters for harmonic angle defined multiple times!");
+                warning("Parameters for harmonic angle defined multiple times!");
             }
             sscanf(line,"%s %lf", dump, &(kangle));
             parameters.angle_k = kangle;
@@ -710,7 +710,7 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
         /* The strength of the harmonic substrate support from the parameter file */
         if (strcmp(keyword, "substrate") == 0) {
             if (scheck == true) {
-                warning(simulation, "Parameters for harmonic substrate support defined multiple times!");
+                warning("Parameters for harmonic substrate support defined multiple times!");
             }
             sscanf(line, "%s %lf", dump, &(ksubst));
             parameters.substrate_k = ksubst;
@@ -727,7 +727,7 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
                 }
             }
             if (tcheck) {
-                warning(simulation, "The topobond for %s and %s is defined at least twice!", atom1, atom2);
+                warning("The topobond for %s and %s is defined at least twice!", atom1, atom2);
             }
             PossibleBond pb;
             pb.atoms = atoms;
@@ -736,12 +736,12 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
         }
     }
     if (bcheck == false) {
-        error(simulation, "No harmonic bond parameters found in parameter file!");
+        error("No harmonic bond parameters found in parameter file!");
     }
     if (acheck == false) {
-        error(simulation, "No harmonic angle parameters found in parameter file!");
+        error("No harmonic angle parameters found in parameter file!");
     }
     if (scheck == false) {
-        error(simulation, "No harmonic substrate support parameters found in parameter file!");
+        error("No harmonic substrate support parameters found in parameter file!");
     }
 }

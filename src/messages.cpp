@@ -10,13 +10,17 @@
 #include "globals.hpp"
 
 /* An error function */
-void error(Simulation& simulation, char *message, ...) {
+void error(char *message, ...) {
     va_list arg;
     static char ws[LINE_LENGTH];
     va_start(arg, message);
     vsprintf(ws, message, arg);
     va_end(arg);
-    fprintf(stderr, "+- ERROR (on proc %d): %s\n", simulation.me_, ws);
+    int process = 0;
+#if MPI_BUILD
+    MPI_Comm_rank(MPI_COMM_WORLD, &process);
+#endif
+    fprintf(stderr, "+- ERROR (on process %d): %s\n", process, ws);
 #if MPI_BUILD
     MPI_Finalize();
 #endif
@@ -24,37 +28,33 @@ void error(Simulation& simulation, char *message, ...) {
 }
 
 /* And a warning function */
-void warning(Simulation& simulation, char *message, ...) {
+void warning(char *message, ...) {
     va_list arg;
     static char ws[LINE_LENGTH];
     va_start(arg, message);
     vsprintf(ws, message, arg);
     va_end(arg);
-    if (simulation.onRootProcessor()) {
+    int process = 0;
+#if MPI_BUILD
+    MPI_Comm_rank(MPI_COMM_WORLD, &process);
+#endif
+    if (process == 0) {
         fprintf(stderr, "+- WARNING: %s\n", ws);
     }
 }
 
 /* Print a message to the user if we're the root.*/
-void pretty_print(Simulation& simulation, char *message, ...) {
+void pretty_print(char *message, ...) {
     va_list arg;
     static char ws[LINE_LENGTH];
     va_start(arg, message);
     vsprintf(ws, message, arg);
     va_end(arg);
-    if (simulation.onRootProcessor()) {
-        fprintf(stdout, "+- %s\n", ws);
-    }
-}
-
-/* Print some debug information to the screen */
-void debugline(Simulation& simulation, int proc, char *message, ...) {
-    va_list arg;
-    static char ws[LINE_LENGTH];
-    va_start(arg, message);
-    vsprintf(ws, message, arg);
-    va_end(arg);
-    if (simulation.me_ == proc) {
+    int process = 0;
+#if MPI_BUILD
+    MPI_Comm_rank(MPI_COMM_WORLD, &process);
+#endif
+    if (process == 0) {
         fprintf(stdout, "+- %s\n", ws);
     }
 }

@@ -60,7 +60,7 @@ void openUniverse(Simulation& simulation) {
     simulation.n_points_.y = (int)(simulation.box_.y / options.dy);
     simulation.n_points_.z = (int)((options.zhigh - options.zlow) / options.dz);
     n = (simulation.n_points_.x + 1) * (simulation.n_points_.y + 1) * (simulation.n_points_.z + 1);
-    pretty_print(simulation, "3D data grid is: %d x %d x %d (%d in total)",
+    pretty_print("3D data grid is: %d x %d x %d (%d in total)",
               1 + simulation.n_points_.x, 1 + simulation.n_points_.y,
               1 + simulation.n_points_.z, n);
 
@@ -149,16 +149,16 @@ void finalize(Simulation& simulation) {
 #endif
 
     /* Print some miscelleneous information */
-    pretty_print(simulation, "Simulation run finished");
-    pretty_print(simulation, "Statistics:");
+    pretty_print("Simulation run finished");
+    pretty_print("Statistics:");
     n = (simulation.n_points_.x + 1) * (simulation.n_points_.y + 1) * (simulation.n_points_.z + 1);
-    pretty_print(simulation, "    Computed %ld tip positions", n);
-    pretty_print(simulation, "    Needed %ld minimization steps in total", nsum);
-    pretty_print(simulation, "    Which means approximately %.2f minimization steps per tip position",
+    pretty_print("    Computed %ld tip positions", n);
+    pretty_print("    Needed %ld minimization steps in total", nsum);
+    pretty_print("    Which means approximately %.2f minimization steps per tip position",
                                                                 ((double) nsum / n));
-    pretty_print(simulation, "    The simulation wall time is %.2f seconds", timesum);
-    pretty_print(simulation, "    The entire simulation took %.2f seconds", dtime);
-    pretty_print(simulation, "");
+    pretty_print("    The simulation wall time is %.2f seconds", timesum);
+    pretty_print("    The entire simulation took %.2f seconds", dtime);
+    pretty_print("");
     return;
 }
 
@@ -210,9 +210,9 @@ void closeParallelUniverse(Simulation& simulation) {
 #else
     pop[simulation.me_] += simulation.points_per_processor_[simulation.me_];
 #endif
-    pretty_print(simulation, "How many x,y points did each processor handle:");
-    for (int i = 0; i < simulation.n_processors_; ++i) {
-        pretty_print(simulation, "    Processor %2d: %6d x,y points", i, pop[i]);
+    pretty_print("How many x,y points did each process handle:");
+    for (int i = 0; i < simulation.n_processes_; ++i) {
+        pretty_print("    Process %2d: %6d x,y points", i, pop[i]);
     }
 
 #if MPI_BUILD
