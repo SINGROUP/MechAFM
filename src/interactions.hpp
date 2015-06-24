@@ -56,7 +56,7 @@ class System;
 class Interaction {
  public:
     virtual ~Interaction() {};
-    virtual void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const = 0;
+    virtual void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const = 0;
  private:
 };
 
@@ -66,7 +66,7 @@ class LJInteraction: public Interaction {
         atom_i1_(0), atom_i2_(0), es6_(0), es12_(0) {};
     LJInteraction(int atom_i1, int atom_i2, double es6, double es12):
         atom_i1_(atom_i1), atom_i2_(atom_i2), es6_(es6), es12_(es12) {};
-    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const override;
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
 
  private:
     int atom_i1_, atom_i2_;   // Atom indices in the system vectors
@@ -80,7 +80,7 @@ class MorseInteraction: public Interaction {
         atom_i1_(0), atom_i2_(0), de_(0), a_(0), re_(0) {};
     MorseInteraction(int atom_i1, int atom_i2, double de, double a, double re):
         atom_i1_(atom_i1), atom_i2_(atom_i2), de_(de), a_(a), re_(re) {};
-    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const override;
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
 
  private:
     int atom_i1_, atom_i2_;
@@ -95,7 +95,7 @@ class CoulombInteraction: public Interaction {
         atom_i1_(0), atom_i2_(0), qq_(0) {};
     CoulombInteraction(int atom_i1, int atom_i2, double qq):
         atom_i1_(atom_i1), atom_i2_(atom_i2), qq_(qq) {};
-    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const override;
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
 
  private:
     int atom_i1_, atom_i2_;
@@ -108,7 +108,7 @@ class Harmonic2DInteraction: public Interaction {
         atom_i1_(0), atom_i2_(0), k_(0), r0_(0) {};
     Harmonic2DInteraction(int atom_i1, int atom_i2, double k, double r0):
         atom_i1_(atom_i1), atom_i2_(atom_i2), k_(k), r0_(r0) {};
-    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const override;
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
 
  private:
     int atom_i1_, atom_i2_;
@@ -122,7 +122,7 @@ class SubstrateInteraction: public Interaction {
         atom_i_(0), k_(0), z0_(0) {};
     SubstrateInteraction(int atom_i, double k, double z0):
         atom_i_(atom_i), k_(k), z0_(z0) {};
-    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const override;
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
 
  private:
     int atom_i_;
@@ -136,7 +136,7 @@ class HarmonicInteraction: public Interaction {
         atom_i1_(0), atom_i2_(0), k_(0), r0_(0) {};
     HarmonicInteraction(int atom_i1, int atom_i2, double k, double r0):
         atom_i1_(atom_i1), atom_i2_(atom_i2), k_(k), r0_(r0) {};
-    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const override;
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
 
  private:
     int atom_i1_, atom_i2_;
@@ -147,20 +147,20 @@ class HarmonicInteraction: public Interaction {
 class HarmonicAngleInteraction: public Interaction {
  public:
     HarmonicAngleInteraction():
-        atom_i1_(0), atom_i2_(0), atom_i3_(0), k_(0), theta0_(0) {};
-    HarmonicAngleInteraction(int atom_i1, int atom_i2, int atom_i3, double k, double theta0):
-        atom_i1_(atom_i1), atom_i2_(atom_i2), atom_i3_(atom_i3), k_(k), theta0_(theta0) {};
-    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const override;
+        shared_i_(0), atom_i1_(0), atom_i2_(0), k_(0), theta0_(0) {};
+    HarmonicAngleInteraction(int shared_i, int atom_i1, int atom_i2, double k, double theta0):
+        shared_i_(shared_i), atom_i1_(atom_i1), atom_i2_(atom_i2), k_(k), theta0_(theta0) {};
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
 
  private:
-    int atom_i1_, atom_i2_, atom_i3_;
+    int shared_i_, atom_i1_, atom_i2_;
     double k_;
     double theta0_;
 };
 
 class GridInteraction: public Interaction {
  public:
-    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, double& energy) const override;
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
 
  private:
 };
