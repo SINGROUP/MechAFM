@@ -29,7 +29,7 @@ int checkForComments(char *line) {
 
 /* Read stuff from the command line */
 void parseCommandLine(int argc, char *argv[], Simulation& simulation) {
-    if (simulation.onRootProcessor()) {
+    if (simulation.rootProcess()) {
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
         fprintf(stdout,"|                   Mechanical AFM Model                      |\n");
         fprintf(stdout,"|  Based on: P. Hapala et al, Phys. Rev. B, 90:085421 (2014)  |\n");

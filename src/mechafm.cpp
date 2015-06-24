@@ -74,8 +74,8 @@ void openUniverse(Simulation& simulation) {
         // build3DForceGrid();
     // }
 
-    /* Open all the file streams (one for every z point) [ONLY ON ROOT PROCESSOR] */
-    if (simulation.onRootProcessor()) {
+    /* Open all the file streams (one for every z point) [ONLY ON ROOT PROCESS] */
+    if (simulation.rootProcess()) {
         simulation.fstreams_.reserve(simulation.n_points_.z + 1);
         for (int i = 0; i <= simulation.n_points_.z; ++i) {
             z = options.zhigh - i*options.dz;
@@ -103,8 +103,8 @@ void closeUniverse(Simulation& simulation) {
     MPI_Barrier(simulation.universe);
 #endif
 
-    /* Close each separate file stream [ONLY ON ROOT PROCESSOR] */
-    if (simulation.onRootProcessor()) {
+    /* Close each separate file stream [ONLY ON ROOT PROCESS] */
+    if (simulation.rootProcess()) {
         for (auto& file : simulation.fstreams_) {
             if (simulation.options_.gzip == TRUE) {
                 pclose(file);
@@ -133,16 +133,16 @@ void finalize(Simulation& simulation) {
     dtime = simulation.time_end_ - simulation.time_start_;
     timesum = timesum.zero();
 #if MPI_BUILD
-    MPI_Reduce(&dtime, &timesum, 1, MPI_DOUBLE, MPI_SUM, simulation.root_processor_,
+    MPI_Reduce(&dtime, &timesum, 1, MPI_DOUBLE, MPI_SUM, simulation.root_process_,
                                                          simulation.universe);
 #else
     timesum += dtime;
 #endif
 
-    /* Collect number of steps from all processors */
+    /* Collect number of steps from all processes */
     nsum = 0;
 #if MPI_BUILD
-    MPI_Reduce(&simulation.n_total_, &nsum, 1, MPI_INT, MPI_SUM, simulation.root_processor_,
+    MPI_Reduce(&simulation.n_total_, &nsum, 1, MPI_INT, MPI_SUM, simulation.root_process_,
                                                                  simulation.universe);
 #else
     nsum += simulation.n_total_;
@@ -172,20 +172,20 @@ void openParallelUniverse(int argc, char *argv[], Simulation& simulation) {
     /* Start MPI */
     MPI_Init(&argc,&argv);
 #endif
-    /* Determine the size of the universe and which processor we are on */
-    simulation.root_processor_ = 0;
+    /* Determine the size of the universe and which process we are on */
+    simulation.root_process_ = 0;
 #if MPI_BUILD
     simulation.universe = MPI_COMM_WORLD;
-    MPI_Comm_rank(simulation.universe, &simulation.me_);
-    MPI_Comm_size(simulation.universe, &simulation.n_processors_);
+    MPI_Comm_rank(simulation.universe, &simulation.current_process_);
+    MPI_Comm_size(simulation.universe, &simulation.n_processes_);
 #else
-    simulation.me_ = 0;
-    simulation.n_processors_ = 1;
+    simulation.current_process_ = 0;
+    simulation.n_processes_ = 1;
 #endif
-    /* Initialize the checker on how many x,y points for each processor */
-    simulation.points_per_processor_.reserve(simulation.n_processors_);
-    for (int i = 0; i < simulation.n_processors_; ++i) {
-        simulation.points_per_processor_.push_back(0);
+    /* Initialize the checker on how many x,y points for each process */
+    simulation.points_per_process_.reserve(simulation.n_processes_);
+    for (int i = 0; i < simulation.n_processes_; ++i) {
+        simulation.points_per_process_.push_back(0);
     }
     return;
 }
@@ -195,20 +195,20 @@ void closeParallelUniverse(Simulation& simulation) {
 
     vector<int> pop;
 
-    /* How many x,y points on each processor */
+    /* How many x,y points on each process */
 #if MPI_BUILD
     MPI_Barrier(simulation.universe);
 #endif
-    pop.reserve(simulation.n_processors_);
-    for (int i = 0; i < simulation.n_processors_; ++i) {
+    pop.reserve(simulation.n_processes_);
+    for (int i = 0; i < simulation.n_processes_; ++i) {
         pop.push_back(0);
     }
 #if MPI_BUILD
-    MPI_Reduce(static_cast<void*>(simulation.points_per_processor_.data()),
-               static_cast<void*>(pop.data()), simulation.n_processors_,
-               MPI_INT, MPI_SUM, simulation.root_processor_, simulation.universe);
+    MPI_Reduce(static_cast<void*>(simulation.points_per_process_.data()),
+               static_cast<void*>(pop.data()), simulation.n_processes_,
+               MPI_INT, MPI_SUM, simulation.root_process_, simulation.universe);
 #else
-    pop[simulation.me_] += simulation.points_per_processor_[simulation.me_];
+    pop[simulation.current_process_] += simulation.points_per_process_[simulation.current_process_];
 #endif
     pretty_print("How many x,y points did each process handle:");
     for (int i = 0; i < simulation.n_processes_; ++i) {

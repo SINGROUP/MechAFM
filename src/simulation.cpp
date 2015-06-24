@@ -13,6 +13,10 @@
 
 using namespace std;
 
+bool Simulation::rootProcess() {
+    return current_process_ == root_process_;
+}
+
 void Simulation::run() {
     double x, y, z;
 
