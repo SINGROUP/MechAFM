@@ -37,7 +37,8 @@ struct InputOptions {
     int maxsteps;
     MinimizationCriteria minterm;
     double etol, ftol, cfac;
-    int bufsize, gzip;
+    int bufsize;
+    bool gzip;
     bool flexible, rigidgrid;
     bool xyz_charges;
     MinimiserType minimiser_type;
@@ -53,7 +54,6 @@ class Simulation {
     void buildInteractions();
 
     System system;
-    unique_ptr<Minimiser> minimiser;
     char input_file_name_[NAME_LENGTH];     /* File name of the input file */
     InputOptions options_;                  /* Structure containing all relevant input options */
     InteractionParameters interaction_parameters_;
@@ -81,6 +81,7 @@ class Simulation {
     chrono::time_point<chrono::system_clock> time_start_, time_end_;
 
  private:
+    void writeOutput(vector<OutputData> output_buffer);
     void addLJInteraction(int atom_i1, int atom_i2);
     void addCoulombInteraction(int atom_i1, int atom_i2);
     bool findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters op);

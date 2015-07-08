@@ -1,6 +1,6 @@
 #pragma once
 
-#include <math.h>
+#include <cmath>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -57,6 +57,7 @@ class Interaction {
  public:
     virtual ~Interaction() {};
     virtual void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const = 0;
+    virtual bool isTipSurface() const = 0;
  private:
 };
 
@@ -67,6 +68,9 @@ class LJInteraction: public Interaction {
     LJInteraction(int atom_i1, int atom_i2, double es6, double es12):
         atom_i1_(atom_i1), atom_i2_(atom_i2), es6_(es6), es12_(es12) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return atom_i1_ == 1;
+    }
 
  private:
     int atom_i1_, atom_i2_;   // Atom indices in the system vectors
@@ -81,6 +85,9 @@ class MorseInteraction: public Interaction {
     MorseInteraction(int atom_i1, int atom_i2, double de, double a, double re):
         atom_i1_(atom_i1), atom_i2_(atom_i2), de_(de), a_(a), re_(re) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return atom_i1_ == 1;
+    }
 
  private:
     int atom_i1_, atom_i2_;
@@ -96,6 +103,9 @@ class CoulombInteraction: public Interaction {
     CoulombInteraction(int atom_i1, int atom_i2, double qq):
         atom_i1_(atom_i1), atom_i2_(atom_i2), qq_(qq) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return atom_i1_ == 1;
+    }
 
  private:
     int atom_i1_, atom_i2_;
@@ -109,6 +119,9 @@ class Harmonic2DInteraction: public Interaction {
     Harmonic2DInteraction(int atom_i1, int atom_i2, double k, double r0):
         atom_i1_(atom_i1), atom_i2_(atom_i2), k_(k), r0_(r0) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return false;
+    }
 
  private:
     int atom_i1_, atom_i2_;
@@ -123,6 +136,9 @@ class SubstrateInteraction: public Interaction {
     SubstrateInteraction(int atom_i, double k, double z0):
         atom_i_(atom_i), k_(k), z0_(z0) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return false;
+    }
 
  private:
     int atom_i_;
@@ -137,6 +153,9 @@ class HarmonicInteraction: public Interaction {
     HarmonicInteraction(int atom_i1, int atom_i2, double k, double r0):
         atom_i1_(atom_i1), atom_i2_(atom_i2), k_(k), r0_(r0) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return false;
+    }
 
  private:
     int atom_i1_, atom_i2_;
@@ -151,6 +170,9 @@ class HarmonicAngleInteraction: public Interaction {
     HarmonicAngleInteraction(int shared_i, int atom_i1, int atom_i2, double k, double theta0):
         shared_i_(shared_i), atom_i1_(atom_i1), atom_i2_(atom_i2), k_(k), theta0_(theta0) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return false;
+    }
 
  private:
     int shared_i_, atom_i1_, atom_i2_;
@@ -161,6 +183,9 @@ class HarmonicAngleInteraction: public Interaction {
 class GridInteraction: public Interaction {
  public:
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return true;
+    }
 
  private:
 };

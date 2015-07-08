@@ -1,6 +1,5 @@
 #include "parse.hpp"
 
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,7 +51,6 @@ void readInputFile(Simulation& simulation) {
     InputOptions& options = simulation.options_;
 
     FILE *fp;
-    int check;
     char keyword[NAME_LENGTH];
     char value[NAME_LENGTH];
     char line[LINE_LENGTH];
@@ -366,7 +364,6 @@ void readXYZFile(Simulation& simulation) {
     FILE *fp;
     int firstline, realxyz;
     char line[LINE_LENGTH], value[NAME_LENGTH];
-    double fdump;
 
     /* Read the file once, to determine the number of atoms */
     fp = fopen(options.xyzfile, "r");
@@ -408,21 +405,21 @@ void readXYZFile(Simulation& simulation) {
     system.types_[1] = options.tipatom;
 
     /* Read each line and store the data */
-    int i = 2;  // Start indexing from 2 so that we don't overwrite the tip or dummy
+    int atom_i = 2;  // Start indexing from 2 so that we don't overwrite the tip or dummy
     int n = 0, ncols = 0;
     char dump[LINE_LENGTH], *pch;
     firstline = TRUE;
     while (fgets(line, LINE_LENGTH, fp) != NULL) {
-        /* If it is a real XYZ file, skip the first two lines */
+        // If it is a real XYZ file, skip the first two lines
         if ((realxyz) && (n < 2)) {
             n++;
             continue;
         }
-        /* Skip empty and commented lines */
+        // Skip empty and commented lines
         if (checkForComments(line)) {
             continue;
         }
-        /* Based on the first line with actual atom information, determine how many columns there are */
+        // Based on the first line with actual atom information, determine how many columns there are
         if (firstline) {
             strcpy(dump, line);
             pch = strtok(dump, " \t\n\r\f");
@@ -437,32 +434,40 @@ void readXYZFile(Simulation& simulation) {
         int fixed = 0;
         if (ncols == 4) {
             sscanf(line, "%s %lf %lf %lf", type, &x, &y, &z);
-            options.xyz_charges = false;
         } else if (ncols == 5) {
             sscanf(line, "%s %lf %lf %lf %lf", type, &x, &y, &z, &q);
-            options.xyz_charges = true;
         } else if (ncols == 6) {
             sscanf(line, "%s %lf %lf %lf %lf %d", type, &x, &y, &z, &q, &fixed);
-            options.xyz_charges = true;
         } else {
             error("Invalid number of columns in the xyz file.");
         }
-        system.types_[i] = std::string(type);
-        system.positions_[i] = Vec3d(x, y, z);
-        system.charges_[i] = q;
-        system.fixed_[i] = fixed;
-        i++;
+        system.types_[atom_i] = std::string(type);
+        system.positions_[atom_i] = Vec3d(x, y, z);
+        system.charges_[atom_i] = q;
+        // Keep atoms fixed by default if we're not flexible.
+        system.fixed_[atom_i] = options.flexible ? (fixed == 1) : true;
+        atom_i++;
     }
 
-    //if ( Me == RootProc ) {
-    //  fprintf(stdout,"\n[%d] *** ncols = %d\n\n",Me,ncols);
-    //  for (i=0; i<Natoms; ++i) {
-    //  fprintf(stdout,"[%d] >>> %s %lf %lf %lf %lf\n", Me, Surf_type[i], Surf_pos[i].x, Surf_pos[i].y, Surf_pos[i].z, Surf_q[i]);
-    //  }
-    //}
+    /* Quickly check whether charges were read from the XYZ file                           */
+    /* NOTE: if only zero charges are specified in the XYZ file, this check sort of fails, */
+    /*       as the RMSQE will be zero in that case. If you want zero charge, make sure    */
+    /*       the charges in the parameter file are also set to zero!                       */
+    double charge_check = 0;
+    for (int i = 0; i < system.n_atoms_; ++i) {
+        charge_check += pow(system.charges_[i], 2);
+    }
+    if (fabs(charge_check) < TOLERANCE) {
+        options.xyz_charges = false;
+        warning("The RMSQ-error for the charges read from the XYZ-file is zero.");
+        pretty_print("  Charges will be read from the parameter file.");
+        pretty_print("  If you want zero charge, set the charge in the parameter file to zero.");
+        pretty_print("");
+    } else {
+        options.xyz_charges = true;
+    }
 
     setSystemZ(simulation);
-
     return;
 }
 
@@ -657,20 +662,12 @@ void readParameterFile(Simulation& simulation) {
         readFlexibleParameters(simulation, fp);
     }
 
-    // // Debug printing
-    // for (i=0; i<Ntypes; ++i) {
-        // for (j=0; j<Ntypes; ++j) {
-            // fprintf(stdout,"%d %d - %8.4f %8.4f - %8.4f %8.4f %8.4f\n",i,j,SurfSurfParams[i][j].es12,SurfSurfParams[i][j].es6,SurfSurfParams[i][j].De,SurfSurfParams[i][j].a,SurfSurfParams[i][j].re);
-        // }
-    // }
-
     fclose(fp);
     return;
 }
 
 void readFlexibleParameters(Simulation& simulation, FILE* fp) {
 
-    InputOptions& options = simulation.options_;
     InteractionParameters& parameters = simulation.interaction_parameters_;
 
     char line[LINE_LENGTH];

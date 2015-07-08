@@ -1,5 +1,8 @@
 #include "simulation.hpp"
 
+#if MPI_BUILD
+    #include <mpi.h>
+#endif
 #include <cmath>
 #include <memory>
 #include <string>
@@ -18,30 +21,127 @@ bool Simulation::rootProcess() {
 }
 
 void Simulation::run() {
-    double x, y, z;
+    double x, y, z, current_progress;
+    double report_interval = 0.1;
+    double next_report = report_interval;
+    int current_point;
+    int total_points = n_points_.x * n_points_.y;
 
-    switch (options_.minimiser_type) {
-        case STEEPEST_DESCENT:
-            minimiser = unique_ptr<Minimiser>(new SDMinimiser());
-            break;
-        case FIRE:
-            minimiser = unique_ptr<Minimiser>(new FIREMinimiser());
-            break;
-        default:
-            error(*this, "Invalid minimiser type.");
-    }
-    minimiser->initialize(*this);
+    unsigned int buffer_size = options_.bufsize * n_points_.z;
+    vector<OutputData> output_buffer;
+    output_buffer.reserve(buffer_size);
 
     for (int i = 0; i < n_points_.x; ++i) {
         x = i * options_.dx;
         for (int j = 0; j < n_points_.y; ++j) {
             y = j * options_.dy;
+
+            current_point = i * n_points_.y + j;
+            // Report progress every once in a while
+            current_progress = 1.0f * current_point / total_points;
+            if(rootProcess() && current_progress >= next_report) {
+                pretty_print("Finished approximately %4.1f %% of the simulation",
+                             100 * next_report);
+                next_report += report_interval;
+            }
+            // Check if this point is handled by this process
+            if (current_point % n_processes_ != current_process_) {
+                continue;
+            } else {
+                points_per_process_[current_process_]++;
+            }
+
             System min_system = system;  // Take a copy for each z approach
+            min_system.positions_[0] = Vec3d(7);
+            vector<OutputData> z_data(n_points_.z);
+            if (min_system.interactions_ == nullptr) {
+                error("System interactions are not given!");
+            }
             min_system.setDummyXY(x, y);
             for (int k = 0; k < n_points_.z; ++k) {
-                z = k * options_.dz;
+                z = options_.zhigh - k * options_.dz;
                 min_system.setDummyZ(z);
-                minimiser->minimise(min_system);
+                int n = 0;
+                switch (options_.minimiser_type) {
+                    case STEEPEST_DESCENT:
+                        n = SDMinimisation(min_system, options_);
+                        break;
+                    case FIRE:
+                        n = FIREMinimisation(min_system, options_);
+                        break;
+                    default:
+                        error("Unrecognised minimiser type!");
+                }
+                if (current_point % 100 == 99) {
+                    min_system.makeXYZFile();
+                }
+                z_data[k] = min_system.getOutput();
+                z_data[k].indices = Vec3i(i, j, k);
+                z_data[k].minimisation_steps = n;
+                n_total_ += n;
+            }
+            output_buffer.insert(output_buffer.end(), z_data.begin(), z_data.end());
+            if (output_buffer.size() >= buffer_size) {
+                writeOutput(output_buffer);
+                output_buffer.clear();
+            }
+        }
+    }
+    // Write the remaining data
+    writeOutput(output_buffer);
+}
+
+void Simulation::writeOutput(vector<OutputData> output_buffer) {
+#if MPI_BUILD
+    MPI_Status mpi_status;
+    // Send the data to the root process
+    if (!rootProcess()) {
+        MPI_Send(static_cast<void*>(output_buffer.data()),
+                 output_buffer.size() * sizeof(OutputData),
+                 MPI_CHAR, root_process_, 0, universe);
+    }
+#endif
+    // Receive the data from the daughter processors and write to file
+    if (rootProcess()) {
+        vector<OutputData> recieve_buffer(options_.bufsize * n_points_.z);
+        for (int i = 0; i < n_processes_; ++i) {
+            int data_size = 0;
+            // On the main processor we only have to copy the data
+            if (i == 0) {
+                recieve_buffer = output_buffer;
+                data_size = output_buffer.size();
+            }
+#if MPI_BUILD
+            // For all other processors we need to receive the data
+            else {
+                MPI_Recv(static_cast<void*>(recieve_buffer.data()),
+                         recieve_buffer.size() * sizeof(OutputData),
+                         MPI_CHAR, i, 0, universe, &mpi_status);
+                MPI_Get_count(&mpi_status, MPI_CHAR, &data_size);
+                data_size /= sizeof(OutputData);
+            }
+#endif
+            // Write data to file (only the root processor can do this)
+            // PLEASE NOTE: DATA IS SENT IN STRIPED FORM, THEY ARE NOT ORDERED!
+            for (int bi = 0; bi < data_size; ++bi) {
+                int fi = recieve_buffer[bi].indices.z;
+                // The file buffer can be a gzip pipe or an ASCII file stream
+                fprintf(fstreams_[fi], "%d ", recieve_buffer[bi].indices.z);
+                fprintf(fstreams_[fi], "%d ", recieve_buffer[bi].indices.x);
+                fprintf(fstreams_[fi], "%d ", recieve_buffer[bi].indices.y);
+                fprintf(fstreams_[fi], "%6.3f ", recieve_buffer[bi].position.x);
+                fprintf(fstreams_[fi], "%6.3f ", recieve_buffer[bi].position.y);
+                fprintf(fstreams_[fi], "%6.3f ", recieve_buffer[bi].position.z);
+                fprintf(fstreams_[fi], "%8.4f ", recieve_buffer[bi].tip_force.x);
+                fprintf(fstreams_[fi], "%8.4f ", recieve_buffer[bi].tip_force.y);
+                fprintf(fstreams_[fi], "%8.4f ", recieve_buffer[bi].tip_force.z);
+                fprintf(fstreams_[fi], "%6.3f ", recieve_buffer[bi].r_vec.x);
+                fprintf(fstreams_[fi], "%6.3f ", recieve_buffer[bi].r_vec.y);
+                fprintf(fstreams_[fi], "%6.3f ", recieve_buffer[bi].r_vec.z);
+                fprintf(fstreams_[fi], "%6.3f ", recieve_buffer[bi].r);
+                fprintf(fstreams_[fi], "%8.4f ", recieve_buffer[bi].angle);
+                fprintf(fstreams_[fi], "%8.4f ", recieve_buffer[bi].tip_energy);
+                fprintf(fstreams_[fi], "%d\n", recieve_buffer[bi].minimisation_steps);
             }
         }
     }
@@ -59,6 +159,7 @@ void Simulation::buildInteractions() {
         buildSubstrateInteractions();
         buildBondInteractions();
     }
+    system.interactions_ = &interactions_;
 }
 
 bool Simulation::findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters op){
@@ -78,8 +179,8 @@ void Simulation::addLJInteraction(int atom_i1, int atom_i2) {
         if (op.morse) {
             interactions_.emplace_back(new MorseInteraction(atom_i1, atom_i2, op.de, op.a, op.re));
         } else {
-            double es6 = op.eps * pow(op.sig, 6);
-            double es12 = op.eps * pow(op.sig, 12);
+            double es6 = 4 * op.eps * pow(op.sig, 6);
+            double es12 = 4 * op.eps * pow(op.sig, 12);
             interactions_.emplace_back(new LJInteraction(atom_i1, atom_i2, es6, es12));
         }
     } else {
@@ -88,16 +189,16 @@ void Simulation::addLJInteraction(int atom_i1, int atom_i2) {
         auto atom2_it = ap.find(system.types_[atom_i2]);
         if (atom1_it == ap.end()) {
             error("Parameters for atom type %s not found in parameter file!",
-                            system.types_[atom_i1].c_str());
+                  system.types_[atom_i1].c_str());
         }
         if (atom2_it == ap.end()) {
             error("Parameters for atom type %s not found in parameter file!",
-                            system.types_[atom_i2].c_str());
+                  system.types_[atom_i2].c_str());
         }
         double m_eps = mixeps(atom1_it->second.eps, atom2_it->second.eps);
         double m_sig = mixsig(atom1_it->second.sig, atom2_it->second.sig);
-        double es6 = m_eps * pow(m_sig, 6);
-        double es12 = m_eps * pow(m_sig, 12);
+        double es6 = 4 * m_eps * pow(m_sig, 6);
+        double es12 = 4 * m_eps * pow(m_sig, 12);
         interactions_.emplace_back(new LJInteraction(atom_i1, atom_i2, es6, es12));
     }
 }
@@ -200,8 +301,8 @@ void Simulation::buildBondInteractions() {
     }
 
     double angle_k = interaction_parameters_.angle_k;
-    for (int i = 0; i < bonds.size(); ++i) {
-        for (int j = i + 1; j < bonds.size(); ++j) {
+    for (unsigned int i = 0; i < bonds.size(); ++i) {
+        for (unsigned int j = i + 1; j < bonds.size(); ++j) {
             auto bond1 = bonds[i];
             auto bond2 = bonds[j];
             int shared_atom = -1;

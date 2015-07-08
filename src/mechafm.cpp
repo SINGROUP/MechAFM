@@ -36,8 +36,6 @@ TO DO:
 #include "messages.hpp"
 #include "parse.hpp"
 #include "simulation.hpp"
-#include "system.hpp"
-#include "interactions.hpp"
 
 using namespace std;
 
@@ -56,35 +54,30 @@ void openUniverse(Simulation& simulation) {
 
     /* How many points to compute the tip relaxation on */
     simulation.n_total_ = 0;
-    simulation.n_points_.x = (int)(simulation.box_.x / options.dx);
-    simulation.n_points_.y = (int)(simulation.box_.y / options.dy);
-    simulation.n_points_.z = (int)((options.zhigh - options.zlow) / options.dz);
-    n = (simulation.n_points_.x + 1) * (simulation.n_points_.y + 1) * (simulation.n_points_.z + 1);
+    simulation.n_points_.x = (int)(simulation.box_.x / options.dx) + 1;
+    simulation.n_points_.y = (int)(simulation.box_.y / options.dy) + 1;
+    simulation.n_points_.z = (int)((options.zhigh - options.zlow) / options.dz + 1);
+    n = simulation.n_points_.x * simulation.n_points_.y * simulation.n_points_.z;
     pretty_print("3D data grid is: %d x %d x %d (%d in total)",
-              1 + simulation.n_points_.x, 1 + simulation.n_points_.y,
-              1 + simulation.n_points_.z, n);
+              simulation.n_points_.x, simulation.n_points_.y,
+              simulation.n_points_.z, n);
 
 #if MPI_BUILD
     /* Wait! */
     MPI_Barrier(simulation.universe);
 #endif
 
-    /* If we which to precompute the force grid, do it now */
-    // if (Options.rigidgrid) {
-        // build3DForceGrid();
-    // }
-
     /* Open all the file streams (one for every z point) [ONLY ON ROOT PROCESS] */
     if (simulation.rootProcess()) {
         simulation.fstreams_.reserve(simulation.n_points_.z + 1);
-        for (int i = 0; i <= simulation.n_points_.z; ++i) {
+        for (int i = 0; i <= simulation.n_points_.z - 1; ++i) {
             z = options.zhigh - i*options.dz;
             if (options.gzip == TRUE) {
-                sprintf(outfile, "gzip -6 > scan-%06.3f.dat.gz", z);
+                sprintf(outfile, "examples/gzip -6 > scan-%06.3f.dat.gz", z);
                 simulation.fstreams_.push_back(popen(outfile, "w"));
             }
             else {
-                sprintf(outfile, "scan-%06.3f.dat", z);
+                sprintf(outfile, "examples/scan-%06.3f.dat", z);
                 simulation.fstreams_.push_back(fopen(outfile, "w"));
             }
         }
@@ -151,7 +144,7 @@ void finalize(Simulation& simulation) {
     /* Print some miscelleneous information */
     pretty_print("Simulation run finished");
     pretty_print("Statistics:");
-    n = (simulation.n_points_.x + 1) * (simulation.n_points_.y + 1) * (simulation.n_points_.z + 1);
+    n = (simulation.n_points_.x) * (simulation.n_points_.y) * (simulation.n_points_.z);
     pretty_print("    Computed %ld tip positions", n);
     pretty_print("    Needed %ld minimization steps in total", nsum);
     pretty_print("    Which means approximately %.2f minimization steps per tip position",
@@ -168,6 +161,8 @@ void finalize(Simulation& simulation) {
 
 /* Initialize our parallel world */
 void openParallelUniverse(int argc, char *argv[], Simulation& simulation) {
+    (void)argc;
+    (void)argv;
 #if MPI_BUILD
     /* Start MPI */
     MPI_Init(&argc,&argv);
@@ -193,16 +188,11 @@ void openParallelUniverse(int argc, char *argv[], Simulation& simulation) {
 /* Terminate our parallel worlds */
 void closeParallelUniverse(Simulation& simulation) {
 
-    vector<int> pop;
-
     /* How many x,y points on each process */
 #if MPI_BUILD
     MPI_Barrier(simulation.universe);
 #endif
-    pop.reserve(simulation.n_processes_);
-    for (int i = 0; i < simulation.n_processes_; ++i) {
-        pop.push_back(0);
-    }
+    vector<int> pop(simulation.n_processes_);
 #if MPI_BUILD
     MPI_Reduce(static_cast<void*>(simulation.points_per_process_.data()),
                static_cast<void*>(pop.data()), simulation.n_processes_,

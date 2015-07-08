@@ -13,10 +13,10 @@
 #define PI 3.14159265358979323846
 #define SIXTHRT2 1.12246204830937298142
 
-
 /* Define a structure for easy processor communication */
-typedef struct buffer {
-    int ix, iy, iz, n;
-    double angle, e, dd;
-    Vec3d pos, f, d;
-} BUFFER;
+struct OutputData {
+    Vec3i indices;
+    int minimisation_steps;
+    double angle, tip_energy, r;
+    Vec3d position, tip_force, r_vec;
+};

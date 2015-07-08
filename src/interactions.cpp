@@ -48,10 +48,10 @@ void Harmonic2DInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& 
     Vec2d r_2d = r_vec.getXY();
     double r = r_2d.len();
     double dr = r - r0_;
-    double e = k_ * pow(dr, 2);
-    Vec2d f;
+    double e = k_ * dr * dr;
+    Vec3d f;
     if (r > TOLERANCE) {
-        f = -2 * k_ * dr * r_2d;
+        f = Vec3d((-2 * k_ * dr / r * r_2d), 0);
     }
     energies[atom_i1_] += e;
     energies[atom_i2_] += e;
@@ -72,7 +72,7 @@ void HarmonicInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& fo
     double r = r_vec.len();
     double dr = r - r0_;
     double e = k_ * pow(dr, 2);
-    Vec3d f = -2 * k_ * dr * r_vec.normalized();
+    Vec3d f = -2 * k_ * dr / r * r_vec;
     energies[atom_i1_] += e;
     energies[atom_i2_] += e;
     forces[atom_i1_] += f;

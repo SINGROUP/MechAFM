@@ -19,6 +19,14 @@ class Vector2 {
         return sqrt(pow(x, 2) + pow(y, 2));
     }
 
+    bool operator==(const Vector2& other) const {
+        return x == other.x && y == other.y;
+    }
+
+    bool operator!=(const Vector2& other) const {
+        return x != other.x || y != other.y;
+    }
+
     Vector2 operator-(const Vector2& other) const {
         return Vector2(x - other.x, y - other.y);
     }
@@ -41,7 +49,7 @@ class Vector2 {
 
     template<typename T2>
     Vector2 operator*(const T2& a) const {
-        return Vector2(a*x, a*y);
+        return Vector2(x*a, y*a);
     }
 
     template<typename T2>
@@ -53,7 +61,7 @@ class Vector2 {
 
     template<typename T2>
     Vector2 operator/(const T2& a) const {
-        return Vector2(a/x, a/y);
+        return Vector2(x/a, y/a);
     }
 
     template<typename T2>
@@ -73,7 +81,16 @@ class Vector3 {
     Vector3(const T& val): x(val), y(val), z(val) {};
     Vector3(const T& xv, const T& yv, const T& zv):
         x(xv), y(yv), z(zv) {};
+    Vector3(const Vector2<T>& v2, const T& zv):
+        x(v2.x), y(v2.y), z(zv) {};
     ~Vector3() {};
+
+    Vector3& zero() {
+        x = 0;
+        y = 0;
+        z = 0;
+        return *this;
+    }
 
     T lensqr() const {
         return (pow(x, 2) + pow(y, 2) + pow(z, 2));
@@ -96,6 +113,14 @@ class Vector3 {
         return Vector2<T>(x, y);
     }
 
+    bool operator==(const Vector3& other) const {
+        return x == other.x && y == other.y && z == other.z;
+    }
+
+    bool operator!=(const Vector3& other) const {
+        return x != other.x || y != other.y || z != other.z;
+    }
+
     Vector3 operator-(const Vector3& other) const {
         return Vector3(x - other.x, y - other.y, z - other.z);
     }
@@ -104,13 +129,6 @@ class Vector3 {
         x -= other.x;
         y -= other.y;
         z -= other.z;
-        return *this;
-    }
-
-    template<typename T2>
-    Vector3& operator-=(const Vector2<T2>& other) {
-        x -= other.x;
-        y -= other.y;
         return *this;
     }
 
@@ -126,15 +144,8 @@ class Vector3 {
     }
 
     template<typename T2>
-    Vector3& operator+=(const Vector2<T2>& other) {
-        x -= other.x;
-        y -= other.y;
-        return *this;
-    }
-
-    template<typename T2>
     Vector3 operator*(const T2& a) const {
-        return Vector3(a*x, a*y, a*z);
+        return Vector3(x*a, y*a, z*a);
     }
 
     template<typename T2>
@@ -147,7 +158,7 @@ class Vector3 {
 
     template<typename T2>
     Vector3 operator/(const T2& a) const {
-        return Vector3(a/x, a/y, a/z);
+        return Vector3(x/a, y/a, z/a);
     }
 
     template<typename T2>

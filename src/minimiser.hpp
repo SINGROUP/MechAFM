@@ -1,39 +1,21 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
-#include <integrators.hpp>
+#include "integrators.hpp"
+#include "interactions.hpp"
+
+using namespace std;
 
 enum MinimiserType {
     STEEPEST_DESCENT,
     FIRE
 };
 
+struct InputOptions;
 class Simulation;
 class System;
 
-class Minimiser {
- public:
-    virtual ~Minimiser() {};
-    virtual void initialize(Simulation& simulation) = 0;
-    virtual void minimise(System& system) = 0;
- private:
-    IntegratorType integrator_type_;
-    double dt;
-};
-
-class SDMinimiser: public Minimiser {
- public:
-    SDMinimiser() {};
-    ~SDMinimiser() {};
-    void initialize(Simulation& simulation) override;
-    void minimise(System& system) override;
-};
-
-class FIREMinimiser: public Minimiser {
- public:
-    FIREMinimiser() {};
-    ~FIREMinimiser() {};
-    void initialize(Simulation& simulation) override;
-    void minimise(System& system) override;
-};
+int SDMinimisation(System& system, const InputOptions& options);
+int FIREMinimisation(System& system, const InputOptions& options);
