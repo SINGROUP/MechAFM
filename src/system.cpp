@@ -54,5 +54,5 @@ void System::makeXYZFile() const {
                                                 positions_[i].y, positions_[i].z);
     }
     fclose(file);
-    pretty_print("Wrote %s", file_name);
+    printf("+- Wrote %s\n", file_name);
 }

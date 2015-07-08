@@ -459,10 +459,10 @@ void readXYZFile(Simulation& simulation) {
     }
     if (fabs(charge_check) < TOLERANCE) {
         options.xyz_charges = false;
-        warning("The RMSQ-error for the charges read from the XYZ-file is zero.");
-        pretty_print("  Charges will be read from the parameter file.");
-        pretty_print("  If you want zero charge, set the charge in the parameter file to zero.");
-        pretty_print("");
+        warning("The RMSQ-error for the charges read from the XYZ-file is zero.\n"
+            "+-     Charges will be read from the parameter file.\n"
+            "+-     If you want zero charge, set the charge in the parameter file to zero.\n"
+            "+-");
     } else {
         options.xyz_charges = true;
     }
