@@ -265,7 +265,7 @@ void Simulation::buildSurfaceSurfaceInteractions() {
     unordered_map<string, AtomParameters> ap = interaction_parameters_.atom_parameters;
     for (int i = 2; i < system.n_atoms_; ++i) {
         for (int j = i + 1; j < system.n_atoms_; ++j) {
-            addLJInteraction(i, j);
+            // addLJInteraction(i, j);
             if (options_.coulomb) {
                 addCoulombInteraction(i, j);
             }
