@@ -25,7 +25,7 @@ void MorseInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& force
     double d_exp = exp(- a_ * (r - re_));
     double e = de_ * (pow(d_exp, 2) - 2 * d_exp + 1);
     double f_abs = 2 * de_ * a_ * (pow(d_exp, 2) - d_exp);
-    Vec3d f = f_abs * r_vec.normalized();
+    Vec3d f = f_abs / r * r_vec;
     energies[atom_i1_] += e;
     energies[atom_i2_] += e;
     forces[atom_i1_] += f;
