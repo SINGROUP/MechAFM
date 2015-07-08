@@ -1,13 +1,16 @@
 #include "interactions.hpp"
 
+#include <cmath>
+
 #include "globals.hpp"
 #include "vectors.hpp"
 
 void LJInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
     Vec3d r_vec = positions[atom_i1_] - positions[atom_i2_];
     double r_sqr = r_vec.lensqr();
-    double term_a = es12_ / pow(r_sqr, 6);
-    double term_b = es6_ / pow(r_sqr, 3);
+    double r6 = r_sqr * r_sqr * r_sqr;
+    double term_a = es12_ / (r6*r6);
+    double term_b = es6_ / r6;
     double e = term_a - term_b;
     Vec3d f = (12*term_a - 6*term_b) / r_sqr * r_vec;
     energies[atom_i1_] += e;
@@ -33,7 +36,7 @@ void CoulombInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& for
     Vec3d r_vec = positions[atom_i1_] - positions[atom_i2_];
     double r = r_vec.len();
     double e = qq_ / r;
-    Vec3d f = qq_ / pow(r, 3) * r_vec;
+    Vec3d f = qq_ / (r*r*r) * r_vec;
     energies[atom_i1_] += e;
     energies[atom_i2_] += e;
     forces[atom_i1_] += f;
