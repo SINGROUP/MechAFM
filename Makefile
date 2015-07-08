@@ -19,7 +19,7 @@ VPATH = $(SRCDIR) $(BUILDDIR) $(BINDIR)
 DEBUG    = -g
 OPTIM    = -O3 -fomit-frame-pointer
 MATHFLAG = -lm
-WARNFLAG = -Wshadow -Wno-format-zero-length -Wno-write-strings
+WARNFLAG = -Wall -Wextra -Wshadow -Wno-format-zero-length -Wno-write-strings
 FULLFLAG = $(DEBUG) $(OPTIM) $(WARNFLAG) -I$(INCDIR) -std=c++11
 
 ## Parallel thingies
