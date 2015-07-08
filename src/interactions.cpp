@@ -87,10 +87,11 @@ void HarmonicAngleInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d
     double cos_t = r1_vec.dot(r2_vec) / (r1 * r2);
     double theta = acos(cos_t);
     double sin_t = sin(theta);
-    double f_multiplier = -2 * k_ * (theta - theta0_) / sin_t;
-    Vec3d f1 = f_multiplier / r1 * (r2_vec / r2 - r1_vec * cos_t / r1);
-    Vec3d f2 = f_multiplier / r2 * (r1_vec / r1 - r2_vec * cos_t / r2);
-    double e = k_ * pow((theta - theta0_), 2);
+    double d_theta = theta - theta0_;
+    double f_multiplier = -2 * k_ * d_theta / sin_t;
+    Vec3d f1 = -f_multiplier / r1 * (r2_vec / r2 - r1_vec * cos_t / r1);
+    Vec3d f2 = -f_multiplier / r2 * (r1_vec / r1 - r2_vec * cos_t / r2);
+    double e = k_ * pow(d_theta, 2);
     forces[atom_i1_] += f1;
     forces[atom_i2_] += f2;
     forces[shared_i_] -= f1 + f2;
