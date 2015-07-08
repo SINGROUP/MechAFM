@@ -32,9 +32,12 @@
 *.dSYM/
 
 # Folders
-/bin/
+bin/
+examples/
 
 # Extra files
 *.pyc
-scan-*
-test*
+**/scan-*.dat
+**/state*.xyz
+**/*.png
+**/*.gif
