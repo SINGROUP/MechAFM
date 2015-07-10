@@ -3,8 +3,7 @@
 #include <memory>
 #include <vector>
 
-#include "integrators.hpp"
-#include "interactions.hpp"
+#include "system.hpp"
 
 using namespace std;
 
@@ -14,8 +13,6 @@ enum MinimiserType {
 };
 
 struct InputOptions;
-class Simulation;
-class System;
 
 int SDMinimisation(System& system, const InputOptions& options);
 int FIREMinimisation(System& system, const InputOptions& options);

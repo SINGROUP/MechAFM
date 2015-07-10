@@ -6,9 +6,8 @@
 
 #include "globals.hpp"
 #include "messages.hpp"
-#include "utility.hpp"
-#include "physics.hpp"
 #include "simulation.hpp"
+#include "utility.hpp"
 #include "vectors.hpp"
 
 /* Filter out comment and empty lines in a file */
@@ -505,7 +504,6 @@ void setSystemZ(Simulation& simulation) {
     }
 }
 
-// TODO: Improve this
 void centerSystem(Simulation& simulation){
     InputOptions& options = simulation.options_;
     System& system = simulation.system;
@@ -523,8 +521,8 @@ void centerSystem(Simulation& simulation){
         }
         avgx /= nplaneatoms;
         avgy /= nplaneatoms;
-        double dx = (simulation.box_.x / 2) - avgx;
-        double dy = (simulation.box_.y / 2) - avgy;
+        double dx = (simulation.options_.box.x / 2) - avgx;
+        double dy = (simulation.options_.box.y / 2) - avgy;
         for (int i = 2; i < system.n_atoms_; ++i) {
             system.positions_[i].x += dx;
             system.positions_[i].y += dy;
@@ -546,7 +544,7 @@ void readParameterFile(Simulation& simulation) {
     double qdump;
 
     /* Initialize the universe */
-    simulation.box_ = Vec3d(-1.0);
+    simulation.options_.box = Vec3d(-1.0);
 
     /* Open the parameter file */
     fp = fopen(options.paramfile,"r");
@@ -566,7 +564,7 @@ void readParameterFile(Simulation& simulation) {
         sscanf(line, "%s", keyword);
         /* Process the separate keywords */
         if (strcmp(keyword, "box") == 0) {
-            Vec3d& box = simulation.box_;
+            Vec3d& box = simulation.options_.box;
             if ((box.x < 0) && (box.y < 0) && (box.z < 0)) {
                 sscanf(line, "%s %lf %lf %lf", dump, &(box.x), &(box.y), &(box.z));
             }

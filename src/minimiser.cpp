@@ -3,7 +3,10 @@
 #include <algorithm>
 #include <cmath>
 
+#include "integrators.hpp"
+#include "interactions.hpp"
 #include "messages.hpp"
+#include "simulation.hpp"
 
 using namespace std;
 

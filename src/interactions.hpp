@@ -6,7 +6,10 @@
 #include <unordered_set>
 #include <vector>
 
+#include "force_grid.hpp"
 #include "vectors.hpp"
+
+class System;
 
 using namespace std;
 
@@ -51,7 +54,6 @@ inline double mixeps(double eps1, double eps2) {
     return sqrt(eps1 * eps2);
 }
 
-class System;
 
 class Interaction {
  public:
@@ -110,6 +112,18 @@ class CoulombInteraction: public Interaction {
  private:
     int atom_i1_, atom_i2_;
     double qq_;
+};
+
+class GridInteraction: public Interaction {
+ public:
+    GridInteraction(ForceGrid& fg): force_grid(fg) {};
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return true;
+    }
+
+ private:
+    ForceGrid force_grid;
 };
 
 class Harmonic2DInteraction: public Interaction {
@@ -178,14 +192,4 @@ class HarmonicAngleInteraction: public Interaction {
     int shared_i_, atom_i1_, atom_i2_;
     double k_;
     double theta0_;
-};
-
-class GridInteraction: public Interaction {
- public:
-    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
-    bool isTipSurface() const override {
-        return true;
-    }
-
- private:
 };

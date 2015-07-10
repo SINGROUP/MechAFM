@@ -5,6 +5,81 @@
 #include "globals.hpp"
 #include "messages.hpp"
 
+/* Interaction between tip and surface (interpolation from a grid) */
+void interactTipSurfaceFromGrid(void) {
+
+    IVECTOR gp, cgp;
+    VECTOR dxyz;
+    IVECTOR ai;
+    int ix, iy, iz, n;
+    double zoffset;
+    double *fgr;
+    VECTOR C[8];
+    double c00, c10, c01, c11, c0, c1, c;
+
+    /* Zero the forces and energy */
+    TipSurf_energy = 0.0;
+    TipSurf_force = NULL_vector;
+
+    /* What is the nearest grid point to the current position of the tip? */
+    retrieveGridPoint(&gp,&dxyz);
+
+    /* Find the surrounding grid points as array indices and retrieve the force values */
+    fgr = ForceGridRigid;
+    for (ix=0, n=0; ix<=1; ++ix) {
+        cgp.x = gp.x + ix;
+        for (iy=0; iy<=1; ++iy) {
+            cgp.y = gp.y + iy;
+            for (iz=0; iz<=1; ++iz) {
+                cgp.z = gp.z + iz;
+                /* Get the array index */
+                retrieveArrayIndex(cgp,&ai);
+                /* Retrieve and store the force */
+                C[n].x = fgr[ai.x];
+                C[n].y = fgr[ai.y];
+                C[n].z = fgr[ai.z];
+                n++;
+            }
+        }
+    }
+
+    /* This is the order of the coefficients in the C array */
+    /*      000 - 001 - 010 - 011 - 100 - 101 - 110 - 111           */
+
+    /* The trilinear interpolation below is based on:                */
+    /*  http://en.wikipedia.org/wiki/Trilinear_interpolation */
+
+    /* Construct the force on the tip (in x) */
+    c00 = C[0].x*(1-dxyz.x) + C[4].x*(dxyz.x);
+    c01 = C[1].x*(1-dxyz.x) + C[5].x*(dxyz.x);
+    c10 = C[2].x*(1-dxyz.x) + C[6].x*(dxyz.x);
+    c11 = C[3].x*(1-dxyz.x) + C[7].x*(dxyz.x);
+    c0 = c00*(1-dxyz.y) + c10*(dxyz.y);
+    c1 = c01*(1-dxyz.y) + c11*(dxyz.y);
+    TipSurf_force.x = c0*(1-dxyz.z) + c1*(dxyz.z);
+
+    /* Construct the force on the tip (in y) */
+    c00 = C[0].y*(1-dxyz.x) + C[4].y*(dxyz.x);
+    c01 = C[1].y*(1-dxyz.x) + C[5].y*(dxyz.x);
+    c10 = C[2].y*(1-dxyz.x) + C[6].y*(dxyz.x);
+    c11 = C[3].y*(1-dxyz.x) + C[7].y*(dxyz.x);
+    c0 = c00*(1-dxyz.y) + c10*(dxyz.y);
+    c1 = c01*(1-dxyz.y) + c11*(dxyz.y);
+    TipSurf_force.y = c0*(1-dxyz.z) + c1*(dxyz.z);
+
+    /* Construct the force on the tip (in z) */
+    c00 = C[0].z*(1-dxyz.x) + C[4].z*(dxyz.x);
+    c01 = C[1].z*(1-dxyz.x) + C[5].z*(dxyz.x);
+    c10 = C[2].z*(1-dxyz.x) + C[6].z*(dxyz.x);
+    c11 = C[3].z*(1-dxyz.x) + C[7].z*(dxyz.x);
+    c0 = c00*(1-dxyz.y) + c10*(dxyz.y);
+    c1 = c01*(1-dxyz.y) + c11*(dxyz.y);
+    TipSurf_force.z = c0*(1-dxyz.z) + c1*(dxyz.z);
+
+    /* Go home */
+    return;
+}
+
 /* Build a 3D force grid (for efficient look ups in case there is no flexibility) */
 void build3DForceGrid(void) {
 

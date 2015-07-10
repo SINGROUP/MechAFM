@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "force_grid.hpp"
 #include "globals.hpp"
 #include "vectors.hpp"
 
@@ -41,6 +42,14 @@ void CoulombInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& for
     energies[atom_i2_] += e;
     forces[atom_i1_] += f;
     forces[atom_i2_] -= f;
+}
+
+void GridInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
+    Vec3d tip_force;
+    double tip_energy;
+    force_grid.interpolate(positions[1], tip_force, tip_energy);
+    forces[1] += tip_force;
+    energies[1] += tip_energy;
 }
 
 void Harmonic2DInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {

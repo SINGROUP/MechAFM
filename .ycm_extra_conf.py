@@ -51,6 +51,8 @@ flags = [
 # For a C project, you would set this to 'c' instead of 'c++'.
 '-x',
 'c++',
+'-D',
+'MPI_BUILD',
 '-I',
 '/usr/include/c++/4.8',
 '-I',

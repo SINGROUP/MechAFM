@@ -19,6 +19,7 @@ class System {
     void evalTipSurfaceForces(Vec3d& force, double& energy) const;
     void makeXYZFile() const;
     void setTipDummyDistance(double d) {tip_dummy_d_ = d;}
+    double getTipDummyDistance() {return tip_dummy_d_;}
     void setDummyXY(double x, double y) {
         positions_[0].x = x;
         positions_[0].y = y;

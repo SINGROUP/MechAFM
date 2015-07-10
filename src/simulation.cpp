@@ -52,7 +52,6 @@ void Simulation::run() {
             }
 
             System min_system = system;  // Take a copy for each z approach
-            min_system.positions_[0] = Vec3d(7);
             vector<OutputData> z_data(n_points_.z);
             if (min_system.interactions_ == nullptr) {
                 error("System interactions are not given!");
@@ -72,21 +71,21 @@ void Simulation::run() {
                     default:
                         error("Unrecognised minimiser type!");
                 }
-                if (current_point % 100 == 99) {
-                    min_system.makeXYZFile();
-                }
+                // if (current_point % 100 == 99) {
+                    // min_system.makeXYZFile();
+                // }
                 z_data[k] = min_system.getOutput();
                 z_data[k].indices = Vec3i(i, j, k);
                 z_data[k].minimisation_steps = n;
                 n_total_ += n;
-            }
+            } // z
             output_buffer.insert(output_buffer.end(), z_data.begin(), z_data.end());
             if (output_buffer.size() >= buffer_size) {
                 writeOutput(output_buffer);
                 output_buffer.clear();
             }
-        }
-    }
+        } // y
+    } // x
     // Write the remaining data
     writeOutput(output_buffer);
 }
@@ -148,18 +147,30 @@ void Simulation::writeOutput(vector<OutputData> output_buffer) {
 }
 
 void Simulation::buildInteractions() {
-    buildTipDummyInteractions();
+    calculateTipDummyDistance();
+    // Grid interactions have to be build first since it currently
+    // clears the interaction list
     if (options_.rigidgrid) {
         buildTipGridInteractions();
     } else {
         buildTipSurfaceInteractions();
     }
+    buildTipDummyInteractions();
     if (options_.flexible) {
         buildSurfaceSurfaceInteractions();
         buildSubstrateInteractions();
         buildBondInteractions();
     }
     system.interactions_ = &interactions_;
+}
+
+void Simulation::calculateTipDummyDistance() {
+    // Calculate the tip and dummy initial distance
+    unordered_map<string, AtomParameters> ap = interaction_parameters_.atom_parameters;
+    auto dummy = ap.find(system.types_[0])->second;
+    auto tip = ap.find(system.types_[1])->second;
+    double d = mixsig(dummy.sig, tip.sig) * SIXTHRT2;
+    system.setTipDummyDistance(d);
 }
 
 bool Simulation::findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters op){
@@ -240,8 +251,81 @@ void Simulation::buildTipSurfaceInteractions() {
 }
 
 void Simulation::buildTipGridInteractions() {
-    warning("Rigid grid not yet implemented! Using regular tip-surface interactions.");
+    // Build the interactions we want to replace with the grid
     buildTipSurfaceInteractions();
+
+    ForceGrid fg;
+    const double min_spacing = 0.01;  // A grid smaller than this (in Angstrom) is silly
+    double temp_spacing = options_.dx;
+    if (options_.dy < temp_spacing) {
+        temp_spacing = options_.dy;
+    }
+    if (options_.dz < temp_spacing) {
+        temp_spacing = options_.dz;
+    }
+    if (temp_spacing < min_spacing) {
+        temp_spacing = min_spacing;
+    }
+    fg.spacing_ = Vec3d(temp_spacing);
+    fg.grid_points_.x = floor(options_.box.x / fg.spacing_.x) + 2*fg.border_ + 1;
+    fg.grid_points_.y = floor(options_.box.y / fg.spacing_.y) + 2*fg.border_ + 1;
+    fg.grid_points_.z = floor((options_.zhigh - options_.zlow) / fg.spacing_.z) + 2*fg.border_ + 1;
+    int total_points = fg.grid_points_.x * fg.grid_points_.y * fg.grid_points_.z;
+    fg.offset_.x = -fg.border_ * fg.spacing_.x;
+    fg.offset_.y = -fg.border_ * fg.spacing_.y;
+    fg.offset_.z = options_.zhigh - system.getTipDummyDistance()
+                   - (fg.grid_points_.z - fg.border_ - 1) * fg.spacing_.z;
+
+    pretty_print("Computing 3D force grid (%d grid points)", total_points);
+    pretty_print("");
+    vector<double> temp_samples(4*total_points, 0);
+    for (int i = 0; i < fg.grid_points_.x; ++i) {
+        double x = i * fg.spacing_.x + fg.offset_.x;
+        for (int j = 0; j < fg.grid_points_.y; ++j) {
+            double y = j * fg.spacing_.y + fg.offset_.y;
+
+            // Check if this point is handled by this process
+            int current_point = i * fg.grid_points_.y + j;
+            if (current_point % n_processes_ != current_process_) {
+                continue;
+            }
+
+            for (int k = 0; k < fg.grid_points_.z; ++k) {
+                double z = k * fg.spacing_.z + fg.offset_.z;
+                auto positions = system.positions_;
+                positions[1] = Vec3d(x, y, z);
+                vector<Vec3d> forces(system.n_atoms_);
+                vector<double> energies(system.n_atoms_, 0);
+                for (const auto& interaction : interactions_) {
+                    interaction->eval(positions, forces, energies);
+                }
+                int index = 4*(i * fg.grid_points_.y * fg.grid_points_.z + j * fg.grid_points_.z + k);
+                temp_samples[index] = forces[1].x;
+                temp_samples[index + 1] = forces[1].y;
+                temp_samples[index + 2] = forces[1].z;
+                temp_samples[index + 3] = energies[1];
+            } // z
+        } // y
+    } // x
+
+    // Communicate all the data to all processes
+#if MPI_BUILD
+    MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(temp_samples.data()),
+                  4 * total_points, MPI_DOUBLE, MPI_SUM, universe);
+#endif
+
+    fg.forces_.assign(total_points, Vec3d(0));
+    fg.energies_.assign(total_points, 0);
+    for (int i = 0; i < total_points; ++i) {
+        fg.forces_[i].x = temp_samples[4*i];
+        fg.forces_[i].y = temp_samples[4*i + 1];
+        fg.forces_[i].z = temp_samples[4*i + 2];
+        fg.energies_[i] = temp_samples[4*i + 3];
+    }
+
+    // Replace the interactions with the grid
+    interactions_.clear();
+    interactions_.emplace_back(new GridInteraction(fg));
 }
 
 void Simulation::buildTipDummyInteractions() {
@@ -252,13 +336,6 @@ void Simulation::buildTipDummyInteractions() {
     double k = interaction_parameters_.tip_dummy_k;
     double r0 = interaction_parameters_.tip_dummy_r0;
     interactions_.emplace_back(new Harmonic2DInteraction(0, 1, k, r0));
-
-    // Calculate the tip and dummy initial distance
-    unordered_map<string, AtomParameters> ap = interaction_parameters_.atom_parameters;
-    auto dummy = ap.find(system.types_[0])->second;
-    auto tip = ap.find(system.types_[1])->second;
-    double d = mixsig(dummy.sig, tip.sig) * SIXTHRT2;
-    system.setTipDummyDistance(d);
 }
 
 void Simulation::buildSurfaceSurfaceInteractions() {

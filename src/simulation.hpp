@@ -30,6 +30,7 @@ struct InputOptions {
     char tipatom[NAME_LENGTH];
     char dummyatom[NAME_LENGTH];
     char planeatom[NAME_LENGTH];
+    Vec3d box;                     // Vector containing the size of the universe
     double dx, dy, dz;
     double zlow, zhigh, zplane;
     Units units;
@@ -57,7 +58,6 @@ class Simulation {
     char input_file_name_[NAME_LENGTH];     /* File name of the input file */
     InputOptions options_;                  /* Structure containing all relevant input options */
     InteractionParameters interaction_parameters_;
-    Vec3d box_;                             /* Vector containing the size of the universe */
     Vec3i n_points_;                        /* Number of points (x,y,z) for the tip */
     long int n_total_;                      /* Total number of minimization loops used */
     vector<FILE*> fstreams_;                /* Array with the entire file stream */
@@ -81,6 +81,7 @@ class Simulation {
     chrono::time_point<chrono::system_clock> time_start_, time_end_;
 
  private:
+    void calculateTipDummyDistance();
     void writeOutput(vector<OutputData> output_buffer);
     void addLJInteraction(int atom_i1, int atom_i2);
     void addCoulombInteraction(int atom_i1, int atom_i2);

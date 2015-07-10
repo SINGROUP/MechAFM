@@ -19,7 +19,7 @@ VPATH = $(SRCDIR) $(BUILDDIR) $(BINDIR)
 DEBUG    = -g
 OPTIM    = -O3 -fomit-frame-pointer
 MATHFLAG = -lm
-WARNFLAG = -Wall -Wextra -Wshadow -Wno-format-zero-length -Wno-write-strings
+WARNFLAG = -Wall -Wextra -Wpedantic -Wshadow -Wno-format-zero-length -Wno-write-strings
 FULLFLAG = $(DEBUG) $(OPTIM) $(WARNFLAG) -I$(INCDIR) -std=c++11
 
 ## Parallel thingies
@@ -32,7 +32,7 @@ MPI_FLAGS = $(MPI_INC) $(MPI_PATH) $(MPI_LIB) $(MPI_BUILD)
 
 mpi_objects = main-mpi.o messages-mpi.o simulation-mpi.o 
 serial_objects = main-serial.o messages-serial.o simulation-serial.o 
-shared_objects = parse.o system.o utility.o interactions.o minimiser.o integrators.o
+shared_objects = parse.o system.o utility.o interactions.o minimiser.o integrators.o force_grid.o
 
 ############################################
 ## Actual make code below (do not change) ##
@@ -54,30 +54,34 @@ $(SEXEC): $(serial_objects) $(shared_objects)
 	mkdir -p $(BUILDDIR)
 	mv -f *.o $(BUILDDIR)
 
-main-mpi.o: mechafm.cpp messages.hpp globals.hpp parse.hpp simulation.hpp system.hpp
+main-mpi.o: mechafm.cpp globals.hpp messages.hpp parse.hpp simulation.hpp
 	$(MCC) -c $(FULLFLAG) $< $(MATHFLAG) $(MPI_FLAGS) -o $@
-main-serial.o: mechafm.cpp messages.hpp globals.hpp parse.hpp simulation.hpp system.hpp
+main-serial.o: mechafm.cpp globals.hpp messages.hpp parse.hpp simulation.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 messages-mpi.o: messages.cpp messages.hpp globals.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_FLAGS) $< $(MATHFLAG) -o $@
 messages-serial.o: messages.cpp messages.hpp globals.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
-simulation-mpi.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp minimiser.hpp integrators.hpp
+simulation-mpi.o: simulation.cpp simulation.hpp force_grid.hpp globals.hpp integrators.hpp interactions.hpp \
+				  messages.hpp minimiser.hpp system.hpp vectors.hpp
 	$(MCC) -c $(FULLFLAG) $(MPI_FLAGS) $< $(MATHFLAG) -o $@
-simulation-serial.o: simulation.cpp simulation.hpp globals.hpp system.hpp vectors.hpp minimiser.hpp integrators.hpp
+simulation-serial.o: simulation.cpp simulation.hpp force_grid.hpp globals.hpp integrators.hpp interactions.hpp \
+					 messages.hpp minimiser.hpp system.hpp vectors.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 
-system.o: system.cpp system.hpp globals.hpp vectors.hpp interactions.hpp
-	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
-utility.o: utility.cpp utility.hpp globals.hpp
-	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
-parse.o: parse.cpp parse.hpp globals.hpp messages.hpp utility.hpp vectors.hpp
-	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
-interactions.o: interactions.cpp interactions.hpp vectors.hpp
-	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
-minimiser.o: minimiser.cpp minimiser.hpp integrators.hpp
+force_grid.o: force_grid.cpp force_grid.hpp interactions.hpp simulation.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 integrators.o: integrators.cpp integrators.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+interactions.o: interactions.cpp interactions.hpp globals.hpp force_grid.hpp system.hpp vectors.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+minimiser.o: minimiser.cpp minimiser.hpp integrators.hpp interactions.hpp messages.hpp simulation.hpp system.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+parse.o: parse.cpp parse.hpp globals.hpp messages.hpp simulation.hpp utility.hpp vectors.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+system.o: system.cpp system.hpp globals.hpp interactions.hpp messages.hpp vectors.hpp
+	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
+utility.o: utility.cpp utility.hpp globals.hpp
 	$(SCC) -c $(FULLFLAG) $(MATHFLAG) $< -o $@
 
 ## Make clean ##
