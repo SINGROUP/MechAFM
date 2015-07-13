@@ -39,6 +39,8 @@ class System {
     // index 0 = dummy and index 1 = tip
     vector<Vec3d> positions_;
     vector<Vec3d> velocities_;
+    vector<Vec3d> forces_;
+    vector<double> energies_;
     vector<double> charges_;
     vector<double> masses_;
     vector<bool> fixed_;

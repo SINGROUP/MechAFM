@@ -12,6 +12,8 @@ void System::initialize(int n_atoms) {
     n_atoms_ = n_atoms + 2;  // Add tip and dummy to the atom count
     positions_.assign(n_atoms_, Vec3d());
     velocities_.assign(n_atoms_, Vec3d());
+    forces_.assign(n_atoms_, Vec3d());
+    energies_.assign(n_atoms_, 0);
     charges_.assign(n_atoms_, 0);
     masses_.assign(n_atoms_, 0);
     fixed_.assign(n_atoms_, false);

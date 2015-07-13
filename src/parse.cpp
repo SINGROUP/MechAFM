@@ -235,6 +235,28 @@ void readInputFile(Simulation& simulation) {
             }
             sprintf(tmp_units, "%s", value);
         }
+        else if (strcmp(keyword, "minimiser") == 0) {
+            if (strcmp(value, "SD") == 0) {
+                options.minimiser_type = STEEPEST_DESCENT;
+            }
+            else if (strcmp(value, "FIRE") == 0) {
+                options.minimiser_type = FIRE;
+            }
+            else {
+                error("Unrecognised minimiser type!");
+            }
+        }
+        else if (strcmp(keyword, "integrator") == 0) {
+            if (strcmp(value, "euler") == 0) {
+                options.integrator_type = EULER;
+            }
+            else if (strcmp(value, "rk4") == 0) {
+                options.integrator_type = RK4;
+            }
+            else {
+                error("Unrecognised integrator type!");
+            }
+        }
         else {
             error("Unknown option %s!", keyword);
         }
@@ -333,7 +355,7 @@ void readInputFile(Simulation& simulation) {
     pretty_print("");
     switch (options.minimiser_type) {
         case STEEPEST_DESCENT:
-            pretty_print("minimiser:         %-s", "Steepest Descent");
+            pretty_print("minimiser:         %-s", "SD");
             break;
         case FIRE:
             pretty_print("minimiser:         %-s", "FIRE");
@@ -341,10 +363,10 @@ void readInputFile(Simulation& simulation) {
     }
     switch (options.integrator_type) {
         case EULER:
-            pretty_print("integrator:        %-s", "Euler");
+            pretty_print("integrator:        %-s", "euler");
             break;
         case RK4:
-            pretty_print("integrator:        %-s", "RK4");
+            pretty_print("integrator:        %-s", "rk4");
             break;
     }
     pretty_print("");

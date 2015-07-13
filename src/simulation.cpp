@@ -70,11 +70,11 @@ void Simulation::run() {
                         n = FIREMinimisation(min_system, options_);
                         break;
                     default:
-                        error("Unrecognised minimiser type!");
+                        error("Unimplemented minimiser type!");
                 }
-                if (current_point % 100 == 2) {
-                    min_system.makeXYZFile();
-                }
+                // if (current_point % 100 == 2) {
+                    // min_system.makeXYZFile();
+                // }
                 z_data[k] = min_system.getOutput();
                 z_data[k].indices = Vec3i(i, j, k);
                 z_data[k].minimisation_steps = n;

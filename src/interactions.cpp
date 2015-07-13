@@ -18,6 +18,7 @@ void LJInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, 
     energies[atom_i2_] += e;
     forces[atom_i1_] += f;
     forces[atom_i2_] -= f;
+    // printf("%d, %d | f = %f\n", atom_i1_, atom_i2_, f.len());
 }
 
 void MorseInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {

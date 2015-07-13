@@ -7,5 +7,5 @@ enum IntegratorType {
 
 class System;
 
-void eulerStep(System& system);
-void rk4Step(System& system);
+void eulerStep(System& system, const double dt);
+void rk4Step(System& system, const double dt);
