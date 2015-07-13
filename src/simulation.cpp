@@ -271,14 +271,15 @@ void Simulation::buildTipGridInteractions() {
         temp_spacing = min_spacing;
     }
     fg.spacing_ = Vec3d(temp_spacing);
-    fg.grid_points_.x = floor(options_.box.x / fg.spacing_.x) + 2*fg.border_ + 1;
-    fg.grid_points_.y = floor(options_.box.y / fg.spacing_.y) + 2*fg.border_ + 1;
-    fg.grid_points_.z = floor((options_.zhigh - options_.zlow) / fg.spacing_.z) + 2*fg.border_ + 1;
+    const int border = ceil(fg.edge_ / min(fg.spacing_.x, min(fg.spacing_.y, fg.spacing_.z)));
+    fg.grid_points_.x = floor(options_.box.x / fg.spacing_.x) + 2*border + 1;
+    fg.grid_points_.y = floor(options_.box.y / fg.spacing_.y) + 2*border + 1;
+    fg.grid_points_.z = floor((options_.zhigh - options_.zlow) / fg.spacing_.z) + 2*border + 1;
     int total_points = fg.grid_points_.x * fg.grid_points_.y * fg.grid_points_.z;
-    fg.offset_.x = -fg.border_ * fg.spacing_.x;
-    fg.offset_.y = -fg.border_ * fg.spacing_.y;
+    fg.offset_.x = -border * fg.spacing_.x;
+    fg.offset_.y = -border * fg.spacing_.y;
     fg.offset_.z = options_.zhigh - system.getTipDummyDistance()
-                   - (fg.grid_points_.z - fg.border_ - 1) * fg.spacing_.z;
+                   - (fg.grid_points_.z - border - 1) * fg.spacing_.z;
 
     pretty_print("Computing 3D force grid (%d grid points)", total_points);
     pretty_print("");

@@ -19,7 +19,7 @@ class ForceGrid {
     Vec3i grid_points_;
     Vec3d spacing_;
     Vec3d offset_;
-    const int border_ = 3;  // How many extra samples will we take outside edges of the simulation area
+    const double edge_ = 1;  // How wide of an edge do we have around the simulation area
     vector<Vec3d> forces_;
     vector<double> energies_;
 
