@@ -72,9 +72,9 @@ void Simulation::run() {
                     default:
                         error("Unimplemented minimiser type!");
                 }
-                // if (current_point % 100 == 2) {
-                    // min_system.makeXYZFile();
-                // }
+                if (options_.flexible && current_point == total_points / 2) {
+                    min_system.makeXYZFile();
+                }
                 z_data[k] = min_system.getOutput();
                 z_data[k].indices = Vec3i(i, j, k);
                 z_data[k].minimisation_steps = n;
@@ -284,6 +284,7 @@ void Simulation::buildTipGridInteractions() {
     pretty_print("Computing 3D force grid (%d grid points)", total_points);
     pretty_print("");
     vector<double> temp_samples(4*total_points, 0);
+#pragma omp parallel for default(none) shared(temp_samples, fg)
     for (int i = 0; i < fg.grid_points_.x; ++i) {
         double x = i * fg.spacing_.x + fg.offset_.x;
         for (int j = 0; j < fg.grid_points_.y; ++j) {
@@ -297,7 +298,7 @@ void Simulation::buildTipGridInteractions() {
 
             for (int k = 0; k < fg.grid_points_.z; ++k) {
                 double z = k * fg.spacing_.z + fg.offset_.z;
-                auto positions = system.positions_;
+                vector<Vec3d> positions = system.positions_;
                 positions[1] = Vec3d(x, y, z);
                 vector<Vec3d> forces(system.n_atoms_);
                 vector<double> energies(system.n_atoms_, 0);
@@ -347,7 +348,7 @@ void Simulation::buildSurfaceSurfaceInteractions() {
     unordered_map<string, AtomParameters> ap = interaction_parameters_.atom_parameters;
     for (int i = 2; i < system.n_atoms_; ++i) {
         for (int j = i + 1; j < system.n_atoms_; ++j) {
-            // addLJInteraction(i, j);
+            addLJInteraction(i, j);
             if (options_.coulomb) {
                 addCoulombInteraction(i, j);
             }
