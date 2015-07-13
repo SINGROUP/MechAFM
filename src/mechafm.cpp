@@ -230,10 +230,9 @@ int main(int argc, char *argv[]) {
     readXYZFile(simulation);
     readParameterFile(simulation);
 
-    simulation.buildInteractions();
-
     /* The simulation itself */
     openUniverse(simulation);
+    simulation.buildInteractions();
     simulation.run();
     closeUniverse(simulation);
 
