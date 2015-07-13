@@ -21,24 +21,25 @@ bool Simulation::rootProcess() {
 }
 
 void Simulation::run() {
-    double x, y, z, current_progress;
-    double report_interval = 0.1;
+    const double report_interval = 0.1;
     double next_report = report_interval;
-    int current_point;
-    int total_points = n_points_.x * n_points_.y;
+    const int total_points = n_points_.x * n_points_.y;
 
-    unsigned int buffer_size = options_.bufsize * n_points_.z;
+    const unsigned int buffer_size = options_.bufsize * n_points_.z;
     vector<OutputData> output_buffer;
     output_buffer.reserve(buffer_size);
 
+#pragma omp parallel for shared(output_buffer, next_report)
     for (int i = 0; i < n_points_.x; ++i) {
-        x = i * options_.dx;
+        double x = i * options_.dx;
         for (int j = 0; j < n_points_.y; ++j) {
-            y = j * options_.dy;
+            double y = j * options_.dy;
 
-            current_point = i * n_points_.y + j;
+            int current_point = i * n_points_.y + j;
             // Report progress every once in a while
-            current_progress = 1.0f * current_point / total_points;
+            // TODO: Redo this
+            double current_progress = 1.0f * current_point / total_points;
+#pragma omp critical(report)
             if(rootProcess() && current_progress >= next_report) {
                 pretty_print("Finished approximately %4.1f %% of the simulation",
                              100 * next_report);
@@ -58,7 +59,7 @@ void Simulation::run() {
             }
             min_system.setDummyXY(x, y);
             for (int k = 0; k < n_points_.z; ++k) {
-                z = options_.zhigh - k * options_.dz;
+                double z = options_.zhigh - k * options_.dz;
                 min_system.setDummyZ(z);
                 int n = 0;
                 switch (options_.minimiser_type) {
@@ -71,18 +72,21 @@ void Simulation::run() {
                     default:
                         error("Unrecognised minimiser type!");
                 }
-                // if (current_point % 100 == 99) {
-                    // min_system.makeXYZFile();
-                // }
+                if (current_point % 100 == 2) {
+                    min_system.makeXYZFile();
+                }
                 z_data[k] = min_system.getOutput();
                 z_data[k].indices = Vec3i(i, j, k);
                 z_data[k].minimisation_steps = n;
                 n_total_ += n;
             } // z
+#pragma omp critical(output)
+            {
             output_buffer.insert(output_buffer.end(), z_data.begin(), z_data.end());
             if (output_buffer.size() >= buffer_size) {
                 writeOutput(output_buffer);
                 output_buffer.clear();
+            }
             }
         } // y
     } // x

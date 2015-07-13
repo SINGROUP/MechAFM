@@ -17,10 +17,11 @@ VPATH = $(SRCDIR) $(BUILDDIR) $(BINDIR)
 
 ## Flag settings ##
 DEBUG    = -g
+OPENMP   = -fopenmp
 OPTIM    = -O3 -fomit-frame-pointer
 MATHFLAG = -lm
 WARNFLAG = -Wall -Wextra -Wpedantic -Wshadow -Wno-format-zero-length -Wno-write-strings
-FULLFLAG = $(DEBUG) $(OPTIM) $(WARNFLAG) -I$(INCDIR) -std=c++11
+FULLFLAG = $(DEBUG) $(OPENMP) $(OPTIM) $(WARNFLAG) -I$(INCDIR) -std=c++11
 
 ## Parallel thingies
 MPI_BUILD = -D MPI_BUILD
