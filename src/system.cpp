@@ -15,7 +15,7 @@ void System::initialize(int n_atoms) {
     forces_.assign(n_atoms_, Vec3d());
     energies_.assign(n_atoms_, 0);
     charges_.assign(n_atoms_, 0);
-    masses_.assign(n_atoms_, 0);
+    masses_.assign(n_atoms_, 1);
     fixed_.assign(n_atoms_, false);
     types_.assign(n_atoms_, "");
 
