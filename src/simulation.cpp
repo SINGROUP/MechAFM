@@ -23,28 +23,20 @@ bool Simulation::rootProcess() {
 void Simulation::run() {
     const double report_interval = 0.1;
     double next_report = report_interval;
+    int processed_points = 0;
     const int total_points = n_points_.x * n_points_.y;
 
     const unsigned int buffer_size = options_.bufsize * n_points_.z;
     vector<OutputData> output_buffer;
     output_buffer.reserve(buffer_size);
 
-#pragma omp parallel for shared(output_buffer, next_report)
+#pragma omp parallel for shared(output_buffer, next_report, processed_points)
     for (int i = 0; i < n_points_.x; ++i) {
         double x = i * options_.dx;
         for (int j = 0; j < n_points_.y; ++j) {
             double y = j * options_.dy;
 
             int current_point = i * n_points_.y + j;
-            // Report progress every once in a while
-            // TODO: Redo this
-            double current_progress = 1.0f * current_point / total_points;
-#pragma omp critical(report)
-            if(rootProcess() && current_progress >= next_report) {
-                pretty_print("Finished approximately %4.1f %% of the simulation",
-                             100 * next_report);
-                next_report += report_interval;
-            }
             // Check if this point is handled by this process
             if (current_point % n_processes_ != current_process_) {
                 continue;
@@ -72,7 +64,8 @@ void Simulation::run() {
                     default:
                         error("Unimplemented minimiser type!");
                 }
-                if (options_.flexible && current_point == total_points / 2) {
+                // if (options_.flexible && current_point == total_points / 2) {
+                if (current_point % 100 == 99) {
                     min_system.makeXYZFile();
                 }
                 z_data[k] = min_system.getOutput();
@@ -81,13 +74,22 @@ void Simulation::run() {
                 n_total_ += n;
             } // z
 #pragma omp critical(output)
-            {
+        {
             output_buffer.insert(output_buffer.end(), z_data.begin(), z_data.end());
             if (output_buffer.size() >= buffer_size) {
                 writeOutput(output_buffer);
                 output_buffer.clear();
             }
+
+            // Report progress every once in a while
+            processed_points++;
+            double current_progress = 1.0f * processed_points / total_points;
+            if(rootProcess() && current_progress >= next_report) {
+                pretty_print("Finished %4.1f %% of the simulation",
+                             100 * next_report);
+                next_report += report_interval;
             }
+        }
         } // y
     } // x
     // Write the remaining data
