@@ -37,6 +37,7 @@ void Simulation::run() {
             double y = j * options_.dy;
 
             int current_point = i * n_points_.y + j;
+            processed_points++;
             // Check if this point is handled by this process
             if (current_point % n_processes_ != current_process_) {
                 continue;
@@ -82,7 +83,6 @@ void Simulation::run() {
             }
 
             // Report progress every once in a while
-            processed_points++;
             double current_progress = 1.0f * processed_points / total_points;
             if(rootProcess() && current_progress >= next_report) {
                 pretty_print("Finished %4.1f %% of the simulation",
