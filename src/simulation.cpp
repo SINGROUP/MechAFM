@@ -4,6 +4,7 @@
     #include <mpi.h>
 #endif
 #include <cmath>
+#include <deque>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -345,9 +346,32 @@ void Simulation::buildTipDummyInteractions() {
     interactions_.emplace_back(new Harmonic2DInteraction(0, 1, k, r0));
 }
 
+vector<unordered_set<int>> getConnectedAtoms(vector<unordered_set<int>> adjacent_atoms, int distance) {
+    vector<unordered_set<int>> connected_atoms(adjacent_atoms.size());
+    for (unsigned int i = 0; i < adjacent_atoms.size(); ++i) {
+        deque<pair<int, int>> atoms_to_check;
+        for (int atom_i : adjacent_atoms[i]) {
+            atoms_to_check.emplace_back(atom_i, 1);
+        }
+        while (!atoms_to_check.empty()) {
+            pair<int, int> check = atoms_to_check[0];
+            connected_atoms[i].insert(check.first);
+            atoms_to_check.pop_front();
+            if (check.second < distance) {
+                for (int atom_i : adjacent_atoms[check.first]) {
+                    if (connected_atoms[i].count(atom_i) == 0) {
+                        atoms_to_check.emplace_back(atom_i, check.second + 1);
+                    }
+                }
+            }
+        }
+    }
+    return connected_atoms;
+}
+
 void Simulation::buildSurfaceSurfaceInteractions() {
-    // Set of atoms each atom has bond interactions with
-    vector<unordered_set<int>> bonded_atoms(system.n_atoms_);
+    // Set of atoms each atom is connected with by bonds
+    vector<unordered_set<int>> adjacent_atoms(system.n_atoms_);
 
     // Harmonic bond interactions
     vector<pair<int, int>> bonds;
@@ -364,12 +388,14 @@ void Simulation::buildSurfaceSurfaceInteractions() {
             double atom_d = (system.positions_[i] - system.positions_[j]).len();
             if (atom_d < 1.1 * r0) {
                 bonds.emplace_back(i, j);
-                bonded_atoms[i].insert(j);
-                bonded_atoms[j].insert(i);
+                adjacent_atoms[i].insert(j);
+                adjacent_atoms[j].insert(i);
                 interactions_.emplace_back(new HarmonicInteraction(i, j, bond_k, atom_d));
             }
         }
     }
+
+    auto connected_atoms = getConnectedAtoms(adjacent_atoms, system.n_atoms_);
 
     // Harmonic angle interactions
     double angle_k = interaction_parameters_.angle_k;
@@ -397,8 +423,6 @@ void Simulation::buildSurfaceSurfaceInteractions() {
                 atom2 = bond2.first;
             }
             if (shared_atom != -1) {
-                bonded_atoms[atom1].insert(atom2);
-                bonded_atoms[atom2].insert(atom1);
                 Vec3d d1 = system.positions_[atom1] - system.positions_[shared_atom];
                 Vec3d d2 = system.positions_[atom2] - system.positions_[shared_atom];
                 double cos_t = d1.normalized().dot(d2.normalized());
@@ -414,7 +438,7 @@ void Simulation::buildSurfaceSurfaceInteractions() {
     for (int i = 2; i < system.n_atoms_; ++i) {
         for (int j = i + 1; j < system.n_atoms_; ++j) {
             // Only add non-bonded interactions if atoms aren't bonded
-            if (bonded_atoms[i].count(j) == 0) {
+            if (connected_atoms[i].count(j) == 0) {
                 addLJInteraction(i, j);
                 if (options_.coulomb) {
                     addCoulombInteraction(i, j);
