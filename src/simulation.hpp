@@ -91,5 +91,4 @@ class Simulation {
     void buildTipDummyInteractions();
     void buildSurfaceSurfaceInteractions();
     void buildSubstrateInteractions();
-    void buildBondInteractions();
 };

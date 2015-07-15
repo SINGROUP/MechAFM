@@ -165,7 +165,6 @@ void Simulation::buildInteractions() {
     if (options_.flexible) {
         buildSurfaceSurfaceInteractions();
         buildSubstrateInteractions();
-        buildBondInteractions();
     }
     system.interactions_ = &interactions_;
 }
@@ -347,25 +346,10 @@ void Simulation::buildTipDummyInteractions() {
 }
 
 void Simulation::buildSurfaceSurfaceInteractions() {
-    unordered_map<string, AtomParameters> ap = interaction_parameters_.atom_parameters;
-    for (int i = 2; i < system.n_atoms_; ++i) {
-        for (int j = i + 1; j < system.n_atoms_; ++j) {
-            addLJInteraction(i, j);
-            if (options_.coulomb) {
-                addCoulombInteraction(i, j);
-            }
-        }
-    }
-}
+    // Set of atoms each atom has bond interactions with
+    vector<unordered_set<int>> bonded_atoms(system.n_atoms_);
 
-void Simulation::buildSubstrateInteractions() {
-    double k = interaction_parameters_.substrate_k;
-    for (int i = 2; i < system.n_atoms_; ++i) {
-        interactions_.emplace_back(new SubstrateInteraction(i, k, system.positions_[i].z));
-    }
-}
-
-void Simulation::buildBondInteractions() {
+    // Harmonic bond interactions
     vector<pair<int, int>> bonds;
     double bond_k = interaction_parameters_.bond_k;
     for (int i = 2; i < system.n_atoms_; ++i) {
@@ -380,11 +364,14 @@ void Simulation::buildBondInteractions() {
             double atom_d = (system.positions_[i] - system.positions_[j]).len();
             if (atom_d < 1.1 * r0) {
                 bonds.emplace_back(i, j);
+                bonded_atoms[i].insert(j);
+                bonded_atoms[j].insert(i);
                 interactions_.emplace_back(new HarmonicInteraction(i, j, bond_k, atom_d));
             }
         }
     }
 
+    // Harmonic angle interactions
     double angle_k = interaction_parameters_.angle_k;
     for (unsigned int i = 0; i < bonds.size(); ++i) {
         for (unsigned int j = i + 1; j < bonds.size(); ++j) {
@@ -410,6 +397,8 @@ void Simulation::buildBondInteractions() {
                 atom2 = bond2.first;
             }
             if (shared_atom != -1) {
+                bonded_atoms[atom1].insert(atom2);
+                bonded_atoms[atom2].insert(atom1);
                 Vec3d d1 = system.positions_[atom1] - system.positions_[shared_atom];
                 Vec3d d2 = system.positions_[atom2] - system.positions_[shared_atom];
                 double cos_t = d1.normalized().dot(d2.normalized());
@@ -418,5 +407,26 @@ void Simulation::buildBondInteractions() {
                                     shared_atom, atom1, atom2, angle_k, theta0));
             }
         }
+    }
+
+    // Non-bonded interactions
+    unordered_map<string, AtomParameters> ap = interaction_parameters_.atom_parameters;
+    for (int i = 2; i < system.n_atoms_; ++i) {
+        for (int j = i + 1; j < system.n_atoms_; ++j) {
+            // Only add non-bonded interactions if atoms aren't bonded
+            if (bonded_atoms[i].count(j) == 0) {
+                addLJInteraction(i, j);
+                if (options_.coulomb) {
+                    addCoulombInteraction(i, j);
+                }
+            }
+        }
+    }
+}
+
+void Simulation::buildSubstrateInteractions() {
+    double k = interaction_parameters_.substrate_k;
+    for (int i = 2; i < system.n_atoms_; ++i) {
+        interactions_.emplace_back(new SubstrateInteraction(i, k, system.positions_[i].z));
     }
 }
