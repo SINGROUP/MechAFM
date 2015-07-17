@@ -11,22 +11,27 @@
 
 using namespace std;
 
+// Checks if the tip force and/or energy have converged within acceptable limits
 bool checkConvergence(const Vec3d& tip_force, const double& tip_e_diff,
                                               const InputOptions& options) {
-    if (options.minterm == MIN_E) {
-        if (abs(tip_e_diff) < options.etol) {
-            return true;
-        }
-    } else if (options.minterm == MIN_F) {
-        if (tip_force.len() < options.ftol) {
-            return true;
-        }
-    } else if (options.minterm == MIN_EF) {
-        if (abs(tip_e_diff) < options.etol && tip_force.len() < options.ftol) {
-            return true;
-        }
-    } else {
-        error("Invalid minimisation term!");
+    switch(options.minterm) {
+        case MIN_E:
+            if (abs(tip_e_diff) < options.etol) {
+                return true;
+            }
+            break;
+        case MIN_F:
+            if (tip_force.len() < options.ftol) {
+                return true;
+            }
+            break;
+        case MIN_EF:
+            if (abs(tip_e_diff) < options.etol && tip_force.len() < options.ftol) {
+                return true;
+            }
+            break;
+        default:
+            error("Invalid minimisation term!");
     }
     return false;
 }
@@ -60,6 +65,7 @@ int SDMinimisation(System& system, const InputOptions& options) {
 }
 
 int FIREMinimisation(System& system, const InputOptions& options) {
+    // Initialise the minimisation variables
     const int n_min = 5;
     const double f_inc = 1.1;
     const double f_dec = 0.5;
@@ -94,6 +100,7 @@ int FIREMinimisation(System& system, const InputOptions& options) {
             break;
         }
 
+        // Evaluate how we want to change the time step
         double p = 0;
         for (int i = 0; i < system.n_atoms_; ++i) {
             p += system.velocities_[i].dot(system.forces_[i]);

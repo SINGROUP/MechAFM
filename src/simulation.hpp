@@ -17,20 +17,20 @@
 
 using namespace std;
 
-/* A simple list to distinguish different minimization criteria */
+// Defines all the different minimization criteria
 enum MinimizationCriteria {MIN_E, MIN_F, MIN_EF, NOT_SET};
 
-/* A simple list to distinguish the chosen unit system */
+// Defines the possible unit systems
 enum Units {U_KCAL, U_KJ, U_EV};
 
-/* Define a structure for all input options */
+// Defines a structure for all input options
 struct InputOptions {
     char xyzfile[NAME_LENGTH];
     char paramfile[NAME_LENGTH];
     char tipatom[NAME_LENGTH];
     char dummyatom[NAME_LENGTH];
     char planeatom[NAME_LENGTH];
-    Vec3d box;                     // Vector containing the size of the universe
+    Vec3d box;
     double dx, dy, dz;
     double zlow, zhigh, zplane;
     Units units;
@@ -50,45 +50,54 @@ class Simulation {
  public:
     Simulation() {};
     ~Simulation() {};
+    // Returns whether we're on the root process or not
     bool rootProcess();
+    // Runs the simulation
     void run();
+    // Builds all the interactions
     void buildInteractions();
 
-    System system;
-    char input_file_name_[NAME_LENGTH];     /* File name of the input file */
-    InputOptions options_;                  /* Structure containing all relevant input options */
+    System system;  // Holds the system to be minimised
+    vector<unique_ptr<Interaction>> interactions_; // List of all the interactions
+    char input_file_name_[NAME_LENGTH];  // The name of the input file
+    InputOptions options_;  // Structure containing all relevant input options
     InteractionParameters interaction_parameters_;
-    Vec3i n_points_;                        /* Number of points (x,y,z) for the tip */
-    long int n_total_;                      /* Total number of minimization loops used */
-    vector<FILE*> fstreams_;                /* Array with the entire file stream */
-    vector<unique_ptr<Interaction>> interactions_;
+    Vec3i n_points_;  // Number of points (x,y,z) to be minimised
+    long int n_total_;  // Total number of minimization steps used
+    vector<FILE*> fstreams_;  // Array with all the file streams
 
-    /* Some grid computing thingies */
-    double *ForceGridRigid;                 /* 3D force grid for use with rigid tips (interpolation) */
-    Vec3i Ngrid;                            /* Size of 3D force grid */
-    int Ngridpoints;                        /* Total number of gridpoints */
-    double GridSpacing;                     /* The size of the cubes of the grid */
-
-    /* Some parallel specific global variables */
+    // Some parallel specific global variables
 #if MPI_BUILD
-        MPI_Comm universe;                  /* The entire parallel universe */
+        MPI_Comm universe;  //The entire parallel universe
 #endif
-    int n_processes_;                      /* Total number of processes */
-    int root_process_;
-    int current_process_;                                /* The current process */
-    vector<int> points_per_process_;      /* How many x,y points on this process */
+    int n_processes_;  // Total number of processes
+    int root_process_;  // The number of the root process (usually 0)
+    int current_process_;  // The number of the current process
+    vector<int> points_per_process_;  // How many x,y points on each process
 
+    // Simulation start and end time
     chrono::time_point<chrono::system_clock> time_start_, time_end_;
 
  private:
+    // Calculates the initial distance of the tip and the dummy atoms
     void calculateTipDummyDistance();
+    // Writes the output buffer to the disk
     void writeOutput(vector<OutputData> output_buffer);
-    void addLJInteraction(int atom_i1, int atom_i2);
+    // Add a LJ or Morse interaction between atoms 1 and 2
+    void addVDWInteraction(int atom_i1, int atom_i2);
+    // Add a Coulomb interaction between atoms 1 and 2
     void addCoulombInteraction(int atom_i1, int atom_i2);
-    bool findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters op);
+    // Looks for overwrite parameters for atoms 1 and 2. Return true if found
+    // and sets op if found.
+    bool findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters& op);
+    // Build all the interactions of the tip atom with the surface atoms
     void buildTipSurfaceInteractions();
+    // Build a grid interaction to approximate tip surface interactions
     void buildTipGridInteractions();
+    // Build the interactions between the tip and dummy atom
     void buildTipDummyInteractions();
+    // Build all the interactions between the surface atoms
     void buildSurfaceSurfaceInteractions();
+    // Build substrate interactions for all surface atoms
     void buildSubstrateInteractions();
 };

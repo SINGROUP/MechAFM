@@ -108,7 +108,7 @@ void Simulation::writeOutput(vector<OutputData> output_buffer) {
                  MPI_CHAR, root_process_, 0, universe);
     }
 #endif
-    // Receive the data from the daughter processors and write to file
+    // Receive the data from the daughter processes and write to file
     if (rootProcess()) {
         vector<OutputData> recieve_buffer(options_.bufsize * n_points_.z);
         for (int i = 0; i < n_processes_; ++i) {
@@ -155,9 +155,11 @@ void Simulation::writeOutput(vector<OutputData> output_buffer) {
 }
 
 void Simulation::buildInteractions() {
+    // Tip-Dummy distance needs to be calculated first since it's required
+    // by some of the interactions.
     calculateTipDummyDistance();
     // Grid interactions have to be build first since it currently
-    // clears the interaction list
+    // clears the interaction list.
     if (options_.rigidgrid) {
         buildTipGridInteractions();
     } else {
@@ -168,6 +170,7 @@ void Simulation::buildInteractions() {
         buildSurfaceSurfaceInteractions();
         buildSubstrateInteractions();
     }
+    // Give the system a pointer to the interaction list
     system.interactions_ = &interactions_;
 }
 
@@ -180,7 +183,7 @@ void Simulation::calculateTipDummyDistance() {
     system.setTipDummyDistance(d);
 }
 
-bool Simulation::findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters op){
+bool Simulation::findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters& op){
     unordered_multiset<string> test_set{system.types_[atom_i1], system.types_[atom_i2]};
     for (const auto& overwrite : interaction_parameters_.overwrite_parameters) {
         if (overwrite.atoms == test_set) {
@@ -191,8 +194,9 @@ bool Simulation::findOverwriteParameters(int atom_i1, int atom_i2, OverwritePara
     return false;
 }
 
-void Simulation::addLJInteraction(int atom_i1, int atom_i2) {
+void Simulation::addVDWInteraction(int atom_i1, int atom_i2) {
     OverwriteParameters op;
+    // Use overwrite parameters to define the interaction if they exist
     if (findOverwriteParameters(atom_i1, atom_i2, op)) {
         if (op.morse) {
             interactions_.emplace_back(new MorseInteraction(atom_i1, atom_i2, op.de, op.a, op.re));
@@ -242,6 +246,7 @@ void Simulation::addCoulombInteraction(int atom_i1, int atom_i2) {
         q1 = atom1_it->second.q;
         q2 = atom2_it->second.q;
     }
+    // Only add the interaction if charges aren't zero
     if (q1 != 0 && q2 != 0) {
         double qq = interaction_parameters_.qbase * q1 * q2;
         interactions_.emplace_back(new CoulombInteraction(atom_i1, atom_i2, qq));
@@ -250,7 +255,7 @@ void Simulation::addCoulombInteraction(int atom_i1, int atom_i2) {
 
 void Simulation::buildTipSurfaceInteractions() {
     for (int i = 2; i < system.n_atoms_; ++i) {
-        addLJInteraction(1, i);
+        addVDWInteraction(1, i);
         if (options_.coulomb) {
             addCoulombInteraction(1, i);
         }
@@ -258,6 +263,10 @@ void Simulation::buildTipSurfaceInteractions() {
 }
 
 void Simulation::buildTipGridInteractions() {
+    // Check that the interaction list is empty before we begin
+    if (!interactions_.empty()) {
+        error("Interaction list is not empty when building force grid!.");
+    }
     // Build the interactions we want to replace with the grid
     buildTipSurfaceInteractions();
 
@@ -286,6 +295,8 @@ void Simulation::buildTipGridInteractions() {
 
     pretty_print("Computing 3D force grid (%d grid points)", total_points);
     pretty_print("");
+    // Store the samples in a single list for easy communication
+    // Sample order: f.x, f.y, f.z, e
     vector<double> temp_samples(4*total_points, 0);
 #pragma omp parallel for default(none) shared(temp_samples, fg)
     for (int i = 0; i < fg.grid_points_.x; ++i) {
@@ -317,12 +328,13 @@ void Simulation::buildTipGridInteractions() {
         } // y
     } // x
 
-    // Communicate all the data to all processes
+    // Communicate the data to all processes
 #if MPI_BUILD
     MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(temp_samples.data()),
                   4 * total_points, MPI_DOUBLE, MPI_SUM, universe);
 #endif
 
+    // Initialise and set the sample vectors
     fg.forces_.assign(total_points, Vec3d(0));
     fg.energies_.assign(total_points, 0);
     for (int i = 0; i < total_points; ++i) {
@@ -339,16 +351,18 @@ void Simulation::buildTipGridInteractions() {
 
 void Simulation::buildTipDummyInteractions() {
     // LJ / Morse
-    addLJInteraction(0, 1);
+    addVDWInteraction(0, 1);
 
-    // Harmonic
+    // Harmonic constraint
     double k = interaction_parameters_.tip_dummy_k;
     double r0 = interaction_parameters_.tip_dummy_r0;
     interactions_.emplace_back(new Harmonic2DInteraction(0, 1, k, r0));
 }
 
+// Checks which atoms are connected by bonds to other atoms within given distance
 vector<unordered_set<int>> getConnectedAtoms(vector<unordered_set<int>> adjacent_atoms, int distance) {
     vector<unordered_set<int>> connected_atoms(adjacent_atoms.size());
+    // Perform a BFS for each of the atoms to see what it's connected to
     for (unsigned int i = 0; i < adjacent_atoms.size(); ++i) {
         deque<pair<int, int>> atoms_to_check;
         for (int atom_i : adjacent_atoms[i]) {
@@ -375,18 +389,20 @@ void Simulation::buildSurfaceSurfaceInteractions() {
     vector<unordered_set<int>> adjacent_atoms(system.n_atoms_);
 
     // Harmonic bond interactions
-    vector<pair<int, int>> bonds;
+    vector<pair<int, int>> bonds;  // List of all the bonds
     double bond_k = interaction_parameters_.bond_k;
     for (int i = 2; i < system.n_atoms_; ++i) {
         for (int j = i + 1; j < system.n_atoms_; ++j) {
             unordered_multiset<string> test_set{system.types_[i], system.types_[j]};
             double r0 = 0;
+            // Check if there's a possibly a bond between these atoms
             for (const auto& pos_bond : interaction_parameters_.possible_bonds_) {
                 if (pos_bond.atoms == test_set) {
                     r0 = pos_bond.r0;
                 }
             }
             double atom_d = (system.positions_[i] - system.positions_[j]).len();
+            // Check if the atoms distance is small enough to form a bond
             if (atom_d < 1.1 * r0) {
                 bonds.emplace_back(i, j);
                 adjacent_atoms[i].insert(j);
@@ -396,10 +412,11 @@ void Simulation::buildSurfaceSurfaceInteractions() {
         }
     }
 
+    // Figure out which atoms are connected to each other with bonds
     auto connected_atoms = getConnectedAtoms(adjacent_atoms, system.n_atoms_);
 
     // Harmonic angle interactions
-    vector<vector<int>> angles;
+    vector<vector<int>> angles;  // List of all the angles
     double angle_k = interaction_parameters_.angle_k;
     for (unsigned int i = 0; i < bonds.size(); ++i) {
         for (unsigned int j = i + 1; j < bonds.size(); ++j) {
@@ -438,7 +455,7 @@ void Simulation::buildSurfaceSurfaceInteractions() {
 
     // Harmonic dihedral interactions
     double dihedral_k = interaction_parameters_.dihedral_k;
-    unordered_set<int> improper_centers;
+    unordered_set<int> improper_centers;  // Set of improper centers we've allready added
     for (unsigned int i = 0; i < angles.size(); ++i) {
         for (unsigned int j = i + 1; j < angles.size(); ++j) {
             auto angle1 = angles[i];
@@ -494,9 +511,9 @@ void Simulation::buildSurfaceSurfaceInteractions() {
     unordered_map<string, AtomParameters> ap = interaction_parameters_.atom_parameters;
     for (int i = 2; i < system.n_atoms_; ++i) {
         for (int j = i + 1; j < system.n_atoms_; ++j) {
-            // Only add non-bonded interactions if atoms aren't bonded
+            // Only add non-bonded interactions if atoms aren't connected by bonds
             if (connected_atoms[i].count(j) == 0) {
-                addLJInteraction(i, j);
+                addVDWInteraction(i, j);
                 if (options_.coulomb) {
                     addCoulombInteraction(i, j);
                 }

@@ -1,3 +1,7 @@
+// Contains templates for 2D and 3D vectors (Vector2<>, Vector3<>) and
+// implements common vector operations for them.
+// Defines types Vec2d, Vec2i, Vec3d, Vec3d for easy template access.
+
 #pragma once
 
 #include <cmath>

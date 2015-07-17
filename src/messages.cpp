@@ -9,8 +9,7 @@
 
 #include "globals.hpp"
 
-/* An error function */
-void error(char *message, ...) {
+void error(char* message, ...) {
     va_list arg;
     static char ws[LINE_LENGTH];
     va_start(arg, message);
@@ -27,8 +26,7 @@ void error(char *message, ...) {
     exit(1);
 }
 
-/* And a warning function */
-void warning(char *message, ...) {
+void warning(char* message, ...) {
     va_list arg;
     static char ws[LINE_LENGTH];
     va_start(arg, message);
@@ -43,8 +41,7 @@ void warning(char *message, ...) {
     }
 }
 
-/* Print a message to the user if we're the root.*/
-void pretty_print(char *message, ...) {
+void pretty_print(char* message, ...) {
     va_list arg;
     static char ws[LINE_LENGTH];
     va_start(arg, message);

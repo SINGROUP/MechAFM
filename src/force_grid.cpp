@@ -60,7 +60,7 @@ int ForceGrid::getGridPointIndex(const Vec3i& grid_point) const {
 }
 
 void ForceGrid::interpolate(const Vec3d& position, Vec3d& force, double& energy) const {
-    // What is the nearest grid point to the current position of the tip?
+    // What is the nearest grid point matching position of the tip?
     Vec3i grid_point = getGridPoint(position);
 
     // Find the surrounding grid points as array indices and retrieve the force values
@@ -89,7 +89,7 @@ void ForceGrid::interpolate(const Vec3d& position, Vec3d& force, double& energy)
     // The trilinear interpolation below is based on:
     // http://en.wikipedia.org/wiki/Trilinear_interpolation
 
-    // How far are we from the corner
+    // How far are we inside the cube
     Vec3d d;
     d.x = (position.x - offset_.x - grid_point.x * spacing_.x) / spacing_.x;
     d.y = (position.y - offset_.y - grid_point.y * spacing_.y) / spacing_.y;

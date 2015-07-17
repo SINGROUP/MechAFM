@@ -13,6 +13,7 @@ class System;
 
 using namespace std;
 
+// Contains the base parameters of an atom
 struct AtomParameters {
     double eps;
     double sig;
@@ -20,6 +21,7 @@ struct AtomParameters {
     double mass;
 };
 
+// Contains the definition for overridden interactions
 struct OverwriteParameters {
     unordered_multiset<string> atoms;
     double eps;
@@ -31,11 +33,13 @@ struct OverwriteParameters {
 
 };
 
+// Contains the definition for possible bond between atoms
 struct PossibleBond {
     unordered_multiset<string> atoms;
-    double r0;
+    double r0;  // The expected bond length
 };
 
+// Contains all the parameters for simulation interactions
 struct InteractionParameters {
     double qbase;
     double tip_dummy_k, tip_dummy_r0;
@@ -45,7 +49,7 @@ struct InteractionParameters {
     vector<PossibleBond> possible_bonds_;
 };
 
-/* Mixing rule functions */
+// Mixing rule functions
 inline double mixsig(double sig1, double sig2) {
     return (sig1 + sig2) / 2;
 }
@@ -55,10 +59,13 @@ inline double mixeps(double eps1, double eps2) {
 }
 
 
+// Pure virtual interface for all the interactions
 class Interaction {
  public:
     virtual ~Interaction() {};
+    // Evaluates the forces and energies of the interaction for the given positions
     virtual void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const = 0;
+    // Return whether the interaction is between the tip and the surface or not
     virtual bool isTipSurface() const = 0;
  private:
 };
@@ -71,11 +78,13 @@ class LJInteraction: public Interaction {
         atom_i1_(atom_i1), atom_i2_(atom_i2), es6_(es6), es12_(es12) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
     bool isTipSurface() const override {
+        // The interactions are build such that this holds
         return atom_i1_ == 1;
     }
 
  private:
-    int atom_i1_, atom_i2_;   // Atom indices in the system vectors
+    int atom_i1_, atom_i2_;  // Atom indices in the state vectors
+    // Interaction constants
     double es6_;
     double es12_;
 };
@@ -88,11 +97,13 @@ class MorseInteraction: public Interaction {
         atom_i1_(atom_i1), atom_i2_(atom_i2), de_(de), a_(a), re_(re) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
     bool isTipSurface() const override {
+        // The interactions are build such that this holds
         return atom_i1_ == 1;
     }
 
  private:
-    int atom_i1_, atom_i2_;
+    int atom_i1_, atom_i2_;  // Atom indices in the state vectors
+    // Interaction constants
     double de_;
     double a_;
     double re_;
@@ -106,11 +117,13 @@ class CoulombInteraction: public Interaction {
         atom_i1_(atom_i1), atom_i2_(atom_i2), qq_(qq) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
     bool isTipSurface() const override {
+        // The interactions are build such that this holds
         return atom_i1_ == 1;
     }
 
  private:
-    int atom_i1_, atom_i2_;
+    int atom_i1_, atom_i2_;  // Atom indices in the state vectors
+    // Interaction constants
     double qq_;
 };
 
@@ -123,7 +136,7 @@ class GridInteraction: public Interaction {
     }
 
  private:
-    ForceGrid force_grid;
+    ForceGrid force_grid; // The force grid containing the samples
 };
 
 class Harmonic2DInteraction: public Interaction {
@@ -138,7 +151,8 @@ class Harmonic2DInteraction: public Interaction {
     }
 
  private:
-    int atom_i1_, atom_i2_;
+    int atom_i1_, atom_i2_;  // Atom indices in the state vectors
+    // Interaction constants
     double k_;
     double r0_;
 };
@@ -155,7 +169,8 @@ class SubstrateInteraction: public Interaction {
     }
 
  private:
-    int atom_i_;
+    int atom_i_;  // Atom indices in the state vectors
+    // Interaction constants
     double k_;
     double z0_;
 };
@@ -172,7 +187,8 @@ class HarmonicInteraction: public Interaction {
     }
 
  private:
-    int atom_i1_, atom_i2_;
+    int atom_i1_, atom_i2_;  // Atom indices in the state vectors
+    // Interaction constants
     double k_;
     double r0_;
 };
@@ -189,7 +205,8 @@ class HarmonicAngleInteraction: public Interaction {
     }
 
  private:
-    int shared_i_, atom_i1_, atom_i2_;
+    int shared_i_, atom_i1_, atom_i2_;  // Atom indices in the state vectors
+    // Interaction constants
     double k_;
     double theta0_;
 };
@@ -206,7 +223,8 @@ class HarmonicDihedralInteraction: public Interaction {
     }
 
  private:
-    int atom_i1_, atom_i2_, atom_i3_, atom_i4_;
+    int atom_i1_, atom_i2_, atom_i3_, atom_i4_;  // Atom indices in the state vectors
+    // Interaction constants
     double k_;
     double sigma0_;
 };

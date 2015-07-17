@@ -1,29 +1,23 @@
-/****************************
- **                        **
- **  Mechanical AFM Model  **
- **                        **
- **    Based on paper:     **
- **   Hapala et al, PRB    **
- **    90:085421 (2014)    **
- **                        **
- **  C+MPI Implementation  **
- **       2014/2015        **
- **      Peter Spijker     **
- **    Aalto University    **
- ** peter.spijker@aalto.fi **
- **                        **
- ****************************/
+/**************************************
+ **                                  **
+ **       Mechanical AFM Model       **
+ **                                  **
+ **         Based on paper:          **
+ **        Hapala et al, PRB         **
+ **         90:085421 (2014)         **
+ **                                  **
+ **         Implementation           **
+ **            2014/2015             **
+ **           Peter Spijker          **
+ **         Aalto University         **
+ **      peter.spijker@aalto.fi      **
+ **               and                **
+ **          Olli Keisanen           **
+ **         Aalto University         **
+ **      olli.keisanen@aalto.fi      **
+ **                                  **
+ **************************************/
 
-/****
-TO DO:
-- instead of fixing atoms to mimic support, let's put a wall potential which prevents atoms moving too far "down"
-- VDW-E interactions between molecules (not intramolecular), needs molecule identification and clustering
-- implement better minimization algorithm
-- create DF image on the fly
-- implement the Hartree potential (grid based)
-****/
-
-/* Load system headers */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -39,11 +33,7 @@ TO DO:
 
 using namespace std;
 
-/*************************************************
- ** EVERYTHING TO DO WITH THE SIMULATION ITSELF **
- *************************************************/
-
-/* Set some global variables we need and open the file streams */
+// Set some global variables we need and open the file streams
 void openUniverse(Simulation& simulation) {
 
     InputOptions& options = simulation.options_;
@@ -52,7 +42,7 @@ void openUniverse(Simulation& simulation) {
     double z;
     char outfile[NAME_LENGTH];
 
-    /* How many points to compute the tip relaxation on */
+    // How many points to compute the tip relaxation on
     simulation.n_total_ = 0;
     simulation.n_points_.x = floor(simulation.options_.box.x / options.dx) + 1;
     simulation.n_points_.y = floor(simulation.options_.box.y / options.dy) + 1;
@@ -63,16 +53,15 @@ void openUniverse(Simulation& simulation) {
               simulation.n_points_.z, n);
 
 #if MPI_BUILD
-    /* Wait! */
     MPI_Barrier(simulation.universe);
 #endif
 
-    /* Open all the file streams (one for every z point) [ONLY ON ROOT PROCESS] */
+    // Open all the file streams (one for every z point) [ONLY ON ROOT PROCESS]
     if (simulation.rootProcess()) {
         simulation.fstreams_.reserve(simulation.n_points_.z + 1);
         for (int i = 0; i <= simulation.n_points_.z - 1; ++i) {
             z = options.zhigh - i*options.dz;
-            if (options.gzip == TRUE) {
+            if (options.gzip) {
                 sprintf(outfile, "examples/gzip -6 > scan-%06.3f.dat.gz", z);
                 simulation.fstreams_.push_back(popen(outfile, "w"));
             }
@@ -83,23 +72,22 @@ void openUniverse(Simulation& simulation) {
         }
     }
 
-    /* Note the time */
+    // Note the time
     simulation.time_start_ = chrono::system_clock::now();
     return;
 }
 
-/* Close all the file streams */
+// Close all the file streams
 void closeUniverse(Simulation& simulation) {
 
 #if MPI_BUILD
-    /* Wait! */
     MPI_Barrier(simulation.universe);
 #endif
 
-    /* Close each separate file stream [ONLY ON ROOT PROCESS] */
+    // Close each separate file stream [ONLY ON ROOT PROCESS]
     if (simulation.rootProcess()) {
         for (auto& file : simulation.fstreams_) {
-            if (simulation.options_.gzip == TRUE) {
+            if (simulation.options_.gzip) {
                 pclose(file);
             }
             else {
@@ -110,19 +98,15 @@ void closeUniverse(Simulation& simulation) {
     return;
 }
 
-/********************
- ** FINAL THOUGHTS **
- ********************/
-
 void finalize(Simulation& simulation) {
 
     int n, nsum;
     chrono::duration<double> dtime, timesum;
 
-    /* Note the time */
+    // Note the time
     simulation.time_end_ = chrono::system_clock::now();
 
-    /* Time difference */
+    // Time difference
     dtime = simulation.time_end_ - simulation.time_start_;
     timesum = timesum.zero();
 #if MPI_BUILD
@@ -132,7 +116,7 @@ void finalize(Simulation& simulation) {
     timesum += dtime;
 #endif
 
-    /* Collect number of steps from all processes */
+    // Collect number of steps from all processes
     nsum = 0;
 #if MPI_BUILD
     MPI_Reduce(&simulation.n_total_, &nsum, 1, MPI_INT, MPI_SUM, simulation.root_process_,
@@ -141,7 +125,7 @@ void finalize(Simulation& simulation) {
     nsum += simulation.n_total_;
 #endif
 
-    /* Print some miscelleneous information */
+    // Print some miscelleneous information
     pretty_print("Simulation run finished");
     pretty_print("Statistics:");
     n = (simulation.n_points_.x) * (simulation.n_points_.y) * (simulation.n_points_.z);
@@ -155,19 +139,15 @@ void finalize(Simulation& simulation) {
     return;
 }
 
-/***************************
- ** THE PARALLEL UNIVERSE **
- ***************************/
-
-/* Initialize our parallel world */
+// Initialize our parallel world
 void openParallelUniverse(int argc, char *argv[], Simulation& simulation) {
     (void)argc;
     (void)argv;
 #if MPI_BUILD
-    /* Start MPI */
+    // Start MPI
     MPI_Init(&argc,&argv);
 #endif
-    /* Determine the size of the universe and which process we are on */
+    // Determine the size of the universe and which process we are on
     simulation.root_process_ = 0;
 #if MPI_BUILD
     simulation.universe = MPI_COMM_WORLD;
@@ -177,7 +157,7 @@ void openParallelUniverse(int argc, char *argv[], Simulation& simulation) {
     simulation.current_process_ = 0;
     simulation.n_processes_ = 1;
 #endif
-    /* Initialize the checker on how many x,y points for each process */
+    // Initialize the checker on how many x,y points for each process
     simulation.points_per_process_.reserve(simulation.n_processes_);
     for (int i = 0; i < simulation.n_processes_; ++i) {
         simulation.points_per_process_.push_back(0);
@@ -185,10 +165,10 @@ void openParallelUniverse(int argc, char *argv[], Simulation& simulation) {
     return;
 }
 
-/* Terminate our parallel worlds */
+// Terminate our parallel worlds
 void closeParallelUniverse(Simulation& simulation) {
 
-    /* How many x,y points on each process */
+    // How many x,y points on each process
 #if MPI_BUILD
     MPI_Barrier(simulation.universe);
 #endif
@@ -206,40 +186,34 @@ void closeParallelUniverse(Simulation& simulation) {
     }
 
 #if MPI_BUILD
-    /* Close MPI */
+    // Close MPI
     MPI_Finalize();
 #endif
-
-    /* Go home */
     return;
 }
-
-/**********************
- ** THE MAIN ROUTINE **
- **********************/
 
 int main(int argc, char *argv[]) {
     Simulation simulation;
 
-    /* Set up the parallel routines */
+    // Set up the parallel routines
     openParallelUniverse(argc, argv, simulation);
 
-    /* Initialize the simulation */
+    // Initialize the simulation
     parseCommandLine(argc, argv, simulation);
     readInputFile(simulation);
     readXYZFile(simulation);
     readParameterFile(simulation);
 
-    /* The simulation itself */
+    // The simulation itself
     openUniverse(simulation);
     simulation.buildInteractions();
     simulation.run();
     closeUniverse(simulation);
 
-    /* Some final thoughts */
+    // Some final thoughts
     finalize(simulation);
 
-    /* And stop the parallel routines properly */
+    // And stop the parallel routines properly
     closeParallelUniverse(simulation);
     return 0;
 }

@@ -34,7 +34,6 @@ void rk4Step(System& system, const double dt) {
         interaction->eval(system.positions_, f1, e1);
     }
     for (int i = 0; i < system.n_atoms_; ++i) {
-        // Update the atom only if it's not fixed
         if (!system.fixed_[i]) {
             p2[i] += dt/2 * system.velocities_[i];
             v2[i] += dt/2 * f1[i] / system.masses_[i];
@@ -46,7 +45,6 @@ void rk4Step(System& system, const double dt) {
         interaction->eval(p2, f2, e2);
     }
     for (int i = 0; i < system.n_atoms_; ++i) {
-        // Update the atom only if it's not fixed
         if (!system.fixed_[i]) {
             p3[i] += dt/2 * v2[i];
             v3[i] += dt/2 * f2[i] / system.masses_[i];
@@ -58,7 +56,6 @@ void rk4Step(System& system, const double dt) {
         interaction->eval(p3, f3, e3);
     }
     for (int i = 0; i < system.n_atoms_; ++i) {
-        // Update the atom only if it's not fixed
         if (!system.fixed_[i]) {
             p4[i] += dt * v3[i];
             v4[i] += dt * f3[i] / system.masses_[i];
@@ -69,8 +66,8 @@ void rk4Step(System& system, const double dt) {
     for (const auto& interaction : *system.interactions_) {
         interaction->eval(p4, f4, e4);
     }
+    // Update the system
     for (int i = 0; i < system.n_atoms_; ++i) {
-        // Update the atom only if it's not fixed
         if (!system.fixed_[i]) {
             system.positions_[i] += dt/6 * (system.velocities_[i] + 2*v2[i] + 2*v3[i] + v4[i]);
             system.velocities_[i] += dt/6 * (f1[i] + 2*f2[i] + 2*f3[i] + f4[i]) / system.masses_[i];

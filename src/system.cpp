@@ -6,7 +6,6 @@
 #include "messages.hpp"
 
 
-// Initialize the state vectors and make sure dummy and tip are included
 void System::initialize(int n_atoms) {
 
     n_atoms_ = n_atoms + 2;  // Add tip and dummy to the atom count
