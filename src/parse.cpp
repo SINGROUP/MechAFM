@@ -696,9 +696,9 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
 
     // Read the parameter file and parse everything we need
     // for modeling a flexible molecule
-    double kbond, kangle, ksubst, r0;
-    bool bcheck, acheck, scheck, tcheck;
-    bcheck = acheck = scheck = false;
+    double r0;
+    bool bcheck, acheck, dcheck, scheck, tcheck;
+    bcheck = acheck = dcheck = scheck = false;
     while (fgets(line, LINE_LENGTH, fp)!=NULL) {
         /* Skip empty and commented lines */
         if (checkForComments(line)) {
@@ -711,8 +711,7 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
             if (bcheck == true) {
                 warning("Parameters for harmonic bond defined multiple times!");
             }
-            sscanf(line,"%s %lf", dump, &(kbond));
-            parameters.bond_k = kbond;
+            sscanf(line,"%s %lf", dump, &(parameters.bond_k));
             bcheck = true;
         }
         /* The strength of the harmonic angle from the parameter file */
@@ -720,17 +719,23 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
             if (acheck == true) {
                 warning("Parameters for harmonic angle defined multiple times!");
             }
-            sscanf(line,"%s %lf", dump, &(kangle));
-            parameters.angle_k = kangle;
+            sscanf(line,"%s %lf", dump, &(parameters.angle_k));
             acheck = true;
+        }
+        /* The strength of the harmonic angle from the parameter file */
+        if (strcmp(keyword, "dihedral") == 0) {
+            if (dcheck == true) {
+                warning("Parameters for harmonic dihedral defined multiple times!");
+            }
+            sscanf(line,"%s %lf", dump, &(parameters.dihedral_k));
+            dcheck = true;
         }
         /* The strength of the harmonic substrate support from the parameter file */
         if (strcmp(keyword, "substrate") == 0) {
             if (scheck == true) {
                 warning("Parameters for harmonic substrate support defined multiple times!");
             }
-            sscanf(line, "%s %lf", dump, &(ksubst));
-            parameters.substrate_k = ksubst;
+            sscanf(line, "%s %lf", dump, &(parameters.substrate_k));
             scheck = true;
         }
         /* Collect the bonds, possibly present in the system */
@@ -757,6 +762,9 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
     }
     if (acheck == false) {
         error("No harmonic angle parameters found in parameter file!");
+    }
+    if (dcheck == false) {
+        error("No harmonic dihedral parameters found in parameter file!");
     }
     if (scheck == false) {
         error("No harmonic substrate support parameters found in parameter file!");

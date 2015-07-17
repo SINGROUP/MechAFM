@@ -7,6 +7,7 @@
 #include <deque>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -398,6 +399,7 @@ void Simulation::buildSurfaceSurfaceInteractions() {
     auto connected_atoms = getConnectedAtoms(adjacent_atoms, system.n_atoms_);
 
     // Harmonic angle interactions
+    vector<vector<int>> angles;
     double angle_k = interaction_parameters_.angle_k;
     for (unsigned int i = 0; i < bonds.size(); ++i) {
         for (unsigned int j = i + 1; j < bonds.size(); ++j) {
@@ -423,12 +425,67 @@ void Simulation::buildSurfaceSurfaceInteractions() {
                 atom2 = bond2.first;
             }
             if (shared_atom != -1) {
+                angles.push_back(vector<int>{shared_atom, atom1, atom2});
                 Vec3d d1 = system.positions_[atom1] - system.positions_[shared_atom];
                 Vec3d d2 = system.positions_[atom2] - system.positions_[shared_atom];
                 double cos_t = d1.normalized().dot(d2.normalized());
                 double theta0 = acos(cos_t);
                 interactions_.emplace_back(new HarmonicAngleInteraction(
                                     shared_atom, atom1, atom2, angle_k, theta0));
+            }
+        }
+    }
+
+    // Harmonic dihedral interactions
+    double dihedral_k = interaction_parameters_.dihedral_k;
+    unordered_set<int> improper_centers;
+    for (unsigned int i = 0; i < angles.size(); ++i) {
+        for (unsigned int j = i + 1; j < angles.size(); ++j) {
+            auto angle1 = angles[i];
+            auto angle2 = angles[j];
+            int atom1, atom2, atom3, atom4;
+            atom1 = atom2 = atom3 = atom4 = -1;
+            if (angle1[0] == angle2[0] && improper_centers.count(angle1[0]) == 0) {
+                improper_centers.insert(angle1[0]);
+                atom1 = angle1[0];
+                atom2 = angle1[1];
+                atom3 = angle1[2];
+                if (angle2[1] == angle1[1] || angle2[1] == angle1[2]) {
+                    atom4 = angle2[2];
+                } else {
+                    atom4 = angle2[1];
+                }
+            } else if (angle1[1] == angle2[0] && angle2[1] == angle1[0]) {
+                atom1 = angle1[2];
+                atom2 = angle1[0];
+                atom3 = angle2[0];
+                atom4 = angle2[2];
+            } else if (angle1[2] == angle2[0] && angle2[1] == angle1[0]) {
+                atom1 = angle1[1];
+                atom2 = angle1[0];
+                atom3 = angle2[0];
+                atom4 = angle2[2];
+            } else if (angle1[1] == angle2[0] && angle2[2] == angle1[0]) {
+                atom1 = angle1[2];
+                atom2 = angle1[0];
+                atom3 = angle2[0];
+                atom4 = angle2[1];
+            } else if (angle1[2] == angle2[0] && angle2[2] == angle1[0]) {
+                atom1 = angle1[1];
+                atom2 = angle1[0];
+                atom3 = angle2[0];
+                atom4 = angle2[1];
+            }
+            if (atom1 != -1) {
+                Vec3d d12 = system.positions_[atom1] - system.positions_[atom2];
+                Vec3d d23 = system.positions_[atom2] - system.positions_[atom3];
+                Vec3d d43 = system.positions_[atom4] - system.positions_[atom3];
+                Vec3d m = d12.cross(d23);
+                Vec3d n = d43.cross(d23);
+                double tan_s = n.dot(d12) * d23.len() / (m.dot(n));
+                double sigma0 = atan(tan_s);
+                interactions_.emplace_back(new HarmonicDihedralInteraction(
+                                atom1, atom2, atom3, atom4, dihedral_k, sigma0));
             }
         }
     }

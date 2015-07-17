@@ -33,7 +33,7 @@ bool checkConvergence(const Vec3d& tip_force, const double& tip_e_diff,
 
 int SDMinimisation(System& system, const InputOptions& options) {
     double prev_tip_e = -10e6;
-    int n = 0;
+    int n = 1;
     for (; n < options.maxsteps; ++n) {
         // Zero the forces and energies for each step
         if (n != 0) {
@@ -52,7 +52,6 @@ int SDMinimisation(System& system, const InputOptions& options) {
         for (int i = 0; i < system.n_atoms_; ++i) {
             // Update the atom only if it's not fixed
             if (!system.fixed_[i]) {
-                // printf("%d moved\n", i);
                 system.positions_[i] += options.cfac * system.forces_[i];
             }
         }
@@ -71,7 +70,7 @@ int FIREMinimisation(System& system, const InputOptions& options) {
     double dt = options.cfac;
     int n_non_neg = 0;
     double prev_tip_e = -10e6;
-    int n_tot = 0;
+    int n_tot = 1;
     for (; n_tot < options.maxsteps; ++n_tot) {
         // Zero the forces and energies for each step
         if (n_tot != 0) {

@@ -39,7 +39,7 @@ struct PossibleBond {
 struct InteractionParameters {
     double qbase;
     double tip_dummy_k, tip_dummy_r0;
-    double bond_k, angle_k, substrate_k;
+    double bond_k, angle_k, dihedral_k, substrate_k;
     unordered_map<string, AtomParameters> atom_parameters;
     vector<OverwriteParameters> overwrite_parameters;
     vector<PossibleBond> possible_bonds_;
@@ -192,4 +192,21 @@ class HarmonicAngleInteraction: public Interaction {
     int shared_i_, atom_i1_, atom_i2_;
     double k_;
     double theta0_;
+};
+
+class HarmonicDihedralInteraction: public Interaction {
+ public:
+    HarmonicDihedralInteraction():
+        atom_i1_(0), atom_i2_(0), atom_i3_(0), atom_i4_(0), k_(0), sigma0_(0) {};
+    HarmonicDihedralInteraction(int atom_i1, int atom_i2, int atom_i3, int atom_i4, double k, double sigma0):
+        atom_i1_(atom_i1), atom_i2_(atom_i2), atom_i3_(atom_i3), atom_i4_(atom_i4), k_(k), sigma0_(sigma0) {};
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return false;
+    }
+
+ private:
+    int atom_i1_, atom_i2_, atom_i3_, atom_i4_;
+    double k_;
+    double sigma0_;
 };

@@ -102,11 +102,19 @@ class Vector3 {
 
     Vector3 normalized() const {
         double l = len();
-        return Vector3(x / l, y / l, z / l);
+        if (l > 1e-10) {
+            return Vector3(x / l, y / l, z / l);
+        } else {
+            return Vector3(0);
+        }
     }
 
     T dot(const Vector3& other) const {
         return (x * other.x + y * other.y +  z * other.z);
+    }
+
+    Vector3 cross(const Vector3& other) const {
+        return Vector3(y*other.z - z*other.y, z*other.x - x*other.z, x*other.y - y*other.x);
     }
 
     Vector2<T> getXY() const {

@@ -95,6 +95,11 @@ void HarmonicAngleInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d
     double r1 = r1_vec.len();
     double r2 = r2_vec.len();
     double cos_t = r1_vec.dot(r2_vec) / (r1 * r2);
+    if (cos_t > 1) {
+        cos_t = 1;
+    } else if (cos_t < -1) {
+        cos_t = -1;
+    }
     double theta = acos(cos_t);
     double sin_t = sin(theta);
     double d_theta = theta - theta0_;
@@ -108,4 +113,34 @@ void HarmonicAngleInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d
     energies[atom_i1_] += e;
     energies[atom_i2_] += e;
     energies[shared_i_] += e;
+}
+
+void HarmonicDihedralInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
+    Vec3d r12_vec = positions[atom_i1_] - positions[atom_i2_];
+    Vec3d r23_vec = positions[atom_i2_] - positions[atom_i3_];
+    Vec3d r43_vec = positions[atom_i4_] - positions[atom_i3_];
+    double r23 = r23_vec.len();
+    Vec3d m_vec = r12_vec.cross(r23_vec);
+    Vec3d n_vec = r43_vec.cross(r23_vec);
+    double m = m_vec.len();
+    double n = n_vec.len();
+    double tan_s = n_vec.dot(r12_vec) * r23 / m_vec.dot(n_vec);
+    double sigma = atan(tan_s);
+    double d_sigma = sigma - sigma0_;
+    double f_multiplier = 2 * k_ * d_sigma;
+    Vec3d f1 = -f_multiplier * r23 / (m * m) * m_vec;
+    Vec3d f2 = -f_multiplier * (r43_vec.dot(r23_vec) / (n * n * r23) * n_vec
+                - ((r23*r23) + r12_vec.dot(r23_vec)) / (m * m * r23) * m_vec);
+    Vec3d f3 = -f_multiplier * (r12_vec.dot(r23_vec) / (m * m * r23) * m_vec
+                + ((r23*r23) - r43_vec.dot(r23_vec)) / (n * n * r23) * n_vec);
+    Vec3d f4 = f_multiplier * r23 / (n * n) * n_vec;
+    double e = k_ * pow(d_sigma, 2);
+    forces[atom_i1_] += f1;
+    forces[atom_i2_] += f2;
+    forces[atom_i3_] += f3;
+    forces[atom_i4_] += f4;
+    energies[atom_i1_] += e;
+    energies[atom_i2_] += e;
+    energies[atom_i3_] += e;
+    energies[atom_i4_] += e;
 }

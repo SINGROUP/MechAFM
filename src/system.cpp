@@ -35,8 +35,8 @@ OutputData System::getOutput() const {
 }
 
 void System::evalTipSurfaceForces(Vec3d& tip_force, double& tip_energy) const {
-    vector<Vec3d> forces(n_atoms_);
-    vector<double> energies(n_atoms_);
+    vector<Vec3d> forces(n_atoms_, Vec3d(0));
+    vector<double> energies(n_atoms_, 0);
     for (const auto& interaction : *interactions_) {
         if (interaction->isTipSurface()) {
             interaction->eval(positions_, forces, energies);
