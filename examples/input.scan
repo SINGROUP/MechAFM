@@ -1,5 +1,5 @@
-xyzfile      examples/graphene.xyz
-paramfile    examples/parameters.dat
+xyzfile      graphene.xyz
+paramfile    parameters.dat
 tipatom      O
 dummyatom    X
 
@@ -10,11 +10,14 @@ units        kcal/mol
 
 minterm      f
 etol         0.01
-ftol         0.01 
+ftol         0.01
 cfac         0.001
 maxsteps     5000
 
-coulomb      on
+minimiser    FIRE
+integrator   rk4
+
+coulomb      off
 
 rigidgrid    off
 
@@ -27,4 +30,4 @@ dy           0.5
 dz           0.1
 
 bufsize      10000
-gzip         on
+gzip         off
