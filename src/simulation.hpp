@@ -25,11 +25,14 @@ enum Units {U_KCAL, U_KJ, U_EV};
 
 // Defines a structure for all input options
 struct InputOptions {
-    char xyzfile[NAME_LENGTH];
-    char paramfile[NAME_LENGTH];
-    char tipatom[NAME_LENGTH];
-    char dummyatom[NAME_LENGTH];
-    char planeatom[NAME_LENGTH];
+    string inputfolder;
+    string outputfolder;
+    string inputfile;
+    string xyzfile;
+    string paramfile;
+    string tipatom;
+    string dummyatom;
+    string planeatom;
     Vec3d box;
     double dx, dy, dz;
     double zlow, zhigh, zplane;
@@ -59,7 +62,6 @@ class Simulation {
 
     System system;  // Holds the system to be minimised
     vector<unique_ptr<Interaction>> interactions_; // List of all the interactions
-    char input_file_name_[NAME_LENGTH];  // The name of the input file
     InputOptions options_;  // Structure containing all relevant input options
     InteractionParameters interaction_parameters_;
     Vec3i n_points_;  // Number of points (x,y,z) to be minimised

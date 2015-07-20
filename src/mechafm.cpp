@@ -62,11 +62,13 @@ void openUniverse(Simulation& simulation) {
         for (int i = 0; i <= simulation.n_points_.z - 1; ++i) {
             z = options.zhigh - i*options.dz;
             if (options.gzip) {
-                sprintf(outfile, "examples/gzip -6 > scan-%06.3f.dat.gz", z);
+                sprintf(outfile, "gzip -6 > %sscan-%06.3f.dat.gz",
+                        simulation.options_.outputfolder.c_str(), z);
                 simulation.fstreams_.push_back(popen(outfile, "w"));
             }
             else {
-                sprintf(outfile, "examples/scan-%06.3f.dat", z);
+                sprintf(outfile, "%sscan-%06.3f.dat",
+                        simulation.options_.outputfolder.c_str(), z);
                 simulation.fstreams_.push_back(fopen(outfile, "w"));
             }
         }

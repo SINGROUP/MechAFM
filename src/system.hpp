@@ -22,7 +22,7 @@ class System {
     // Evaluates the current force on the tip from surface atoms
     void evalTipSurfaceForces(Vec3d& force, double& energy) const;
     // Writes the current atom positions to a xyz file
-    void makeXYZFile() const;
+    void makeXYZFile(string folder = "") const;
     // Sets the tip and dummy initial distance
     void setTipDummyDistance(double d) {tip_dummy_d_ = d;}
     // Returns the tip and dummy initial distance

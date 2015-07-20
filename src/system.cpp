@@ -45,9 +45,9 @@ void System::evalTipSurfaceForces(Vec3d& tip_force, double& tip_energy) const {
     tip_energy = energies[1];
 }
 
-void System::makeXYZFile() const {
+void System::makeXYZFile(string folder) const {
     char file_name[NAME_LENGTH];
-    sprintf(file_name, "state_%.1f-%.1f-%.1f.xyz", positions_[0].x, positions_[0].y, positions_[0].z);
+    sprintf(file_name, "%sstate_%.1f-%.1f-%.1f.xyz", folder.c_str(), positions_[0].x, positions_[0].y, positions_[0].z);
     FILE* file = fopen(file_name, "w");
     fprintf(file, "%d\n\n", n_atoms_);
     for (int i = 0; i < n_atoms_; ++i) {

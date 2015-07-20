@@ -11,7 +11,7 @@
 #include "vectors.hpp"
 
 // Filter out comment and empty lines in a file
-bool checkForComments(char *line) {
+bool checkForComments(char* line) {
     bool moveon = false;
     if (line[0] == '#') {
         moveon = true;
@@ -24,7 +24,7 @@ bool checkForComments(char *line) {
 }
 
 // Read stuff from the command line
-void parseCommandLine(int argc, char *argv[], Simulation& simulation) {
+void parseCommandLine(int argc, char* argv[], Simulation& simulation) {
     if (simulation.rootProcess()) {
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
         fprintf(stdout,"|                   Mechanical AFM Model                      |\n");
@@ -34,10 +34,30 @@ void parseCommandLine(int argc, char *argv[], Simulation& simulation) {
         fprintf(stdout,"|          2014-2015 (c) Aalto University, Finland            |\n");
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
     }
-    if ((argc < 2) || (argc > 2)) {
+    InputOptions& options = simulation.options_;
+    if ((argc < 2) ) {
         error("Specify an input file to be read!");
-    } else {
-        sprintf(simulation.input_file_name_, "%s", argv[1]);
+    } else if (argc > 3) {
+        error("Too many command line arguments!");
+    }
+    options.inputfolder = "";
+    options.outputfolder = "";
+    if (argc >= 2) {
+        options.inputfile = argv[1];
+        size_t path_split = options.inputfile.rfind("/");
+        if (path_split != string::npos) {
+            options.inputfolder = options.inputfile.substr(0, path_split + 1);
+        }
+    }
+    if (argc == 3) {
+        options.outputfolder = argv[2];
+        if (options.outputfolder[options.outputfolder.size() - 1] != '/') {
+            options.outputfolder += '/';
+        }
+        if (simulation.rootProcess()) {
+            string dir_cmd = "mkdir -p " + options.outputfolder;
+            system(dir_cmd.c_str());
+        }
     }
     return;
 }
@@ -55,14 +75,14 @@ void readInputFile(Simulation& simulation) {
     char tmp_flexible[NAME_LENGTH], tmp_rigidgrid[NAME_LENGTH];
 
     // Initialize the mandatory options
-    sprintf(options.xyzfile, "");
-    sprintf(options.paramfile, "");
-    sprintf(options.tipatom, "");
-    sprintf(options.dummyatom, "");
+    options.xyzfile = "";
+    options.paramfile = "";
+    options.tipatom = "";
+    options.dummyatom = "";
     options.minterm = NOT_SET;
 
     // Initialize the other options
-    sprintf(options.planeatom, "");
+    options.planeatom = "";
     options.units = U_KCAL;
     sprintf(tmp_units, "%s" ,"kcal/mol");
     options.coulomb = false;
@@ -84,9 +104,9 @@ void readInputFile(Simulation& simulation) {
     options.integrator_type = RK4;
 
     // Check if the file exists
-    fp = fopen(simulation.input_file_name_, "r");
+    fp = fopen(options.inputfile.c_str(), "r");
     if (fp == NULL) {
-        error("The file %s does not exist!", simulation.input_file_name_);
+        error("The file %s does not exist!", options.inputfile.c_str());
     }
 
     // Scan the file line by line
@@ -99,15 +119,15 @@ void readInputFile(Simulation& simulation) {
         sscanf(line, "%s %s", keyword, value);
         strlow(keyword);
         if (strcmp(keyword, "xyzfile") == 0) {
-            sprintf(options.xyzfile, "%s", value);
+            options.xyzfile = options.inputfolder + value;
         } else if (strcmp(keyword, "paramfile") == 0) {
-            sprintf(options.paramfile, "%s", value);
+            options.paramfile = options.inputfolder + value;
         } else if (strcmp(keyword, "tipatom") == 0) {
-            sprintf(options.tipatom, "%s", value);
+            options.tipatom = value;
         } else if (strcmp(keyword, "dummyatom") == 0) {
-            sprintf(options.dummyatom, "%s", value);
+            options.dummyatom = value;
         } else if (strcmp(keyword, "planeatom") == 0) {
-            sprintf(options.planeatom, "%s", value);
+            options.planeatom = value;
         } else if (strcmp(keyword, "dx") == 0) {
             options.dx = atof(value);
         } else if (strcmp(keyword, "dy") == 0) {
@@ -194,8 +214,7 @@ void readInputFile(Simulation& simulation) {
                 error("Option %s must be either kcal/mol (default), kJ/mol or eV!", keyword);
             }
             sprintf(tmp_units, "%s", value);
-        }
-        else if (strcmp(keyword, "minimiser") == 0) {
+        } else if (strcmp(keyword, "minimiser") == 0) {
             if (strcmp(value, "SD") == 0) {
                 options.minimiser_type = STEEPEST_DESCENT;
             } else if (strcmp(value, "FIRE") == 0) {
@@ -211,31 +230,30 @@ void readInputFile(Simulation& simulation) {
             } else {
                 error("Unrecognised integrator type!");
             }
-        }
-        else {
+        } else {
             error("Unknown option %s!", keyword);
         }
     }
 
     // Check if all necessary options are initialized
-    if (strcmp(options.xyzfile, "") == 0) {
+    if (options.xyzfile == "") {
         error("Specify at least an xyzfile!");
     }
-    if (strcmp(options.paramfile, "") == 0) {
+    if (options.paramfile == "") {
         error("Specify at least a parameter file!");
     }
-    if (strcmp(options.tipatom, "") == 0) {
+    if (options.tipatom == "") {
         error("Specify at least a tip atom!");
     }
-    if (strcmp(options.dummyatom, "") == 0) {
+    if (options.dummyatom == "") {
         error("Specify at least a dummy atom!");
     }
     if (options.minterm == NOT_SET) {
         error("Specify at least a minimization termination criterion (e, f, or ef)!");
     }
-    if ((strcmp(options.planeatom, "") == 0) && (options.zplane <= NEGVAL)) {
+    if ((options.planeatom == "") && (options.zplane <= NEGVAL)) {
         error("Specify at least a plane or a plane atom!");
-    } else if ((strcmp(options.planeatom, "") != 0) && (options.zplane > NEGVAL)) {
+    } else if ((options.planeatom == "") && (options.zplane > NEGVAL)) {
         error("Specify only a plane or a plane atom!");
     }
 
@@ -270,14 +288,14 @@ void readInputFile(Simulation& simulation) {
 
     // Talk to me
     pretty_print("");
-    pretty_print("Input settings for %s:", simulation.input_file_name_);
+    pretty_print("Input settings for %s:", options.inputfile.c_str());
     pretty_print("");
-    pretty_print("xyzfile:           %-s", options.xyzfile);
-    pretty_print("paramfile:         %-s", options.paramfile);
-    pretty_print("tipatom:           %-s", options.tipatom);
-    pretty_print("dummyatom:         %-s", options.dummyatom);
-    if (strcmp(options.planeatom, "") != 0) {
-        pretty_print("planeatom:         %-s", options.planeatom);
+    pretty_print("xyzfile:           %-s", options.xyzfile.c_str());
+    pretty_print("paramfile:         %-s", options.paramfile.c_str());
+    pretty_print("tipatom:           %-s", options.tipatom.c_str());
+    pretty_print("dummyatom:         %-s", options.dummyatom.c_str());
+    if (options.planeatom == "") {
+        pretty_print("planeatom:         %-s", options.planeatom.c_str());
     }
     else if (options.zplane > NEGVAL) {
         pretty_print("zplane:            %-8.4f", options.zplane);
@@ -335,9 +353,9 @@ void readXYZFile(Simulation& simulation) {
     char line[LINE_LENGTH], value[NAME_LENGTH];
 
     // Read the file once, to determine the number of atoms
-    fp = fopen(options.xyzfile, "r");
+    fp = fopen(options.xyzfile.c_str(), "r");
     if (fp == NULL) {
-        error("No such file: %s!", options.xyzfile);
+        error("No such file: %s!", options.xyzfile.c_str());
     }
     int n_atoms = 0;
     firstline = true;
@@ -442,11 +460,11 @@ void setSystemZ(Simulation& simulation) {
     InputOptions& options = simulation.options_;
     System& system = simulation.system;
 
-    if (strcmp(options.planeatom, "") != 0) {
+    if (options.planeatom == "") {
         avgz = 0.0;
         nplaneatoms = 0;
         for (int i = 2; i < system.n_atoms_; ++i) {
-            if (strcmp(system.types_[i].c_str(), options.planeatom) == 0) {
+            if (system.types_[i] == options.planeatom) {
                 nplaneatoms++;
                 avgz += system.positions_[i].z;
             }
@@ -472,12 +490,12 @@ void centerSystem(Simulation& simulation){
     InputOptions& options = simulation.options_;
     System& system = simulation.system;
 
-    if (strcmp(options.planeatom, "") != 0) {
+    if (options.planeatom == "") {
         double avgx = 0.0;
         double avgy = 0.0;
         int nplaneatoms = 0;
         for (int i = 2; i < system.n_atoms_; ++i) {
-            if (strcmp(system.types_[i].c_str(), options.planeatom) == 0) {
+            if (system.types_[i] == options.planeatom) {
                 nplaneatoms++;
                 avgx += system.positions_[i].x;
                 avgy += system.positions_[i].y;
@@ -510,9 +528,9 @@ void readParameterFile(Simulation& simulation) {
     simulation.options_.box = Vec3d(-1.0);
 
     // Open the parameter file
-    fp = fopen(options.paramfile,"r");
+    fp = fopen(options.paramfile.c_str(), "r");
     if (fp == NULL) {
-        error("No parameter file %s found!", options.paramfile);
+        error("No parameter file %s found!", options.paramfile.c_str());
     }
 
     // Scan the parameter file
@@ -543,10 +561,10 @@ void readParameterFile(Simulation& simulation) {
             p.q = qdump;
             p.mass = mass;
             // Set tip and dummy charges since they won't be read from the xyz file.
-            if (strcmp(options.dummyatom, atom) == 0) {
+            if (options.dummyatom == atom) {
                 simulation.system.charges_[0] = qdump;
             }
-            if (strcmp(options.tipatom, atom) == 0) {
+            if (options.tipatom == atom) {
                 simulation.system.charges_[1] = qdump;
             }
         } else if (strcmp(keyword, "harm") == 0) {
@@ -555,7 +573,7 @@ void readParameterFile(Simulation& simulation) {
             }
             sscanf(line,"%s %s %lf %lf", dump, atom, &(parameters.tip_dummy_k),
                                                      &(parameters.tip_dummy_r0));
-            if (strcmp(atom, options.tipatom) != 0) {
+            if (atom != options.tipatom) {
                 error("Harmonic spring should be defined on tip atom!");
             }
             hcheck = true;

@@ -67,9 +67,8 @@ void Simulation::run() {
                     default:
                         error("Unimplemented minimiser type!");
                 }
-                // if (options_.flexible && current_point == total_points / 2) {
-                if (current_point % 100 == 99) {
-                    min_system.makeXYZFile();
+                if (options_.flexible && current_point == total_points / 2) {
+                    min_system.makeXYZFile(options_.outputfolder);
                 }
                 z_data[k] = min_system.getOutput();
                 z_data[k].indices = Vec3i(i, j, k);
