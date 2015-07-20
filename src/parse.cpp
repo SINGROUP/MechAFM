@@ -80,8 +80,8 @@ void readInputFile(Simulation& simulation) {
     options.gzip = true;
     options.flexible = false;
     options.rigidgrid = false;
-    options.minimiser_type = STEEPEST_DESCENT;
-    options.integrator_type = EULER;
+    options.minimiser_type = FIRE;
+    options.integrator_type = RK4;
 
     // Check if the file exists
     fp = fopen(simulation.input_file_name_, "r");
