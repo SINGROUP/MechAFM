@@ -8,15 +8,15 @@ atom    C         0.07000              3.55000       12.01100       0.00000
 atom    H         0.03000              2.42000        1.00800       0.00000
 atom    B         0.10500              3.63000       10.81000       0.00000
 atom    X        20.00000              3.55000       12.01100       0.02100
-atom	O	  0.19200	       3.15000	     15.99900	   -0.02100
+atom    O         0.19200              3.15000       15.99900      -0.02100
 
 # Boron parameters guessed from Baowan & Hill, IET Micro & Nano Letters 2:46 (2007)
 # Carbon, oxygen and hydrogen parameters from original CHARMM force field
 
 # Pair style to overwrite and default LJ-mixing
 #            atom1  |  atom2  |  pair_style  |  parameters (eps,sig for LJ; De,a,re for Morse)
-#pair_ovwrt     C        O         morse          1 2 3
-#pair_ovwrt     H        O         lj             1 2
+# pair_ovwrt     C        O         morse          1 2 3 
+# pair_ovwrt     H        O         lj             1 2
 
 #     name  |   force constant (kcal/mol)  | distance (A)
 harm    O         0.72000                     0.00
@@ -30,14 +30,16 @@ topobond      C         H         1.095
 topobond      C         B         1.534
 
 # bonds are assumed harmonic and in their equilibrium position (in the xyz file)
-#               force constant (kcal/mol) 
-bond              25.000                 
+#               force constant (kcal/mol)
+bond              25.000
 
 # angles are assumed harmonic and in their equilibrium position (in the xyz file)
-#               force constant (kcal/mol) 
-angle             0.2500                 
+#               force constant (kcal/mol)
+angle             0.2500
 
-# dihedrals and impropers are ignored
+# dihedrals are assumed harmonic and in their equilibrium position (in the xyz file)
+#               force constant (kcal/mol)
+dihedral          0.2500
 
 # substrate support using a harmonic potential (only in negative z-direction)
 #               force constant (kcal/mol) 

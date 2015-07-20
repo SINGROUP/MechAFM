@@ -1,27 +1,41 @@
 import numpy, matplotlib, os, sys, gzip, glob
+import argparse
 from copy import deepcopy
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+
+# Parse command line
+parser = argparse.ArgumentParser(description="Create a vafm image from the mechafm output.")
+parser.add_argument("-i", "--input_file", default="input.scan",
+                    help="the path to the input file of the simulation (default: %(default)s)")
+parser.add_argument("-o", "--output", default="./",
+                    help="the output folder of the simulation, produced images will also "
+                         "be saved here (default: %(default)s)")
+args = parser.parse_args()
 
 # Talk to me
 print 'Setting some initial things'
 
 # Some basic settings
-xyzfile = 'graphene.xyz'
-frcfiles = 'scan-*.dat*'
-inpfile = 'input.scan'
+
+if args.output.endswith('/'):
+    output_folder = args.output
+else:
+    output_folder = args.output + '/'
+frcfiles = output_folder + 'scan-*.dat*'
+inpfile = args.input_file
 
 # Uniquify a list
-def uniquify(seq, idfun=None):  
-    if idfun is None: 
-        def idfun(x): return x 
-    seen = {} 
-    result = [] 
-    for item in seq: 
-        marker = idfun(item) 
-        if marker in seen: continue 
-        seen[marker] = 1 
-        result.append(item) 
+def uniquify(seq, idfun=None):
+    if idfun is None:
+        def idfun(x): return x
+    seen = {}
+    result = []
+    for item in seq:
+        marker = idfun(item)
+        if marker in seen: continue
+        seen[marker] = 1
+        result.append(item)
     return result
 
 # Directory name
@@ -160,7 +174,7 @@ for pl in range(nshifts):
             DZ[x,y] = float(line[11])
             ANGLE[x,y] = float(line[13])
             X[x,y] = float(line[3]) # - dx
-            Y[x,y] = float(line[4]) # - dy 
+            Y[x,y] = float(line[4]) # - dy
 
         # Keep some z-forces
         tmp = deepcopy(FZ)
@@ -206,13 +220,13 @@ for pl in range(nshifts):
     ax.set_xlabel(ur'x (\u00c5)')
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.set_ylabel(ur'y (\u00c5)')
-    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))        
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.title.set_visible(False)
     # Set some text
     txt = ur'z = %.3f \u00b1 %.3f \u00c5 | \u0394x = %.3f \u00c5 | \u0394y = %.3f \u00c5 | \u0394z = %.3f \u00c5 | ftol = %.7f | A = %.2f \u00c5 | k = %.1f N/m | f0 = %.2f kHz' % (realz[pl],diffz[pl],resx,resy,resz,ftol,amplitude,k_cantilever/Nm2kcalAA,frequency0/1000)
     ax.text(0.015*dx*nx,1.005*dy*ny,txt,color='k',fontsize=headerfontsize)
     # Save figure
-    plt.savefig('deltaf-%06.3f.png' % zpos[pl],dpi=200,bbox_inches='tight',pad_inches=0)
+    plt.savefig('%sdeltaf-%06.3f.png' % (output_folder, zpos[pl]),dpi=200,bbox_inches='tight',pad_inches=0)
 
     ############################
 
@@ -234,13 +248,13 @@ for pl in range(nshifts):
     ax.set_xlabel(ur'x (\u00c5)')
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.set_ylabel(ur'y (\u00c5)')
-    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))        
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.title.set_visible(False)
     # Set some text
     txt = ur'z = %.3f \u00b1 %.3f \u00c5 | \u0394x = %.3f \u00c5 | \u0394y = %.3f \u00c5 | \u0394z = %.3f \u00c5 | ftol = %.7f | min_angle = %.1f | max_angle = %.1f' % (realz[pl],diffz[pl],resx,resy,resz,ftol,angle.min(),angle.max())
     ax.text(0.015*dx*nx,1.005*dy*ny,txt,color='k',fontsize=headerfontsize)
     # Save figure
-    plt.savefig('angle-%06.3f.png' % zpos[pl],dpi=200,bbox_inches='tight',pad_inches=0)
+    plt.savefig('%sangle-%06.3f.png' % (output_folder, zpos[pl]),dpi=200,bbox_inches='tight',pad_inches=0)
 
     ###############################
 
@@ -260,19 +274,19 @@ for pl in range(nshifts):
     ax.set_xlabel(ur'x (\u00c5)')
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.set_ylabel(ur'y (\u00c5)')
-    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))        
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.title.set_visible(False)
     # Set some text
     txt = ur'z = %.3f \u00b1 %.3f \u00c5 | \u0394x = %.3f \u00c5 | \u0394y = %.3f \u00c5 | \u0394z = %.3f \u00c5 | ftol = %.7f' % (realz[pl],diffz[pl],resx,resy,resz,ftol)
     ax.text(0.015*dx*nx,1.005*dy*ny,txt,color='k',fontsize=headerfontsize)
     # Save figure
-    plt.savefig('displ-%06.3f.png' % zpos[pl],dpi=200,bbox_inches='tight',pad_inches=0)
+    plt.savefig('%sdispl-%06.3f.png' % (output_folder, zpos[pl]),dpi=200,bbox_inches='tight',pad_inches=0)
 
 # Talk to me
 print 'Creating animated gifs'
-os.system('convert -resize 800x -loop 0 deltaf-0*.png movie-deltaf.gif')
-os.system('convert -resize 800x -loop 0 angle-0*.png movie-angle.gif')
-os.system('convert -resize 800x -loop 0 displ-0*.png movie-displ.gif')
+os.system('convert -resize 800x -loop 0 {0}deltaf-0*.png {0}movie-deltaf.gif'.format(output_folder))
+os.system('convert -resize 800x -loop 0 {0}angle-0*.png {0}movie-angle.gif'.format(output_folder))
+os.system('convert -resize 800x -loop 0 {0}displ-0*.png {0}movie-displ.gif'.format(output_folder))
 
 # Talk to me
 print 'Done'

@@ -1,0 +1,33 @@
+xyzfile      graphene.xyz
+paramfile    parameters.dat
+tipatom      O
+dummyatom    X
+
+planeatom    C
+#zplane      0.000
+
+units        kcal/mol
+
+minterm      f
+etol         0.01
+ftol         0.01
+cfac         0.001
+maxsteps     5000
+
+minimiser    FIRE
+integrator   rk4
+
+coulomb      off
+
+rigidgrid    off
+
+flexible     on
+
+zhigh        10.0
+zlow         6.0
+dx           0.5
+dy           0.5
+dz           0.1
+
+bufsize      10000
+gzip         off
