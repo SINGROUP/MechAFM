@@ -29,7 +29,7 @@ void parseCommandLine(int argc, char* argv[], Simulation& simulation) {
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
         fprintf(stdout,"|                   Mechanical AFM Model                      |\n");
         fprintf(stdout,"|  Based on: P. Hapala et al, Phys. Rev. B, 90:085421 (2014)  |\n");
-        fprintf(stdout,"|                  This implemenation by                      |\n");
+        fprintf(stdout,"|                  This implementation by                     |\n");
         fprintf(stdout,"|             Peter Spijker and Olli Keisanen                 |\n");
         fprintf(stdout,"|          2014-2015 (c) Aalto University, Finland            |\n");
         fprintf(stdout,"+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +\n");
@@ -253,7 +253,7 @@ void readInputFile(Simulation& simulation) {
     }
     if ((options.planeatom == "") && (options.zplane <= NEGVAL)) {
         error("Specify at least a plane or a plane atom!");
-    } else if ((options.planeatom == "") && (options.zplane > NEGVAL)) {
+    } else if ((options.planeatom != "") && (options.zplane > NEGVAL)) {
         error("Specify only a plane or a plane atom!");
     }
 
@@ -460,7 +460,7 @@ void setSystemZ(Simulation& simulation) {
     InputOptions& options = simulation.options_;
     System& system = simulation.system;
 
-    if (options.planeatom == "") {
+    if (options.planeatom != "") {
         avgz = 0.0;
         nplaneatoms = 0;
         for (int i = 2; i < system.n_atoms_; ++i) {
@@ -490,7 +490,7 @@ void centerSystem(Simulation& simulation){
     InputOptions& options = simulation.options_;
     System& system = simulation.system;
 
-    if (options.planeatom == "") {
+    if (options.planeatom != "") {
         double avgx = 0.0;
         double avgy = 0.0;
         int nplaneatoms = 0;
@@ -503,6 +503,21 @@ void centerSystem(Simulation& simulation){
         }
         avgx /= nplaneatoms;
         avgy /= nplaneatoms;
+        double dx = (simulation.options_.box.x / 2) - avgx;
+        double dy = (simulation.options_.box.y / 2) - avgy;
+        for (int i = 2; i < system.n_atoms_; ++i) {
+            system.positions_[i].x += dx;
+            system.positions_[i].y += dy;
+        }
+    } else {
+        double avgx = 0.0;
+        double avgy = 0.0;
+        for (int i = 2; i < system.n_atoms_; ++i) {
+            avgx += system.positions_[i].x;
+            avgy += system.positions_[i].y;
+        }
+        avgx /= system.n_atoms_ - 2;
+        avgy /= system.n_atoms_ - 2;
         double dx = (simulation.options_.box.x / 2) - avgx;
         double dy = (simulation.options_.box.y / 2) - avgy;
         for (int i = 2; i < system.n_atoms_; ++i) {
