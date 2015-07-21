@@ -306,7 +306,7 @@ void readInputFile(Simulation& simulation) {
     pretty_print("minterm:           %-s", tmp_minterm);
     pretty_print("etol:              %-8.4f", options.etol);
     pretty_print("ftol:              %-8.4f", options.ftol);
-    pretty_print("dt:              %-8.4f", options.dt);
+    pretty_print("dt:                %-8.4f", options.dt);
     pretty_print("maxsteps:          %-8d", options.maxsteps);
     pretty_print("");
     pretty_print("zhigh:             %-8.4f", options.zhigh);
