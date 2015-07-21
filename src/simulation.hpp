@@ -43,6 +43,7 @@ struct InputOptions {
     double etol, ftol, dt;
     int bufsize;
     bool gzip;
+    bool statistics;
     bool flexible, rigidgrid;
     bool xyz_charges;
     MinimiserType minimiser_type;

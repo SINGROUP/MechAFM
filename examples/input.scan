@@ -21,7 +21,7 @@ coulomb      off
 
 rigidgrid    off
 
-flexible     on
+flexible     off
 
 zhigh        10.0
 zlow         6.0
@@ -31,3 +31,4 @@ dz           0.1
 
 bufsize      10000
 gzip         off
+statistics   off

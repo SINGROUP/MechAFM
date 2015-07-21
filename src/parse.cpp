@@ -71,7 +71,7 @@ void readInputFile(Simulation& simulation) {
     char value[NAME_LENGTH];
     char line[LINE_LENGTH];
     char tmp_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH];
-    char tmp_gzip[NAME_LENGTH], tmp_units[NAME_LENGTH];
+    char tmp_gzip[NAME_LENGTH], tmp_statistics[NAME_LENGTH], tmp_units[NAME_LENGTH];
     char tmp_flexible[NAME_LENGTH], tmp_rigidgrid[NAME_LENGTH];
 
     // Initialize the mandatory options
@@ -98,6 +98,7 @@ void readInputFile(Simulation& simulation) {
     options.maxsteps = 5000;
     options.bufsize = 1000;
     options.gzip = true;
+    options.statistics = false;
     options.flexible = false;
     options.rigidgrid = false;
     options.minimiser_type = FIRE;
@@ -155,6 +156,14 @@ void readInputFile(Simulation& simulation) {
                 options.gzip = true;
             } else if (strcmp(value, "off") == 0) {
                 options.gzip = false;
+            } else {
+                error("Option %s must be either on or off!", keyword);
+            }
+        } else if (strcmp(keyword, "statistics") == 0) {
+            if (strcmp(value, "on") == 0) {
+                options.statistics = true;
+            } else if (strcmp(value, "off") == 0) {
+                options.statistics = false;
             } else {
                 error("Option %s must be either on or off!", keyword);
             }
@@ -270,6 +279,11 @@ void readInputFile(Simulation& simulation) {
     } else {
         sprintf(tmp_gzip, "%s", "off");
     }
+    if (options.statistics) {
+        sprintf(tmp_statistics, "%s", "on");
+    } else {
+        sprintf(tmp_statistics, "%s", "off");
+    }
     if (options.flexible) {
         sprintf(tmp_flexible, "%s", "on");
     } else {
@@ -339,6 +353,7 @@ void readInputFile(Simulation& simulation) {
     pretty_print("");
     pretty_print("bufsize:           %-8d", options.bufsize);
     pretty_print("gzip:              %-s", tmp_gzip);
+    pretty_print("statistics:        %-s", tmp_statistics);
     pretty_print("");
     return;
 }
