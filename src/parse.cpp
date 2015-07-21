@@ -94,7 +94,7 @@ void readInputFile(Simulation& simulation) {
     options.zplane = NEGVAL;
     options.etol = 0.01;
     options.ftol = 0.01;
-    options.cfac = 0.001;
+    options.dt = 0.001;
     options.maxsteps = 5000;
     options.bufsize = 1000;
     options.gzip = true;
@@ -144,8 +144,8 @@ void readInputFile(Simulation& simulation) {
             options.etol = atof(value);
         } else if (strcmp(keyword, "ftol") == 0) {
             options.ftol = atof(value);
-        } else if (strcmp(keyword, "cfac") == 0) {
-            options.cfac = atof(value);
+        } else if (strcmp(keyword, "dt") == 0) {
+            options.dt = atof(value);
         } else if (strcmp(keyword, "maxsteps") == 0) {
             options.maxsteps = atoi(value);
         } else if (strcmp(keyword, "bufsize") == 0) {
@@ -306,7 +306,7 @@ void readInputFile(Simulation& simulation) {
     pretty_print("minterm:           %-s", tmp_minterm);
     pretty_print("etol:              %-8.4f", options.etol);
     pretty_print("ftol:              %-8.4f", options.ftol);
-    pretty_print("cfac:              %-8.4f", options.cfac);
+    pretty_print("dt:              %-8.4f", options.dt);
     pretty_print("maxsteps:          %-8d", options.maxsteps);
     pretty_print("");
     pretty_print("zhigh:             %-8.4f", options.zhigh);

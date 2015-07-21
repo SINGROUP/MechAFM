@@ -11,7 +11,7 @@ units        kcal/mol
 minterm      f
 etol         0.01
 ftol         0.01
-cfac         0.001
+dt           0.001
 maxsteps     5000
 
 minimiser    FIRE

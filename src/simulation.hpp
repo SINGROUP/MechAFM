@@ -40,7 +40,7 @@ struct InputOptions {
     bool coulomb;
     int maxsteps;
     MinimizationCriteria minterm;
-    double etol, ftol, cfac;
+    double etol, ftol, dt;
     int bufsize;
     bool gzip;
     bool flexible, rigidgrid;
