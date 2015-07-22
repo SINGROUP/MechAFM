@@ -18,8 +18,9 @@ atom    O         0.19200              3.15000       15.99900      -0.02100
 # pair_ovwrt     C        O         morse          1 2 3 
 # pair_ovwrt     H        O         lj             1 2
 
-#     name  |   force constant (kcal/mol)  | distance (A)
-harm    O         0.72000                     0.00
+# Tip harmonic constraint
+#     force constant (kcal/mol)  | distance (A)
+harm          0.72000                 0.00
 
 # Additional parameters for making the molecules flexible
 

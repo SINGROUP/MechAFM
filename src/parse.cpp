@@ -527,7 +527,7 @@ void centerSystem(Simulation& simulation){
     }
 }
 
-/* Read the parameter file */
+// Read the parameter file
 void readParameterFile(Simulation& simulation) {
     InputOptions& options = simulation.options_;
     InteractionParameters& parameters = simulation.interaction_parameters_;
@@ -586,11 +586,8 @@ void readParameterFile(Simulation& simulation) {
             if (hcheck) {
                 error("Parameters for harmonic spring can only be specified once!");
             }
-            sscanf(line,"%s %s %lf %lf", dump, atom, &(parameters.tip_dummy_k),
-                                                     &(parameters.tip_dummy_r0));
-            if (atom != options.tipatom) {
-                error("Harmonic spring should be defined on tip atom!");
-            }
+            sscanf(line,"%s %s %lf %lf", dump, &(parameters.tip_dummy_k),
+                                               &(parameters.tip_dummy_r0));
             hcheck = true;
         } else if (strcmp(keyword, "pair_ovwrt") == 0) {
             sscanf(line, "%s %s %s %s", dump, atom1, atom2, style);

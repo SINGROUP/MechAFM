@@ -129,9 +129,9 @@ Pair overwrite gives specific parameters for the interactions between atoms of t
 
 ####Tip harmonic
 ```
-harm name k distance
+harm k distance
 ```
-Tip harmonic defines the harmonic constant for the tip harmonic constraint in the xy-plane. Name must match the tip atom name given in the input file. Distance defines the rest xy-distance of the tip atom.
+Tip harmonic defines the harmonic constant for the tip harmonic constraint in the xy-plane. Distance defines the rest xy-distance of the tip atom.
 
 ###Flexible parameters
 
