@@ -4,7 +4,7 @@ MechAFM
 Mechanical AFM (implementation based on Hapala et al., Phys. Rev. B, 90:085421, 2014)
 
 Installation
-------------
+============
 Clone the repository to the desired folder and open it.
 
 ```
@@ -35,13 +35,13 @@ where INPUT-FILE is the input file you want to use (for example: examples/input.
 
 
 Input files
------------
+===========
 
 The simulation requires three input files to run: the input file defines the input options of the simulation, the parameter file defines the atom and bond properties of the system and the xyz file defines the atomic structure of the system to be scanned.
 
-###Input file
+##Input file
 
-####Mandatory options
+###Mandatory options
     xyzfile: The xyz file to be used.
   
     paramfile: The parameter file to be used.
@@ -59,7 +59,7 @@ Either *planeatom* or *zplane* must be defined.
   
     zplane: The value for the z-axis zero.
   
-####Other options
+###Other options
   
     units: The units used by the simulation. Affects some constants. (default: kcal/mol)
   
@@ -101,61 +101,87 @@ Either *planeatom* or *zplane* must be defined.
                      Steepest Descent minimisation. (Options: euler, rk4 (Runge-Kutta4))
                      (default: rk4)
                      
--
-###Parameter file
 
-####General parameters
+##Parameter file
 
-#####Box
+###General parameters
+
+General parameters are used by all simulations.
+
+####Box
 ```
 box x y z
 ```
+Box defines the size of the simulation area in x, y and z.
 
-#####Atom
+####Atom
 ```
 atom name epsilon sigma mass charge
 ```
+Atom defines the parameters for a atom with 'name'. Each atom type in the xyz file must have parameters set.
 
-#####Pair overwrite
+####Pair overwrite (optional)
 ```
 pair_ovwrt atom1 atom2 morse de a re
 pair_ovwrt atom1 atom2 lj epsilon sigma
 ```
-#####Tip harmonic
+Pair overwrite gives specific parameters for the interactions between atoms of type 'atom1' and 'atom2'. Morse option will use morse potential between the atoms and lj option will use Lennard-Jones potential. Without overwrites Lennard-Jones potentials will be used and the parameters will be read from the corresponding atom parameters.
+
+####Tip harmonic
 ```
 harm name k distance
 ```
+Tip harmonic defines the harmonic constant for the tip harmonic constraint in the xy-plane. Name must match the tip atom name given in the input file. Distance defines the rest xy-distance of the tip atom.
 
-####Flexible parameters
+###Flexible parameters
 
+Flexible parameters are only used by simulations with flexibility enabled.
 
-#####Topological bonds
+####Topological bonds
 ```
 topobond atom1 atom2 length
 ```
+Topological bonds define the types of bonds present in the system. Atom1 and atom2 give the types of atoms the bonds connect and length gives the expected length of the bond.
 
-#####Harmonic bond
+####Harmonic bond
 ```
 bond k
 ```
+Bond defines the harmonic constant for harmonic bond interactions.
 
-#####Harmonic angle
+####Harmonic angle
 ```
 angle k
 ```
+Angle defines the harmonic constant for harmonic angle interactions.
 
-#####Harmonic dihedral
+
+####Harmonic dihedral
 ```
 dihedral k
 ```
+Dihedral defines the harmonic constant for harmonic dihedral interactions.
 
-#####Substrate support
+
+####Substrate support
 ```
 substrate k
 ```
--
-###XYZ-file
+Substrate defines the harmonic constant for harmonic substrate support (in negative z only).
 
+
+##XYZ-file
+The simulation reads xyz files in the following format:
 ```
 atom x y z charge fixed
 ```
+where atom gives the type of the atom, x y z the position of the atom, charge the charge of the atom and fixed whether the atom is fixed or not (1 or 0) (only used by flexible simulations).
+
+Output format
+=============
+
+The simulation will produce output in the following format:
+```
+z_index x_index y_index pos.x pos.y pos.z f.x f.y f.z r.x r.y r.z r.len angle energy n_steps
+```
+where pos is the position of the dummy atom, f is the force on the tip caused by the surface, r is the difference between tip and dummy positions, angle is the angle defined by the r-vector and z-axis, energy is the energy of the tip caused by the surface and n_steps the amount of minimisation steps required for this point.
