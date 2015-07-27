@@ -66,7 +66,7 @@ class Simulation {
     InputOptions options_;  // Structure containing all relevant input options
     InteractionParameters interaction_parameters_;
     Vec3i n_points_;  // Number of points (x,y,z) to be minimised
-    long int n_total_;  // Total number of minimization steps used
+    unsigned long int n_total_;  // Total number of minimization steps used
     vector<FILE*> fstreams_;  // Array with all the file streams
 
     // Some parallel specific global variables
@@ -90,8 +90,8 @@ class Simulation {
     void addVDWInteraction(int atom_i1, int atom_i2);
     // Add a Coulomb interaction between atoms 1 and 2
     void addCoulombInteraction(int atom_i1, int atom_i2);
-    // Looks for overwrite parameters for atoms 1 and 2. Return true if found
-    // and sets op if found.
+    // Looks for overwrite parameters for atoms 1 and 2.
+    // Returns true if found and sets op if found.
     bool findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters& op);
     // Build all the interactions of the tip atom with the surface atoms
     void buildTipSurfaceInteractions();

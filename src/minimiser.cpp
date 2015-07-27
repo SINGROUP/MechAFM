@@ -56,7 +56,7 @@ int SDMinimisation(System& system, const InputOptions& options) {
         }
         for (int i = 0; i < system.n_atoms_; ++i) {
             // Update the atom only if it's not fixed
-            if (!system.fixed_[i]) {
+            if (system.fixed_[i] != 1) {
                 system.positions_[i] += options.dt * system.forces_[i];
             }
         }
@@ -104,7 +104,7 @@ int FIREMinimisation(System& system, const InputOptions& options) {
         double p = 0;
         for (int i = 0; i < system.n_atoms_; ++i) {
             p += system.velocities_[i].dot(system.forces_[i]);
-            if (!system.fixed_[i]) {
+            if (system.fixed_[i] != 1) {
                 system.velocities_[i] = (1 - alpha) * system.velocities_[i]
                     + alpha * system.forces_[i].normalized() * system.velocities_[i].len();
             }

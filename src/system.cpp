@@ -15,12 +15,12 @@ void System::initialize(int n_atoms) {
     energies_.assign(n_atoms_, 0);
     charges_.assign(n_atoms_, 0);
     masses_.assign(n_atoms_, 1);
-    fixed_.assign(n_atoms_, false);
+    fixed_.assign(n_atoms_, 0);
     types_.assign(n_atoms_, "");
 
     // Dummy is allways fixed and tip is allways free to move
-    fixed_[0] = true;
-    fixed_[1] = false;
+    fixed_[0] = 1;
+    fixed_[1] = 0;
 }
 
 OutputData System::getOutput() const {

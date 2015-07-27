@@ -13,9 +13,6 @@ parser.add_argument("-o", "--output", default="./",
                          "be saved here (default: %(default)s)")
 args = parser.parse_args()
 
-# Talk to me
-print 'Setting some initial things'
-
 # Some basic settings
 
 if args.output.endswith('/'):
@@ -24,6 +21,10 @@ else:
     output_folder = args.output + '/'
 frcfiles = output_folder + 'scan-*.dat*'
 inpfile = args.input_file
+
+# Talk to me
+print 'Processing ' + output_folder
+print 'Setting some initial things'
 
 # Uniquify a list
 def uniquify(seq, idfun=None):

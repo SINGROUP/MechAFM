@@ -358,6 +358,13 @@ void Simulation::buildTipDummyInteractions() {
     interactions_.emplace_back(new Harmonic2DInteraction(0, 1, k, r0));
 }
 
+void Simulation::buildSubstrateInteractions() {
+    double k = interaction_parameters_.substrate_k;
+    for (int i = 2; i < system.n_atoms_; ++i) {
+        interactions_.emplace_back(new SubstrateInteraction(i, k, system.positions_[i].z));
+    }
+}
+
 // Checks which atoms are connected by bonds to other atoms within given distance
 vector<unordered_set<int>> getConnectedAtoms(vector<unordered_set<int>> adjacent_atoms, int distance) {
     vector<unordered_set<int>> connected_atoms(adjacent_atoms.size());
@@ -518,12 +525,5 @@ void Simulation::buildSurfaceSurfaceInteractions() {
                 }
             }
         }
-    }
-}
-
-void Simulation::buildSubstrateInteractions() {
-    double k = interaction_parameters_.substrate_k;
-    for (int i = 2; i < system.n_atoms_; ++i) {
-        interactions_.emplace_back(new SubstrateInteraction(i, k, system.positions_[i].z));
     }
 }

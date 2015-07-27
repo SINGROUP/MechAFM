@@ -51,7 +51,7 @@ class System {
     vector<double> energies_;
     vector<double> charges_;
     vector<double> masses_;
-    vector<bool> fixed_;
+    vector<int> fixed_;
     vector<string> types_;
 
  private:

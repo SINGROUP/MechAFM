@@ -445,7 +445,7 @@ void readXYZFile(Simulation& simulation) {
         system.positions_[atom_i] = Vec3d(x, y, z);
         system.charges_[atom_i] = q;
         // Keep atoms fixed if we're not flexible.
-        system.fixed_[atom_i] = options.flexible ? (fixed == 1) : true;
+        system.fixed_[atom_i] = options.flexible ? fixed : 1;
         atom_i++;
     }
 
