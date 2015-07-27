@@ -15,7 +15,7 @@ cd MechAFM
 Run 
 
 ```
-make serial
+make omp
 ```
 to create the openMP version of the executable or 
 
@@ -29,7 +29,7 @@ It's recommended to use the openMP version in a single machine enviroments and o
 To run the openMP version type
 
 ```
-bin/mechafm-serial INPUT-FILE [OUTPUT-FOLDER]
+bin/mechafm-omp INPUT-FILE [OUTPUT-FOLDER]
 ```
 where INPUT-FILE is the input file you want to use (for example: examples/input.scan) and the optional OUTPUT-FOLDER defines the folder where the simulation output will be written (current directory by default).
 

@@ -33,6 +33,7 @@
 
 # Folders
 bin/
+build/
 examples/
 output/
 
