@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "force_grid.hpp"
+#include "globals.hpp"
 #include "vectors.hpp"
 
 class System;
@@ -43,7 +44,8 @@ struct PossibleBond {
 struct InteractionParameters {
     double qbase;
     double tip_dummy_k, tip_dummy_r0;
-    double bond_k, angle_k, dihedral_k, substrate_k;
+    double bond_k, angle_k, dihedral_k;
+    double substrate_eps, substrate_sig, substrate_lambda;
     unordered_map<string, AtomParameters> atom_parameters;
     vector<OverwriteParameters> overwrite_parameters;
     vector<PossibleBond> possible_bonds_;
@@ -160,9 +162,13 @@ class Harmonic2DInteraction: public Interaction {
 class SubstrateInteraction: public Interaction {
  public:
     SubstrateInteraction():
-        atom_i_(0), k_(0), z0_(0) {};
-    SubstrateInteraction(int atom_i, double k, double z0):
-        atom_i_(atom_i), k_(k), z0_(z0) {};
+        atom_i_(0), eps_(0), sig_(0), lambda_(0), multiplier_(0), z0_(0) {};
+    SubstrateInteraction(int atom_i, double eps, double sig, double lambda):
+        atom_i_(atom_i), eps_(eps), sig_(sig), lambda_(lambda)
+        {
+        multiplier_ = 2 * PI * eps_ * pow(sig_/lambda_, 2);
+        z0_ = -sig_;
+        };
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
     bool isTipSurface() const override {
         return false;
@@ -171,7 +177,10 @@ class SubstrateInteraction: public Interaction {
  private:
     int atom_i_;  // Atom indices in the state vectors
     // Interaction constants
-    double k_;
+    double eps_;
+    double sig_;
+    double lambda_;
+    double multiplier_;
     double z0_;
 };
 

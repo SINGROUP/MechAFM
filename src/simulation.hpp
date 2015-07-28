@@ -33,7 +33,7 @@ struct InputOptions {
     string tipatom;
     string dummyatom;
     string planeatom;
-    Vec3d box;
+    Vec2d area, center;
     double dx, dy, dz;
     double zlow, zhigh, zplane;
     Units units;
@@ -56,6 +56,8 @@ class Simulation {
     ~Simulation() {};
     // Returns whether we're on the root process or not
     bool rootProcess();
+    // Initializes the simulation before it's run
+    void initialize();
     // Runs the simulation
     void run();
     // Builds all the interactions

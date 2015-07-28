@@ -52,7 +52,7 @@ omp: $(BUILDDIR) $(s_objects)
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
 
-## Create all the mpi object files
+## Create all the mpi object files and process dependencies
 $(BUILDDIR)%$(MSUFFIX).o: $(SRCDIR)%.cpp
 	$(CC) $(FULLFLAG) -MD -c $< -o $@
 	@cp $(BUILDDIR)$*$(MSUFFIX).d $(BUILDDIR)$*$(MSUFFIX).P; \
@@ -60,7 +60,7 @@ $(BUILDDIR)%$(MSUFFIX).o: $(SRCDIR)%.cpp
 	-e '/^$$/ d' -e 's/$$/ :/' < $(BUILDDIR)$*$(MSUFFIX).d >> $(BUILDDIR)$*$(MSUFFIX).P; \
 	rm -f $(BUILDDIR)$*$(MSUFFIX).d
 
-## Create all the omp object files
+## Create all the omp object files and process dependencies
 $(BUILDDIR)%$(SSUFFIX).o: $(SRCDIR)%.cpp
 	$(CC) $(FULLFLAG) -MD -c $< -o $@
 	@cp $(BUILDDIR)$*$(SSUFFIX).d $(BUILDDIR)$*$(SSUFFIX).P; \
@@ -73,5 +73,6 @@ clean:
 	rm -f $(BINDIR)*
 	rm -f $(BUILDDIR)*
 
+## Include dependencies
 -include $(sources:%=$(BUILDDIR)%$(MSUFFIX).P)
 -include $(sources:%=$(BUILDDIR)%$(SSUFFIX).P)

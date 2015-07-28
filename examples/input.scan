@@ -3,9 +3,6 @@ paramfile    parameters.dat
 tipatom      O
 dummyatom    X
 
-planeatom    C
-#zplane      0.000
-
 units        kcal/mol
 
 minterm      f
@@ -21,12 +18,14 @@ coulomb      off
 
 rigidgrid    off
 
-flexible     on
+flexible     off
 
+area         20.0 15.0
+center       10.0  7.5
 zhigh        10.0
 zlow         6.0
-dx           5
-dy           5
+dx           0.5
+dy           0.5
 dz           0.1
 
 bufsize      10000

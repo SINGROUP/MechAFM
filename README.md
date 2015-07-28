@@ -12,12 +12,12 @@ git clone https://github.com/SINGROUP/MechAFM
 cd MechAFM
 ```
 
-Run 
+Run
 
 ```
 make omp
 ```
-to create the openMP version of the executable or 
+to create the openMP version of the executable or
 
 ```
 make mpi
@@ -52,12 +52,6 @@ The simulation requires three input files to run: the input file defines the inp
   
     minterm: Term used to check whether the system has converged to a minimum.
              (options: e (energy), f (force) or ef (energy and force))
-
-Either *planeatom* or *zplane* must be defined.
-
-    planeatom: The type of a atom that defines the z-axis zero.
-  
-    zplane: The value for the z-axis zero.
   
 ###Other options
   
@@ -65,15 +59,20 @@ Either *planeatom* or *zplane* must be defined.
   
     coulomb: Defines whether coulomb interactions are on or off. (default: off)
   
+    area: Defines the size of the simulation area in x and y. (default: 10.0 10.0)
+
+    center: Defines the position of the molecules center of mass in x and y. 
+            (default: area / 2)
+    
+    zlow: Defines the lowest z point for the dummy atom. (default: 6.0)
+    
+    zhigh: Defines the starting z for the dummy atom. (default: 10.0)
+
     dx: Defines the x distance between the simulation points. (default: 0.1)
     
     dy: Defines the y distance between the simulation points. (default: 0.1)
     
     dz: Defines the z distance between the simulation points. (default: 0.1)
-    
-    zlow: Defines the lowest z point for the dummy atom. (default: 6.0)
-    
-    zhigh: Defines the starting z for the dummy atom. (default: 10.0)
     
     etol: Defines the energy value used to check for convergence. (default: 0.01)
     
@@ -107,12 +106,6 @@ Either *planeatom* or *zplane* must be defined.
 ###General parameters
 
 General parameters are used by all simulations.
-
-####Box
-```
-box x y z
-```
-Box defines the size of the simulation area in x, y and z.
 
 ####Atom
 ```
@@ -165,9 +158,9 @@ Dihedral defines the harmonic constant for harmonic dihedral interactions.
 
 ####Substrate support
 ```
-substrate k
+substrate epsilon sigma lambda
 ```
-Substrate defines the harmonic constant for harmonic substrate support (in negative z only).
+Substrate defines the force constants for the substrate 10-4 potential.
 
 
 ##XYZ-file

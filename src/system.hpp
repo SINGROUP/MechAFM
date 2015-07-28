@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "globals.hpp"
 #include "interactions.hpp"
 #include "vectors.hpp"
 
@@ -23,6 +22,10 @@ class System {
     void evalTipSurfaceForces(Vec3d& force, double& energy) const;
     // Writes the current atom positions to a xyz file
     void makeXYZFile(string folder = "") const;
+    // Centers the molecule around pos in x, y
+    void centerMolecule(const Vec2d pos);
+    // Positions the molecule in z to lie on the substrate
+    void setMoleculeZ();
     // Sets the tip and dummy initial distance
     void setTipDummyDistance(double d) {tip_dummy_d_ = d;}
     // Returns the tip and dummy initial distance

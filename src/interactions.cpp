@@ -70,10 +70,12 @@ void Harmonic2DInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& 
 
 void SubstrateInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
     double dz = positions[atom_i_].z - z0_;
-    if (dz < 0) {
-        energies[atom_i_] += k_ * pow(dz, 2);
-        forces[atom_i_].z += -2 * k_ * dz;
-    }
+    double sig_z = sig_ / dz;
+    double sig_z2 = sig_z * sig_z;
+    double sig_z4 = sig_z2 * sig_z2;
+    double sig_z10 = sig_z4 * sig_z4 * sig_z2;
+    forces[atom_i_].z += 4 * multiplier_ / dz * (sig_z10 - sig_z4);
+    energies[atom_i_] += multiplier_ * (2/5 * sig_z10 - sig_z4);
 }
 
 void HarmonicInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {

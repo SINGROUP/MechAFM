@@ -44,8 +44,8 @@ void openUniverse(Simulation& simulation) {
 
     // How many points to compute the tip relaxation on
     simulation.n_total_ = 0;
-    simulation.n_points_.x = floor(simulation.options_.box.x / options.dx) + 1;
-    simulation.n_points_.y = floor(simulation.options_.box.y / options.dy) + 1;
+    simulation.n_points_.x = floor(simulation.options_.area.x / options.dx) + 1;
+    simulation.n_points_.y = floor(simulation.options_.area.y / options.dy) + 1;
     simulation.n_points_.z = floor((options.zhigh - options.zlow) / options.dz) + 1;
     n = simulation.n_points_.x * simulation.n_points_.y * simulation.n_points_.z;
     pretty_print("3D data grid is: %d x %d x %d (%d in total)",
@@ -221,7 +221,7 @@ int main(int argc, char *argv[]) {
 
     // The simulation itself
     openUniverse(simulation);
-    simulation.buildInteractions();
+    simulation.initialize();
     simulation.run();
     closeUniverse(simulation);
 

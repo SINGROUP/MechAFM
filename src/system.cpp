@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "globals.hpp"
 #include "messages.hpp"
 
 
@@ -57,3 +58,35 @@ void System::makeXYZFile(string folder) const {
     fclose(file);
     printf("+- Wrote %s\n", file_name);
 }
+
+void System::setMoleculeZ() {
+    double min_z = 10e10;
+    for (int i = 2; i < n_atoms_; ++i) {
+        // Ignore hydrogen when looking for the lowest atom
+        if (positions_[i].z < min_z && types_[i] != "H"){
+            min_z = positions_[i].z;
+        }
+    }
+    // Put the lowest atom at zero (potential minimum)
+    for (int i = 2; i < n_atoms_; ++i) {
+        positions_[i].z -= min_z;
+    }
+}
+
+void System::centerMolecule(Vec2d pos){
+    double avgx = 0.0;
+    double avgy = 0.0;
+    for (int i = 2; i < n_atoms_; ++i) {
+        avgx += positions_[i].x;
+        avgy += positions_[i].y;
+    }
+    avgx /= n_atoms_ - 2;
+    avgy /= n_atoms_ - 2;
+    double dx = pos.x - avgx;
+    double dy = pos.y - avgy;
+    for (int i = 2; i < n_atoms_; ++i) {
+        positions_[i].x += dx;
+        positions_[i].y += dy;
+    }
+}
+
