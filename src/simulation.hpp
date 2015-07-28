@@ -33,7 +33,7 @@ struct InputOptions {
     string tipatom;
     string dummyatom;
     string planeatom;
-    Vec3d box;
+    Vec2d area, center;
     double dx, dy, dz;
     double zlow, zhigh, zplane;
     Units units;
@@ -43,6 +43,7 @@ struct InputOptions {
     double etol, ftol, dt;
     int bufsize;
     bool gzip;
+    bool statistics;
     bool flexible, rigidgrid;
     bool xyz_charges;
     MinimiserType minimiser_type;
@@ -55,6 +56,8 @@ class Simulation {
     ~Simulation() {};
     // Returns whether we're on the root process or not
     bool rootProcess();
+    // Initializes the simulation before it's run
+    void initialize();
     // Runs the simulation
     void run();
     // Builds all the interactions
@@ -65,7 +68,7 @@ class Simulation {
     InputOptions options_;  // Structure containing all relevant input options
     InteractionParameters interaction_parameters_;
     Vec3i n_points_;  // Number of points (x,y,z) to be minimised
-    long int n_total_;  // Total number of minimization steps used
+    unsigned long int n_total_;  // Total number of minimization steps used
     vector<FILE*> fstreams_;  // Array with all the file streams
 
     // Some parallel specific global variables
@@ -89,8 +92,8 @@ class Simulation {
     void addVDWInteraction(int atom_i1, int atom_i2);
     // Add a Coulomb interaction between atoms 1 and 2
     void addCoulombInteraction(int atom_i1, int atom_i2);
-    // Looks for overwrite parameters for atoms 1 and 2. Return true if found
-    // and sets op if found.
+    // Looks for overwrite parameters for atoms 1 and 2.
+    // Returns true if found and sets op if found.
     bool findOverwriteParameters(int atom_i1, int atom_i2, OverwriteParameters& op);
     // Build all the interactions of the tip atom with the surface atoms
     void buildTipSurfaceInteractions();

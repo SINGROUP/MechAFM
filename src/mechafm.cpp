@@ -44,8 +44,8 @@ void openUniverse(Simulation& simulation) {
 
     // How many points to compute the tip relaxation on
     simulation.n_total_ = 0;
-    simulation.n_points_.x = floor(simulation.options_.box.x / options.dx) + 1;
-    simulation.n_points_.y = floor(simulation.options_.box.y / options.dy) + 1;
+    simulation.n_points_.x = floor(simulation.options_.area.x / options.dx) + 1;
+    simulation.n_points_.y = floor(simulation.options_.area.y / options.dy) + 1;
     simulation.n_points_.z = floor((options.zhigh - options.zlow) / options.dz) + 1;
     n = simulation.n_points_.x * simulation.n_points_.y * simulation.n_points_.z;
     pretty_print("3D data grid is: %d x %d x %d (%d in total)",
@@ -131,13 +131,26 @@ void finalize(Simulation& simulation) {
     pretty_print("Simulation run finished");
     pretty_print("Statistics:");
     n = (simulation.n_points_.x) * (simulation.n_points_.y) * (simulation.n_points_.z);
-    pretty_print("    Computed %ld tip positions", n);
-    pretty_print("    Needed %ld minimization steps in total", nsum);
+    pretty_print("    Computed %d tip positions", n);
+    pretty_print("    Needed %d minimization steps in total", nsum);
     pretty_print("    Which means approximately %.2f minimization steps per tip position",
                                                                 ((double) nsum / n));
-    pretty_print("    The simulation wall time is %.2f seconds", timesum);
-    pretty_print("    The entire simulation took %.2f seconds", dtime);
+    pretty_print("    The simulation wall time is %.2f seconds", timesum.count());
+    pretty_print("    The entire simulation took %.2f seconds", dtime.count());
     pretty_print("");
+    if (simulation.options_.statistics && simulation.rootProcess()) {
+        string file_path = simulation.options_.outputfolder + "statistics.txt";
+        FILE* fp = fopen(file_path.c_str(), "w");
+        fprintf(fp, "Simulation run finished\n");
+        fprintf(fp, "Statistics:\n");
+        fprintf(fp, "    Computed %d tip positions\n", n);
+        fprintf(fp, "    Needed %d minimization steps in total\n", nsum);
+        fprintf(fp, "    Which means approximately %.2f minimization steps per tip position\n",
+                                                                ((double) nsum / n));
+        fprintf(fp, "    The simulation wall time is %.2f seconds\n", timesum.count());
+        fprintf(fp, "    The entire simulation took %.2f seconds\n", dtime.count());
+        fclose(fp);
+    }
     return;
 }
 
@@ -208,7 +221,7 @@ int main(int argc, char *argv[]) {
 
     // The simulation itself
     openUniverse(simulation);
-    simulation.buildInteractions();
+    simulation.initialize();
     simulation.run();
     closeUniverse(simulation);
 

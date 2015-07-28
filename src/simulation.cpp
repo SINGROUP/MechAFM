@@ -22,6 +22,13 @@ bool Simulation::rootProcess() {
     return current_process_ == root_process_;
 }
 
+void Simulation::initialize() {
+    system.centerMolecule(options_.center);
+    system.setMoleculeZ();
+    calculateTipDummyDistance();
+    buildInteractions();
+}
+
 void Simulation::run() {
     const double report_interval = 0.1;
     double next_report = report_interval;
@@ -154,9 +161,6 @@ void Simulation::writeOutput(vector<OutputData> output_buffer) {
 }
 
 void Simulation::buildInteractions() {
-    // Tip-Dummy distance needs to be calculated first since it's required
-    // by some of the interactions.
-    calculateTipDummyDistance();
     // Grid interactions have to be build first since it currently
     // clears the interaction list.
     if (options_.rigidgrid) {
@@ -283,8 +287,8 @@ void Simulation::buildTipGridInteractions() {
     }
     fg.spacing_ = Vec3d(temp_spacing);
     const int border = ceil(fg.edge_ / min(fg.spacing_.x, min(fg.spacing_.y, fg.spacing_.z)));
-    fg.grid_points_.x = floor(options_.box.x / fg.spacing_.x) + 2*border + 1;
-    fg.grid_points_.y = floor(options_.box.y / fg.spacing_.y) + 2*border + 1;
+    fg.grid_points_.x = floor(options_.area.x / fg.spacing_.x) + 2*border + 1;
+    fg.grid_points_.y = floor(options_.area.y / fg.spacing_.y) + 2*border + 1;
     fg.grid_points_.z = floor((options_.zhigh - options_.zlow) / fg.spacing_.z) + 2*border + 1;
     int total_points = fg.grid_points_.x * fg.grid_points_.y * fg.grid_points_.z;
     fg.offset_.x = -border * fg.spacing_.x;
@@ -356,6 +360,15 @@ void Simulation::buildTipDummyInteractions() {
     double k = interaction_parameters_.tip_dummy_k;
     double r0 = interaction_parameters_.tip_dummy_r0;
     interactions_.emplace_back(new Harmonic2DInteraction(0, 1, k, r0));
+}
+
+void Simulation::buildSubstrateInteractions() {
+    double eps = interaction_parameters_.substrate_eps;
+    double sig = interaction_parameters_.substrate_sig;
+    double lambda = interaction_parameters_.substrate_lambda;
+    for (int i = 2; i < system.n_atoms_; ++i) {
+        interactions_.emplace_back(new SubstrateInteraction(i, eps, sig, lambda));
+    }
 }
 
 // Checks which atoms are connected by bonds to other atoms within given distance
@@ -518,12 +531,5 @@ void Simulation::buildSurfaceSurfaceInteractions() {
                 }
             }
         }
-    }
-}
-
-void Simulation::buildSubstrateInteractions() {
-    double k = interaction_parameters_.substrate_k;
-    for (int i = 2; i < system.n_atoms_; ++i) {
-        interactions_.emplace_back(new SubstrateInteraction(i, k, system.positions_[i].z));
     }
 }

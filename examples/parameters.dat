@@ -1,8 +1,5 @@
 # Parameters for a system from a paper
 
-#      X (A)  |  Y (A)  |  Z (A)
-box    20.000    15.000    20.000
-
 #      name  |  epsilon (kcal/mol)  |  sigma (A)  |  mass (amu)  |  charge (e)
 atom    C         0.07000              3.55000       12.01100       0.00000
 atom    H         0.03000              2.42000        1.00800       0.00000
@@ -42,6 +39,6 @@ angle             0.2500
 #               force constant (kcal/mol)
 dihedral          0.2500
 
-# substrate support using a harmonic potential (only in negative z-direction)
-#               force constant (kcal/mol) 
-substrate         1.000
+# substrate support using a 10-4 wall potential
+#               epsilon (kcal/mol) |  sigma (A) | lambda (A)
+substrate         0.100                 3.0         3.0

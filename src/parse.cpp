@@ -70,8 +70,9 @@ void readInputFile(Simulation& simulation) {
     char keyword[NAME_LENGTH];
     char value[NAME_LENGTH];
     char line[LINE_LENGTH];
+    char dump[LINE_LENGTH];
     char tmp_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH];
-    char tmp_gzip[NAME_LENGTH], tmp_units[NAME_LENGTH];
+    char tmp_gzip[NAME_LENGTH], tmp_statistics[NAME_LENGTH], tmp_units[NAME_LENGTH];
     char tmp_flexible[NAME_LENGTH], tmp_rigidgrid[NAME_LENGTH];
 
     // Initialize the mandatory options
@@ -86,6 +87,8 @@ void readInputFile(Simulation& simulation) {
     options.units = U_KCAL;
     sprintf(tmp_units, "%s" ,"kcal/mol");
     options.coulomb = false;
+    options.area = Vec2d(10);
+    options.center = Vec2d(-1);
     options.dx = 0.1;
     options.dy = 0.1;
     options.dz = 0.1;
@@ -98,6 +101,7 @@ void readInputFile(Simulation& simulation) {
     options.maxsteps = 5000;
     options.bufsize = 1000;
     options.gzip = true;
+    options.statistics = false;
     options.flexible = false;
     options.rigidgrid = false;
     options.minimiser_type = FIRE;
@@ -126,20 +130,20 @@ void readInputFile(Simulation& simulation) {
             options.tipatom = value;
         } else if (strcmp(keyword, "dummyatom") == 0) {
             options.dummyatom = value;
-        } else if (strcmp(keyword, "planeatom") == 0) {
-            options.planeatom = value;
+        } else if (strcmp(keyword, "area") == 0) {
+            sscanf(line, "%s %lf %lf", dump, &(options.area.x), &(options.area.y));
+        } else if (strcmp(keyword, "center") == 0) {
+            sscanf(line, "%s %lf %lf", dump, &(options.center.x), &(options.center.y));
+        } else if (strcmp(keyword, "zhigh") == 0) {
+            options.zhigh = atof(value);
+        } else if (strcmp(keyword, "zlow") == 0) {
+            options.zlow = atof(value);
         } else if (strcmp(keyword, "dx") == 0) {
             options.dx = atof(value);
         } else if (strcmp(keyword, "dy") == 0) {
             options.dy = atof(value);
         } else if (strcmp(keyword, "dz") == 0) {
             options.dz = atof(value);
-        } else if (strcmp(keyword, "zlow") == 0) {
-            options.zlow = atof(value);
-        } else if (strcmp(keyword, "zhigh") == 0) {
-            options.zhigh = atof(value);
-        } else if (strcmp(keyword, "zplane") == 0) {
-            options.zplane = atof(value);
         } else if (strcmp(keyword, "etol") == 0) {
             options.etol = atof(value);
         } else if (strcmp(keyword, "ftol") == 0) {
@@ -155,6 +159,14 @@ void readInputFile(Simulation& simulation) {
                 options.gzip = true;
             } else if (strcmp(value, "off") == 0) {
                 options.gzip = false;
+            } else {
+                error("Option %s must be either on or off!", keyword);
+            }
+        } else if (strcmp(keyword, "statistics") == 0) {
+            if (strcmp(value, "on") == 0) {
+                options.statistics = true;
+            } else if (strcmp(value, "off") == 0) {
+                options.statistics = false;
             } else {
                 error("Option %s must be either on or off!", keyword);
             }
@@ -251,15 +263,13 @@ void readInputFile(Simulation& simulation) {
     if (options.minterm == NOT_SET) {
         error("Specify at least a minimization termination criterion (e, f, or ef)!");
     }
-    if ((options.planeatom == "") && (options.zplane <= NEGVAL)) {
-        error("Specify at least a plane or a plane atom!");
-    } else if ((options.planeatom != "") && (options.zplane > NEGVAL)) {
-        error("Specify only a plane or a plane atom!");
-    }
 
     fclose(fp);
 
     // Set some useful thingies
+    if (options.center == Vec2d(-1)){
+        options.center = options.area / 2;
+    }
     if (options.coulomb) {
         sprintf(tmp_coulomb, "%s", "on");
     } else {
@@ -269,6 +279,11 @@ void readInputFile(Simulation& simulation) {
         sprintf(tmp_gzip, "%s", "on");
     } else {
         sprintf(tmp_gzip, "%s", "off");
+    }
+    if (options.statistics) {
+        sprintf(tmp_statistics, "%s", "on");
+    } else {
+        sprintf(tmp_statistics, "%s", "off");
     }
     if (options.flexible) {
         sprintf(tmp_flexible, "%s", "on");
@@ -294,12 +309,6 @@ void readInputFile(Simulation& simulation) {
     pretty_print("paramfile:         %-s", options.paramfile.c_str());
     pretty_print("tipatom:           %-s", options.tipatom.c_str());
     pretty_print("dummyatom:         %-s", options.dummyatom.c_str());
-    if (options.planeatom == "") {
-        pretty_print("planeatom:         %-s", options.planeatom.c_str());
-    }
-    else if (options.zplane > NEGVAL) {
-        pretty_print("zplane:            %-8.4f", options.zplane);
-    }
     pretty_print("");
     pretty_print("units:             %-s", tmp_units);
     pretty_print("");
@@ -309,6 +318,8 @@ void readInputFile(Simulation& simulation) {
     pretty_print("dt:                %-8.4f", options.dt);
     pretty_print("maxsteps:          %-8d", options.maxsteps);
     pretty_print("");
+    pretty_print("area:              %-8.4f %-8.4f", options.area.x, options.area.y);
+    pretty_print("center:            %-8.4f %-8.4f", options.center.x, options.center.y);
     pretty_print("zhigh:             %-8.4f", options.zhigh);
     pretty_print("zlow:              %-8.4f", options.zlow);
     pretty_print("dx:                %-8.4f", options.dx);
@@ -339,6 +350,7 @@ void readInputFile(Simulation& simulation) {
     pretty_print("");
     pretty_print("bufsize:           %-8d", options.bufsize);
     pretty_print("gzip:              %-s", tmp_gzip);
+    pretty_print("statistics:        %-s", tmp_statistics);
     pretty_print("");
     return;
 }
@@ -430,7 +442,7 @@ void readXYZFile(Simulation& simulation) {
         system.positions_[atom_i] = Vec3d(x, y, z);
         system.charges_[atom_i] = q;
         // Keep atoms fixed if we're not flexible.
-        system.fixed_[atom_i] = options.flexible ? (fixed == 1) : true;
+        system.fixed_[atom_i] = options.flexible ? fixed : 1;
         atom_i++;
     }
 
@@ -454,79 +466,6 @@ void readXYZFile(Simulation& simulation) {
     return;
 }
 
-void setSystemZ(Simulation& simulation) {
-    int nplaneatoms;
-    double avgz;
-    InputOptions& options = simulation.options_;
-    System& system = simulation.system;
-
-    if (options.planeatom != "") {
-        avgz = 0.0;
-        nplaneatoms = 0;
-        for (int i = 2; i < system.n_atoms_; ++i) {
-            if (system.types_[i] == options.planeatom) {
-                nplaneatoms++;
-                avgz += system.positions_[i].z;
-            }
-        }
-        avgz /= nplaneatoms;
-        for (int i = 2; i < system.n_atoms_; ++i) {
-            system.positions_[i].z -= avgz;
-        }
-    } else if (options.zplane > NEGVAL) {
-        avgz = 0.0;
-        for (int i = 2; i < system.n_atoms_; ++i) {
-            avgz += system.positions_[i].z;
-        }
-        avgz /= (system.n_atoms_ - 2);  // Dummy and tip aren't included
-        for (int i = 2; i < system.n_atoms_; ++i) {
-            system.positions_[i].z -= avgz;
-            system.positions_[i].z += options.zplane;
-        }
-    }
-}
-
-void centerSystem(Simulation& simulation){
-    InputOptions& options = simulation.options_;
-    System& system = simulation.system;
-
-    if (options.planeatom != "") {
-        double avgx = 0.0;
-        double avgy = 0.0;
-        int nplaneatoms = 0;
-        for (int i = 2; i < system.n_atoms_; ++i) {
-            if (system.types_[i] == options.planeatom) {
-                nplaneatoms++;
-                avgx += system.positions_[i].x;
-                avgy += system.positions_[i].y;
-            }
-        }
-        avgx /= nplaneatoms;
-        avgy /= nplaneatoms;
-        double dx = (simulation.options_.box.x / 2) - avgx;
-        double dy = (simulation.options_.box.y / 2) - avgy;
-        for (int i = 2; i < system.n_atoms_; ++i) {
-            system.positions_[i].x += dx;
-            system.positions_[i].y += dy;
-        }
-    } else {
-        double avgx = 0.0;
-        double avgy = 0.0;
-        for (int i = 2; i < system.n_atoms_; ++i) {
-            avgx += system.positions_[i].x;
-            avgy += system.positions_[i].y;
-        }
-        avgx /= system.n_atoms_ - 2;
-        avgy /= system.n_atoms_ - 2;
-        double dx = (simulation.options_.box.x / 2) - avgx;
-        double dy = (simulation.options_.box.y / 2) - avgy;
-        for (int i = 2; i < system.n_atoms_; ++i) {
-            system.positions_[i].x += dx;
-            system.positions_[i].y += dy;
-        }
-    }
-}
-
 // Read the parameter file
 void readParameterFile(Simulation& simulation) {
     InputOptions& options = simulation.options_;
@@ -538,9 +477,6 @@ void readParameterFile(Simulation& simulation) {
     double eps, sig, mass;
     double De, a, re;
     double qdump;
-
-    // Initialize the universe
-    simulation.options_.box = Vec3d(-1.0);
 
     // Open the parameter file
     fp = fopen(options.paramfile.c_str(), "r");
@@ -558,14 +494,7 @@ void readParameterFile(Simulation& simulation) {
         // Read line to determine keyword
         sscanf(line, "%s", keyword);
         // Process the separate keywords
-        if (strcmp(keyword, "box") == 0) {
-            Vec3d& box = simulation.options_.box;
-            if ((box.x < 0) && (box.y < 0) && (box.z < 0)) {
-                sscanf(line, "%s %lf %lf %lf", dump, &(box.x), &(box.y), &(box.z));
-            } else {
-                error("Keyword box cannot be defined more than once in parameter file!");
-            }
-        } else if (strcmp(keyword, "atom") == 0) {
+        if (strcmp(keyword, "atom") == 0) {
             sscanf(line, "%s %s %lf %lf %lf %lf", dump, atom, &(eps), &(sig), &(mass), &(qdump));
             if (parameters.atom_parameters.count(atom) != 0){
                 warning("Parameters for atom type %s defined multiple times.", atom);
@@ -640,11 +569,6 @@ void readParameterFile(Simulation& simulation) {
         error("No harmonic spring parameters found in parameter file!");
     }
 
-    // Now we know the size of the universe, put the molecule in the center of it
-    centerSystem(simulation);
-    // Put the plane atoms at 0 (in z) or as specified separately
-    setSystemZ(simulation);
-
     if (options.flexible) {
         rewind(fp);
         readFlexibleParameters(simulation, fp);
@@ -697,12 +621,13 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
             sscanf(line,"%s %lf", dump, &(parameters.dihedral_k));
             dcheck = true;
         }
-        // The strength of the harmonic substrate support from the parameter file
+        // The strength of the substrate support from the parameter file
         if (strcmp(keyword, "substrate") == 0) {
             if (scheck == true) {
-                warning("Parameters for harmonic substrate support defined multiple times!");
+                warning("Parameters for substrate support defined multiple times!");
             }
-            sscanf(line, "%s %lf", dump, &(parameters.substrate_k));
+            sscanf(line, "%s %lf %lf %lf", dump, &parameters.substrate_eps,
+                    &parameters.substrate_sig, &parameters.substrate_lambda);
             scheck = true;
         }
         // Collect the bonds, possibly present in the system

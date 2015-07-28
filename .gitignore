@@ -33,7 +33,9 @@
 
 # Folders
 bin/
+build/
 examples/
+output/
 
 # Extra files
 *.pyc
