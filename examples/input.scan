@@ -6,7 +6,7 @@ dummyatom    X
 units        kcal/mol
 
 minterm      f
-etol         0.01
+etol         0.001
 ftol         0.001
 dt           0.001
 maxsteps     5000
@@ -16,7 +16,7 @@ integrator   rk4
 
 coulomb      off
 
-rigidgrid    off
+rigidgrid    on
 
 flexible     off
 
@@ -30,4 +30,4 @@ dz           0.1
 
 bufsize      10000
 gzip         off
-statistics   off
+statistics   on

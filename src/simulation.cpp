@@ -274,18 +274,7 @@ void Simulation::buildTipGridInteractions() {
     buildTipSurfaceInteractions();
 
     ForceGrid fg;
-    const double min_spacing = 0.01;  // A grid smaller than this (in Angstrom) is silly
-    double temp_spacing = options_.dx;
-    if (options_.dy < temp_spacing) {
-        temp_spacing = options_.dy;
-    }
-    if (options_.dz < temp_spacing) {
-        temp_spacing = options_.dz;
-    }
-    if (temp_spacing < min_spacing) {
-        temp_spacing = min_spacing;
-    }
-    fg.spacing_ = Vec3d(temp_spacing);
+    fg.spacing_ = Vec3d(options_.dx, options_.dz, options_.dy) / 2;
     const int border = ceil(fg.edge_ / min(fg.spacing_.x, min(fg.spacing_.y, fg.spacing_.z)));
     fg.grid_points_.x = floor(options_.area.x / fg.spacing_.x) + 2*border + 1;
     fg.grid_points_.y = floor(options_.area.y / fg.spacing_.y) + 2*border + 1;
