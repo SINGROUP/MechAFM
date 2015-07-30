@@ -102,7 +102,6 @@ void closeUniverse(Simulation& simulation) {
 
 void finalize(Simulation& simulation) {
 
-    int n, nsum;
     chrono::duration<double> dtime, timesum;
 
     // Note the time
@@ -119,7 +118,7 @@ void finalize(Simulation& simulation) {
 #endif
 
     // Collect number of steps from all processes
-    nsum = 0;
+    unsigned long nsum = 0;
 #if MPI_BUILD
     MPI_Reduce(&simulation.n_total_, &nsum, 1, MPI_INT, MPI_SUM, simulation.root_process_,
                                                                  simulation.universe);
@@ -130,11 +129,11 @@ void finalize(Simulation& simulation) {
     // Print some miscelleneous information
     pretty_print("Simulation run finished");
     pretty_print("Statistics:");
-    n = (simulation.n_points_.x) * (simulation.n_points_.y) * (simulation.n_points_.z);
-    pretty_print("    Computed %d tip positions", n);
-    pretty_print("    Needed %d minimization steps in total", nsum);
+    int n_points = (simulation.n_points_.x) * (simulation.n_points_.y) * (simulation.n_points_.z);
+    pretty_print("    Computed %d tip positions", n_points);
+    pretty_print("    Needed %ld minimization steps in total", nsum);
     pretty_print("    Which means approximately %.2f minimization steps per tip position",
-                                                                ((double) nsum / n));
+                                                                ((double) nsum / n_points));
     pretty_print("    The simulation wall time is %.2f seconds", timesum.count());
     pretty_print("    The entire simulation took %.2f seconds", dtime.count());
     pretty_print("");
@@ -143,10 +142,10 @@ void finalize(Simulation& simulation) {
         FILE* fp = fopen(file_path.c_str(), "w");
         fprintf(fp, "Simulation run finished\n");
         fprintf(fp, "Statistics:\n");
-        fprintf(fp, "    Computed %d tip positions\n", n);
-        fprintf(fp, "    Needed %d minimization steps in total\n", nsum);
+        fprintf(fp, "    Computed %d tip positions\n", n_points);
+        fprintf(fp, "    Needed %ld minimization steps in total\n", nsum);
         fprintf(fp, "    Which means approximately %.2f minimization steps per tip position\n",
-                                                                ((double) nsum / n));
+                                                                ((double) nsum / n_points));
         fprintf(fp, "    The simulation wall time is %.2f seconds\n", timesum.count());
         fprintf(fp, "    The entire simulation took %.2f seconds\n", dtime.count());
         fclose(fp);

@@ -68,7 +68,7 @@ class Simulation {
     InputOptions options_;  // Structure containing all relevant input options
     InteractionParameters interaction_parameters_;
     Vec3i n_points_;  // Number of points (x,y,z) to be minimised
-    unsigned long int n_total_;  // Total number of minimization steps used
+    unsigned long n_total_;  // Total number of minimization steps used
     vector<FILE*> fstreams_;  // Array with all the file streams
 
     // Some parallel specific global variables
