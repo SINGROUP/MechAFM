@@ -41,16 +41,20 @@ m_objects := $(addsuffix $(MSUFFIX).o, $(addprefix $(BUILDDIR), $(sources)))
 all: mpi omp
 
 ## Make the executable (MPI) ##
-mpi: $(BUILDDIR) $(m_objects)
+mpi: $(BUILDDIR) $(BINDIR) $(m_objects)
 	$(CC) $(FULLFLAG) $(m_objects) -o $(BINDIR)mechafm-$@
 
 ## Make the executable (OpenMP) ##
-omp: $(BUILDDIR) $(s_objects)
+omp: $(BUILDDIR) $(BINDIR) $(s_objects)
 	$(CC) $(FULLFLAG) $(s_objects) -o $(BINDIR)mechafm-$@
 
 ## Create the directory for the build files
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
+
+## Create the directory for the binaries
+$(BINDIR):
+	mkdir -p $(BINDIR)
 
 ## Create all the mpi object files and process dependencies
 $(BUILDDIR)%$(MSUFFIX).o: $(SRCDIR)%.cpp
