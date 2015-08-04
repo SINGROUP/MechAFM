@@ -1,3 +1,5 @@
+#!usr/bin/env python
+
 import numpy, matplotlib, os, sys, gzip, glob
 import argparse
 from copy import deepcopy

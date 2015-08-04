@@ -52,7 +52,7 @@ void GridInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces
     energies[1] += tip_energy;
 }
 
-void Harmonic2DInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
+void TipHarmonicInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
     Vec3d r_vec = positions[atom_i1_] - positions[atom_i2_];
     Vec2d r_2d = r_vec.getXY();
     double r = r_2d.len();
@@ -66,6 +66,18 @@ void Harmonic2DInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& 
     energies[atom_i2_] += e;
     forces[atom_i1_] += f;
     forces[atom_i2_] -= f;
+}
+
+void XYHarmonicInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
+    Vec2d r_2d = positions[atom_i_].getXY() - p0_;
+    double r = r_2d.len();
+    double e = k_ * r * r;
+    Vec3d f;
+    if (r > TOLERANCE) {
+        f = Vec3d((-2 * k_ * r_2d), 0);
+    }
+    energies[atom_i_] += e;
+    forces[atom_i_] += f;
 }
 
 void SubstrateInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {

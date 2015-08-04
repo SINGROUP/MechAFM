@@ -348,15 +348,20 @@ void Simulation::buildTipDummyInteractions() {
     // Harmonic constraint
     double k = interaction_parameters_.tip_dummy_k;
     double r0 = interaction_parameters_.tip_dummy_r0;
-    interactions_.emplace_back(new Harmonic2DInteraction(0, 1, k, r0));
+    interactions_.emplace_back(new TipHarmonicInteraction(0, 1, k, r0));
 }
 
 void Simulation::buildSubstrateInteractions() {
     double eps = interaction_parameters_.substrate_eps;
     double sig = interaction_parameters_.substrate_sig;
     double lambda = interaction_parameters_.substrate_lambda;
+    double k = 0.01;
     for (int i = 2; i < system.n_atoms_; ++i) {
         interactions_.emplace_back(new SubstrateInteraction(i, eps, sig, lambda));
+        if (system.fixed_[i] == 2) {
+            interactions_.emplace_back(new XYHarmonicInteraction(i, k,
+                                            system.positions_[i].getXY()));
+        }
     }
 }
 

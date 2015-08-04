@@ -141,11 +141,11 @@ class GridInteraction: public Interaction {
     ForceGrid force_grid; // The force grid containing the samples
 };
 
-class Harmonic2DInteraction: public Interaction {
+class TipHarmonicInteraction: public Interaction {
  public:
-    Harmonic2DInteraction():
+    TipHarmonicInteraction():
         atom_i1_(0), atom_i2_(0), k_(0), r0_(0) {};
-    Harmonic2DInteraction(int atom_i1, int atom_i2, double k, double r0):
+    TipHarmonicInteraction(int atom_i1, int atom_i2, double k, double r0):
         atom_i1_(atom_i1), atom_i2_(atom_i2), k_(k), r0_(r0) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
     bool isTipSurface() const override {
@@ -157,6 +157,24 @@ class Harmonic2DInteraction: public Interaction {
     // Interaction constants
     double k_;
     double r0_;
+};
+
+class XYHarmonicInteraction: public Interaction {
+ public:
+    XYHarmonicInteraction():
+        atom_i_(0), k_(0), p0_(0) {};
+    XYHarmonicInteraction(int atom_i, double k, Vec2d p0):
+        atom_i_(atom_i), k_(k), p0_(p0) {};
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return false;
+    }
+
+ private:
+    int atom_i_;  // Atom indices in the state vectors
+    // Interaction constants
+    double k_;
+    Vec2d p0_;
 };
 
 class SubstrateInteraction: public Interaction {
