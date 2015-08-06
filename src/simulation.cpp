@@ -38,8 +38,9 @@ void Simulation::run() {
     const unsigned int buffer_size = options_.bufsize * n_points_.z;
     vector<OutputData> output_buffer;
     output_buffer.reserve(buffer_size);
+    pretty_print("Starting simulation");
 
-#pragma omp parallel for shared(output_buffer, next_report, processed_points)
+#pragma omp parallel for schedule(dynamic, 1)
     for (int i = 0; i < n_points_.x; ++i) {
         double x = i * options_.dx;
         for (int j = 0; j < n_points_.y; ++j) {
@@ -274,23 +275,26 @@ void Simulation::buildTipGridInteractions() {
     buildTipSurfaceInteractions();
 
     ForceGrid fg;
-    fg.spacing_ = Vec3d(options_.dx, options_.dz, options_.dy) / 2;
-    const int border = ceil(fg.edge_ / min(fg.spacing_.x, min(fg.spacing_.y, fg.spacing_.z)));
-    fg.grid_points_.x = floor(options_.area.x / fg.spacing_.x) + 2*border + 1;
-    fg.grid_points_.y = floor(options_.area.y / fg.spacing_.y) + 2*border + 1;
-    fg.grid_points_.z = floor((options_.zhigh - options_.zlow) / fg.spacing_.z) + 2*border + 1;
+    fg.spacing_ = Vec3d(options_.dx, options_.dy, options_.dz) / 2;
+    Vec3i border;
+    border.x = ceil(fg.edge_ / fg.spacing_.x);
+    border.y = ceil(fg.edge_ / fg.spacing_.y);
+    border.z = ceil(fg.edge_ / fg.spacing_.z);
+    fg.grid_points_.x = floor(options_.area.x / fg.spacing_.x) + 2*border.x + 1;
+    fg.grid_points_.y = floor(options_.area.y / fg.spacing_.y) + 2*border.y + 1;
+    fg.grid_points_.z = floor((options_.zhigh - options_.zlow) / fg.spacing_.z) + 2*border.z + 1;
     int total_points = fg.grid_points_.x * fg.grid_points_.y * fg.grid_points_.z;
-    fg.offset_.x = -border * fg.spacing_.x;
-    fg.offset_.y = -border * fg.spacing_.y;
+    fg.offset_.x = -border.x * fg.spacing_.x;
+    fg.offset_.y = -border.y * fg.spacing_.y;
     fg.offset_.z = options_.zhigh - system.getTipDummyDistance()
-                   - (fg.grid_points_.z - border - 1) * fg.spacing_.z;
+                   - (fg.grid_points_.z - border.z - 1) * fg.spacing_.z;
 
-    pretty_print("Computing 3D force grid (%d grid points)", total_points);
-    pretty_print("");
-    // Store the samples in a single list for easy communication
-    // Sample order: f.x, f.y, f.z, e
-    vector<double> temp_samples(4*total_points, 0);
-#pragma omp parallel for default(none) shared(temp_samples, fg)
+    pretty_print("Computing 3D force grid: %d, %d, %d (%d grid points)",
+        fg.grid_points_.x, fg.grid_points_.y, fg.grid_points_.z, total_points);
+    // Initialize the sample vectors
+    fg.forces_.assign(total_points, Vec3d(0));
+    fg.energies_.assign(total_points, 0);
+#pragma omp parallel for schedule(dynamic, 1)
     for (int i = 0; i < fg.grid_points_.x; ++i) {
         double x = i * fg.spacing_.x + fg.offset_.x;
         for (int j = 0; j < fg.grid_points_.y; ++j) {
@@ -311,34 +315,25 @@ void Simulation::buildTipGridInteractions() {
                 for (const auto& interaction : interactions_) {
                     interaction->eval(positions, forces, energies);
                 }
-                int index = 4*(i * fg.grid_points_.y * fg.grid_points_.z + j * fg.grid_points_.z + k);
-                temp_samples[index] = forces[1].x;
-                temp_samples[index + 1] = forces[1].y;
-                temp_samples[index + 2] = forces[1].z;
-                temp_samples[index + 3] = energies[1];
+                int index = i * fg.grid_points_.y * fg.grid_points_.z + j * fg.grid_points_.z + k;
+                fg.forces_[index] = forces[1];
+                fg.energies_[index] = energies[1];
             } // z
         } // y
     } // x
 
     // Communicate the data to all processes
 #if MPI_BUILD
-    MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(temp_samples.data()),
-                  4 * total_points, MPI_DOUBLE, MPI_SUM, universe);
+    MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(fg.forces_.data()),
+                  total_points * sizeof(Vec3d), MPI_CHAR, MPI_SUM, universe);
+    MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(fg.energies_.data()),
+                  total_points, MPI_DOUBLE, MPI_SUM, universe);
 #endif
-
-    // Initialise and set the sample vectors
-    fg.forces_.assign(total_points, Vec3d(0));
-    fg.energies_.assign(total_points, 0);
-    for (int i = 0; i < total_points; ++i) {
-        fg.forces_[i].x = temp_samples[4*i];
-        fg.forces_[i].y = temp_samples[4*i + 1];
-        fg.forces_[i].z = temp_samples[4*i + 2];
-        fg.energies_[i] = temp_samples[4*i + 3];
-    }
 
     // Replace the interactions with the grid
     interactions_.clear();
     interactions_.emplace_back(new GridInteraction(fg));
+    pretty_print("Done!");
 }
 
 void Simulation::buildTipDummyInteractions() {

@@ -20,7 +20,7 @@ class ForceGrid {
     Vec3i grid_points_;  // The number of grid points in each dimension
     Vec3d spacing_;  // Distance between grid points in each dimension
     Vec3d offset_;  // The real position of grid point (0, 0, 0)
-    const double edge_ = 1;  // How wide of an edge do we have around the simulation area
+    const double edge_ = 1.5;  // How wide of an edge do we have around the simulation area
     vector<Vec3d> forces_;  // List of force samples
     vector<double> energies_;  // List of energy samples
 

@@ -65,7 +65,7 @@ int SDMinimisation(System& system, const InputOptions& options) {
 }
 
 int FIREMinimisation(System& system, const InputOptions& options) {
-    // Initialise the minimisation variables
+    // Initialize the minimisation variables
     const int n_min = 5;
     const double f_inc = 1.1;
     const double f_dec = 0.5;

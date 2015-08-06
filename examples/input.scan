@@ -7,9 +7,9 @@ units        kcal/mol
 
 minterm      f
 etol         0.001
-ftol         0.0001
+ftol         0.001
 dt           0.001
-maxsteps     5000
+maxsteps     50000
 
 minimiser    FIRE
 integrator   rk4
@@ -18,14 +18,14 @@ coulomb      off
 
 rigidgrid    off
 
-flexible     on
+flexible     off
 
 area         20.0 15.0
 center       10.0  7.5
 zhigh        10.0
 zlow         6.0
-dx           5
-dy           5
+dx           0.5
+dy           0.5
 dz           0.1
 
 bufsize      10000

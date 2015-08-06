@@ -21,7 +21,7 @@ void eulerStep(System& system, const double dt) {
 }
 
 void rk4Step(System& system, const double dt) {
-    // Initialise all the intermediate state vectors
+    // Initialize all the intermediate state vectors
     vector<Vec3d> p2(system.positions_), p3(system.positions_), p4(system.positions_);
     vector<Vec3d> v2(system.velocities_), v3(system.velocities_), v4(system.velocities_);
     vector<Vec3d> f1(system.n_atoms_, Vec3d(0)), f2(system.n_atoms_, Vec3d(0));
