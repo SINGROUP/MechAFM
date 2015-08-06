@@ -16,7 +16,7 @@ DEBUG    := #-g
 OPENMP   := -fopenmp
 OPTIM    := -O3 -fomit-frame-pointer
 MATHFLAG := -lm
-WARNFLAG := -Wall -Wextra -Wpedantic -Wshadow -Wno-format-zero-length -Wno-write-strings
+WARNFLAG := -Wall -Wextra -Wshadow -Wno-format-zero-length -Wno-write-strings
 FULLFLAG := $(DEBUG) $(OPENMP) $(OPTIM) $(MATHFLAG) $(WARNFLAG) -I$(INCDIR) -std=c++11
 
 ## Target specific variables

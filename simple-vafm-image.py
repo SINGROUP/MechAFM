@@ -287,9 +287,9 @@ for pl in range(nshifts):
 
 # Talk to me
 print 'Creating animated gifs'
-os.system('convert -resize 800x -loop 0 {0}deltaf-0*.png {0}movie-deltaf.gif'.format(output_folder))
-os.system('convert -resize 800x -loop 0 {0}angle-0*.png {0}movie-angle.gif'.format(output_folder))
-os.system('convert -resize 800x -loop 0 {0}displ-0*.png {0}movie-displ.gif'.format(output_folder))
+os.system('convert -resize 800x -loop 0 {0}deltaf-*.png {0}movie-deltaf.gif'.format(output_folder))
+os.system('convert -resize 800x -loop 0 {0}angle-*.png {0}movie-angle.gif'.format(output_folder))
+os.system('convert -resize 800x -loop 0 {0}displ-*.png {0}movie-displ.gif'.format(output_folder))
 
 # Talk to me
 print 'Done'

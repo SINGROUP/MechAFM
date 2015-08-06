@@ -92,7 +92,7 @@ void Simulation::run() {
 
             // Report progress every once in a while
             double current_progress = 1.0f * processed_points / total_points;
-            if(rootProcess() && current_progress >= next_report) {
+            while (rootProcess() && current_progress >= next_report) {
                 pretty_print("Finished %4.1f %% of the simulation",
                              100 * next_report);
                 next_report += report_interval;
