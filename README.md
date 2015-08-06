@@ -168,7 +168,7 @@ The simulation reads xyz files in the following format:
 ```
 atom x y z charge fixed
 ```
-where atom gives the type of the atom, x y z the position of the atom, charge the charge of the atom and fixed whether the atom is fixed or not (1 or 0) (only used by flexible simulations).
+where atom gives the type of the atom, x y z the position of the atom, charge the charge of the atom and fixed whether the atom is fixed in place or not (1 or 0) or if it's bound by harmonic potential in xy-plane (2) (only used by flexible simulations).
 
 Output format
 =============
