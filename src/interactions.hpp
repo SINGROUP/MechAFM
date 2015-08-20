@@ -45,7 +45,7 @@ struct InteractionParameters {
     double qbase;
     double tip_dummy_k, tip_dummy_r0;
     double bond_k, angle_k, dihedral_k;
-    double substrate_eps, substrate_sig, substrate_lambda;
+    double substrate_eps, substrate_sig, substrate_lambda, substrate_k;
     unordered_map<string, AtomParameters> atom_parameters;
     vector<OverwriteParameters> overwrite_parameters;
     vector<PossibleBond> possible_bonds_;

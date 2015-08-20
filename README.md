@@ -158,9 +158,9 @@ Dihedral defines the harmonic constant for harmonic dihedral interactions.
 
 ####Substrate support
 ```
-substrate epsilon sigma lambda
+substrate epsilon sigma lambda (lateral_k)
 ```
-Substrate defines the force constants for the substrate 10-4 potential.
+Substrate defines the force constants for the substrate support. Epsilon, sigma and lambda define parameters for the  10-4 wall potential and the lateral_k defines the harmonic constant used for the optional xy-plane harmonic potential (see XYZ-file options).
 
 
 ##XYZ-file

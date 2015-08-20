@@ -626,8 +626,8 @@ void readFlexibleParameters(Simulation& simulation, FILE* fp) {
             if (scheck == true) {
                 warning("Parameters for substrate support defined multiple times!");
             }
-            sscanf(line, "%s %lf %lf %lf", dump, &parameters.substrate_eps,
-                    &parameters.substrate_sig, &parameters.substrate_lambda);
+            sscanf(line, "%s %lf %lf %lf %lf", dump, &parameters.substrate_eps,
+                    &parameters.substrate_sig, &parameters.substrate_lambda, &parameters.substrate_k);
             scheck = true;
         }
         // Collect the bonds, possibly present in the system

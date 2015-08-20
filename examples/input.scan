@@ -18,7 +18,7 @@ coulomb      off
 
 rigidgrid    off
 
-flexible     off
+flexible     on
 
 area         20.0 15.0
 center       10.0  7.5
