@@ -89,6 +89,9 @@ int FIREMinimisation(System& system, const InputOptions& options) {
             case EULER:
                 eulerStep(system, dt);
                 break;
+            case MIDPOINT:
+                midpointStep(system, dt);
+                break;
             case RK4:
                 rk4Step(system, dt);
                 break;

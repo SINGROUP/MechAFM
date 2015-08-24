@@ -105,7 +105,7 @@ void readInputFile(Simulation& simulation) {
     options.flexible = false;
     options.rigidgrid = false;
     options.minimiser_type = FIRE;
-    options.integrator_type = RK4;
+    options.integrator_type = MIDPOINT;
 
     // Check if the file exists
     fp = fopen(options.inputfile.c_str(), "r");
@@ -237,6 +237,8 @@ void readInputFile(Simulation& simulation) {
         } else if (strcmp(keyword, "integrator") == 0) {
             if (strcmp(value, "euler") == 0) {
                 options.integrator_type = EULER;
+            } else if (strcmp(value, "midpoint") == 0) {
+                options.integrator_type = MIDPOINT;
             } else if (strcmp(value, "rk4") == 0) {
                 options.integrator_type = RK4;
             } else {
@@ -342,6 +344,9 @@ void readInputFile(Simulation& simulation) {
     switch (options.integrator_type) {
         case EULER:
             pretty_print("integrator:        %-s", "euler");
+            break;
+        case MIDPOINT:
+            pretty_print("integrator:        %-s", "midpoint");
             break;
         case RK4:
             pretty_print("integrator:        %-s", "rk4");

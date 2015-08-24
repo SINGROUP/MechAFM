@@ -97,8 +97,8 @@ The simulation requires three input files to run: the input file defines the inp
                     (default: FIRE)
     
     integrator_type: Defines the type of a integrator to be used. Doesn't do anything with 
-                     Steepest Descent minimisation. (Options: euler, rk4 (Runge-Kutta4))
-                     (default: rk4)
+                     Steepest Descent minimisation. (Options: euler, midpoint, rk4 (Runge-Kutta 4))
+                     (default: midpoint)
                      
 
 ##Parameter file

@@ -20,6 +20,39 @@ void eulerStep(System& system, const double dt) {
     }
 }
 
+void midpointStep(System& system, const double dt) {
+    // Initialize all the intermediate state vectors
+    vector<Vec3d> p2(system.positions_);
+    vector<Vec3d> v2(system.velocities_);
+    vector<Vec3d> f1(system.n_atoms_, Vec3d(0)), f2(system.n_atoms_, Vec3d(0));
+    vector<double> e1(system.n_atoms_, 0), e2(system.n_atoms_, 0);
+
+    // Step 1
+    for (const auto& interaction : *system.interactions_) {
+        interaction->eval(system.positions_, f1, e1);
+    }
+    for (int i = 0; i < system.n_atoms_; ++i) {
+        if (system.fixed_[i] != 1) {
+            p2[i] += dt/2 * system.velocities_[i];
+            v2[i] += dt/2 * f1[i] / system.masses_[i];
+        }
+    }
+
+    // Step 2
+    for (const auto& interaction : *system.interactions_) {
+        interaction->eval(p2, f2, e2);
+    }
+    // Update the system
+    for (int i = 0; i < system.n_atoms_; ++i) {
+        if (system.fixed_[i] != 1) {
+            system.positions_[i] += dt * v2[i];
+            system.velocities_[i] += dt * f2[i] / system.masses_[i];
+        }
+        system.forces_[i] = f2[i];
+        system.energies_[i] = e2[i];
+    }
+}
+
 void rk4Step(System& system, const double dt) {
     // Initialize all the intermediate state vectors
     vector<Vec3d> p2(system.positions_), p3(system.positions_), p4(system.positions_);

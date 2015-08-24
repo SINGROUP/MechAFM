@@ -12,13 +12,13 @@ dt           0.001
 maxsteps     50000
 
 minimiser    FIRE
-integrator   rk4
+integrator   midpoint
 
 coulomb      off
 
 rigidgrid    off
 
-flexible     on
+flexible     off
 
 area         20.0 15.0
 center       10.0  7.5
