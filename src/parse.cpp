@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+    #include <windows.h>
+#endif
 
 #include "globals.hpp"
 #include "messages.hpp"
@@ -44,19 +47,33 @@ void parseCommandLine(int argc, char* argv[], Simulation& simulation) {
     options.outputfolder = "";
     if (argc >= 2) {
         options.inputfile = argv[1];
+#ifdef _WIN32
+        size_t path_split = options.inputfile.rfind("\\");
+#else
         size_t path_split = options.inputfile.rfind("/");
+#endif
         if (path_split != string::npos) {
             options.inputfolder = options.inputfile.substr(0, path_split + 1);
         }
     }
     if (argc == 3) {
         options.outputfolder = argv[2];
+#ifdef _WIN32
+        if (options.outputfolder[options.outputfolder.size() - 1] != '\\') {
+            options.outputfolder += '\\';
+        }
+#else
         if (options.outputfolder[options.outputfolder.size() - 1] != '/') {
             options.outputfolder += '/';
         }
+#endif
         if (simulation.rootProcess()) {
+#ifdef _WIN32
+            CreateDirectory(options.outputfolder.c_str(), NULL);
+#else
             string dir_cmd = "mkdir -p " + options.outputfolder;
             system(dir_cmd.c_str());
+#endif
         }
     }
     return;

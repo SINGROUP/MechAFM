@@ -33,6 +33,10 @@ bin/mechafm-omp INPUT-FILE [OUTPUT-FOLDER]
 ```
 where INPUT-FILE is the input file you want to use (for example: examples/input.scan) and the optional OUTPUT-FOLDER defines the folder where the simulation output will be written (current directory by default).
 
+##Windows
+
+The openMP version of MechAFM has been tested to be working on Windows with [MinGW](http://www.mingw.org/). Other than installing MinGW no extra steps are required compared to Unix systems.
+
 
 Input files
 ===========
