@@ -35,7 +35,7 @@ where INPUT-FILE is the input file you want to use (for example: examples/input.
 
 ##Windows
 
-The openMP version of MechAFM has been tested to be working on Windows with [MinGW](http://www.mingw.org/). Other than installing MinGW no extra steps are required compared to Unix systems.
+The openMP version of MechAFM has been tested to be working on Windows with [MinGW](http://www.mingw.org/). Instructions for installing MinGW can be found [here](http://www.mingw.org/wiki/Getting_Started). Otherwise just follow the instructions above to compile.
 
 
 Input files
