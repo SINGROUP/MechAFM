@@ -1,7 +1,7 @@
 MechAFM
 =======
 
-Mechanical AFM (implementation based on Hapala et al., Phys. Rev. B, 90:085421, 2014)
+Mechanical AFM (implementation based on the Probe Particle Model [1] and inspired by [2]).
 
 Installation
 ============
@@ -162,9 +162,9 @@ Dihedral defines the harmonic constant for harmonic dihedral interactions.
 
 ####Substrate support
 ```
-substrate epsilon sigma lambda (lateral_k)
+substrate epsilon sigma lambda r_cut (lateral_k)
 ```
-Substrate defines the force constants for the substrate support. Epsilon, sigma and lambda define parameters for the  10-4 wall potential and the lateral_k defines the harmonic constant used for the optional xy-plane harmonic potential (see XYZ-file options).
+Substrate defines the force constants for the substrate support. Epsilon, sigma, lambda and r_cut define parameters for the  10-4 wall potential [3] and the lateral_k defines the harmonic constant used for the optional xy-plane harmonic potential (see XYZ-file options).
 
 
 ##XYZ-file
@@ -182,3 +182,10 @@ The simulation will produce output in the following format:
 z_index x_index y_index pos.x pos.y pos.z f.x f.y f.z r.x r.y r.z r.len angle energy n_steps
 ```
 where pos is the position of the dummy atom, f is the force on the tip caused by the surface, r is the difference between tip and dummy positions, angle is the angle defined by the r-vector and z-axis, energy is the energy of the tip caused by the surface and n_steps the amount of minimisation steps required for this point.
+
+References
+==========
+
+1. P. Hapala, G. Kichin, C. Wagner, F.S. Tauts, R. Temirov, and P. Jelinek, *Mechanism of high-resolution STM/AFM imaging with functionalized tips*, Phys. Rev. B, 90:085421 (2014)
+2. S. Hamalainen, N. van der Heijden, J. van der Lit, S. den Harto, P. Liljeroth, and I. Swart, *Intermolecular Contrast in Atomic Force Microscopy Images without Intermolecular Bonds*, Phys. Rev. Lett, 113:186102 (2014).
+3. P. Spijker, H.M.M. ten Eikelder, A.J. Markvoort, S.V. Nedea, and P.A.J. Hilbers, *Implicit Particle Wall Boundary Condition in Molecular Dynamics*, J. Mech. Eng. Sci., 222:855 (2008).

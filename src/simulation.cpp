@@ -350,9 +350,10 @@ void Simulation::buildSubstrateInteractions() {
     double eps = interaction_parameters_.substrate_eps;
     double sig = interaction_parameters_.substrate_sig;
     double lambda = interaction_parameters_.substrate_lambda;
+    double rc = interaction_parameters_.substrate_rc;
     double k = interaction_parameters_.substrate_k;
     for (int i = 2; i < system.n_atoms_; ++i) {
-        interactions_.emplace_back(new SubstrateInteraction(i, eps, sig, lambda));
+      interactions_.emplace_back(new SubstrateInteraction(i, eps, sig, rc, lambda));
         if (system.fixed_[i] == 2) {
             interactions_.emplace_back(new XYHarmonicInteraction(i, k,
                                             system.positions_[i].getXY()));

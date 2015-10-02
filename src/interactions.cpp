@@ -86,8 +86,14 @@ void SubstrateInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& f
     double sig_z2 = sig_z * sig_z;
     double sig_z4 = sig_z2 * sig_z2;
     double sig_z10 = sig_z4 * sig_z4 * sig_z2;
-    forces[atom_i_].z += 4 * multiplier_ / dz * (sig_z10 - sig_z4);
-    energies[atom_i_] += multiplier_ * (2/5 * sig_z10 - sig_z4);
+    double eterm = 0.0;
+    double fterm = 0.0;
+    if (dz <= rc_) {
+      eterm += multiplier_ * ( 2./5 * sig_z10 - sig_z4) + ulj_ * dz * dz - ushift_;
+      fterm += 4 * multiplier_ / dz * (sig_z10 - sig_z4) + 2 * ulj_ * dz;
+    }
+    forces[atom_i_].z += fterm;
+    energies[atom_i_] += eterm;
 }
 
 void HarmonicInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
