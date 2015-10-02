@@ -40,5 +40,5 @@ angle             0.2500
 dihedral          0.2500
 
 # substrate support using a 10-4 wall potential
-#               epsilon (kcal/mol) |  sigma (A) | lambda (A) | lateral constant (kcal/mol)
-substrate         0.100                 3.0         3.0             0.01
+#               epsilon (kcal/mol) |  sigma (A) | lambda (A) | r_cut (A) | lateral constant (kcal/mol)
+substrate         0.100                 3.0         3.0          7.5        0.01
