@@ -30,6 +30,7 @@ struct InputOptions {
     string inputfile;
     string xyzfile;
     string paramfile;
+    string e_potential_file;
     string tipatom;
     string dummyatom;
     string planeatom;
@@ -38,6 +39,7 @@ struct InputOptions {
     double zlow, zhigh, zplane;
     Units units;
     bool coulomb;
+    bool use_external_potential;
     int maxsteps;
     MinimizationCriteria minterm;
     double etol, ftol, dt;

@@ -27,7 +27,7 @@ mpi: FULLFLAG += -D MPI_BUILD
 SSUFFIX := -omp
 omp: CC := $(SCC)
 
-sources := mechafm messages simulation parse system utility interactions minimiser integrators force_grid
+sources := mechafm messages simulation parse system utility interactions minimiser integrators force_grid data_grid cube_io
 s_objects := $(addsuffix $(SSUFFIX).o, $(addprefix $(BUILDDIR), $(sources)))
 m_objects := $(addsuffix $(MSUFFIX).o, $(addprefix $(BUILDDIR), $(sources)))
 

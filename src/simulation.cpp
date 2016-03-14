@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "cube_io.hpp"
 #include "interactions.hpp"
 #include "messages.hpp"
 #include "vectors.hpp"
@@ -262,6 +263,13 @@ void Simulation::buildTipSurfaceInteractions() {
         addVDWInteraction(1, i);
         if (options_.coulomb) {
             addCoulombInteraction(1, i);
+        } 
+    }
+    if (options_.use_external_potential) {
+        DataGrid<double> electrostatic_potential;
+        if (rootProcess()) {
+            CubeReader cube_file(options_.e_potential_file);
+            cube_file.storeToDataGrid(electrostatic_potential);
         }
     }
 }

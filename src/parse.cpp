@@ -91,6 +91,7 @@ void readInputFile(Simulation& simulation) {
     char tmp_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH];
     char tmp_gzip[NAME_LENGTH], tmp_statistics[NAME_LENGTH], tmp_units[NAME_LENGTH];
     char tmp_flexible[NAME_LENGTH], tmp_rigidgrid[NAME_LENGTH];
+    char tmp_use_external_potential[NAME_LENGTH];
 
     // Initialize the mandatory options
     options.xyzfile = "";
@@ -103,7 +104,9 @@ void readInputFile(Simulation& simulation) {
     options.planeatom = "";
     options.units = U_KCAL;
     sprintf(tmp_units, "%s" ,"kcal/mol");
+    options.e_potential_file = "";
     options.coulomb = false;
+    options.use_external_potential = false;
     options.area = Vec2d(10);
     options.center = Vec2d(-1);
     options.dx = 0.1;
@@ -143,6 +146,8 @@ void readInputFile(Simulation& simulation) {
             options.xyzfile = options.inputfolder + value;
         } else if (strcmp(keyword, "paramfile") == 0) {
             options.paramfile = options.inputfolder + value;
+        } else if (strcmp(keyword, "e_potential_file") == 0) {
+            options.e_potential_file = options.inputfolder + value;
         } else if (strcmp(keyword, "tipatom") == 0) {
             options.tipatom = value;
         } else if (strcmp(keyword, "dummyatom") == 0) {
@@ -208,6 +213,14 @@ void readInputFile(Simulation& simulation) {
                 options.coulomb = true;
             } else if (strcmp(value, "off") == 0) {
                 options.coulomb = false;
+            } else {
+                error("Option %s must be either on or off!", keyword);
+            }
+        } else if (strcmp(keyword, "use_external_potential") == 0) {
+            if (strcmp(value, "on") == 0) {
+                options.use_external_potential = true;
+            } else if (strcmp(value, "off") == 0) {
+                options.use_external_potential = false;
             } else {
                 error("Option %s must be either on or off!", keyword);
             }
@@ -294,6 +307,11 @@ void readInputFile(Simulation& simulation) {
     } else {
         sprintf(tmp_coulomb, "%s", "off");
     }
+    if (options.use_external_potential) {
+        sprintf(tmp_use_external_potential, "%s", "on");
+    } else {
+        sprintf(tmp_use_external_potential, "%s", "off");
+    }
     if (options.gzip) {
         sprintf(tmp_gzip, "%s", "on");
     } else {
@@ -319,36 +337,47 @@ void readInputFile(Simulation& simulation) {
     if ((options.rigidgrid) && (options.flexible)) {
         error("Cannot use a flexible molecule with a static force grid!");
     }
+    if (options.coulomb && options.use_external_potential) {
+        error("Cannot use Coulomb interaction and external electrostatic potential at the same time!");
+    }
+    if (options.use_external_potential && options.flexible) {
+        error("External potential can be used only for non-flexible systems!");
+    }
+    if (options.use_external_potential && (options.e_potential_file == "")) {
+        error("If you want to use external electrostatic potential, you must specify a file that contains it!");
+    }
 
     // Talk to me
     pretty_print("");
-    pretty_print("Input settings for %s:", options.inputfile.c_str());
+    pretty_print("Input settings for        %s:", options.inputfile.c_str());
     pretty_print("");
-    pretty_print("xyzfile:           %-s", options.xyzfile.c_str());
-    pretty_print("paramfile:         %-s", options.paramfile.c_str());
-    pretty_print("tipatom:           %-s", options.tipatom.c_str());
-    pretty_print("dummyatom:         %-s", options.dummyatom.c_str());
+    pretty_print("xyzfile:                  %-s", options.xyzfile.c_str());
+    pretty_print("paramfile:                %-s", options.paramfile.c_str());
+    pretty_print("tipatom:                  %-s", options.tipatom.c_str());
+    pretty_print("dummyatom:                %-s", options.dummyatom.c_str());
     pretty_print("");
-    pretty_print("units:             %-s", tmp_units);
+    pretty_print("units:                    %-s", tmp_units);
     pretty_print("");
-    pretty_print("minterm:           %-s", tmp_minterm);
-    pretty_print("etol:              %-8.4f", options.etol);
-    pretty_print("ftol:              %-8.4f", options.ftol);
-    pretty_print("dt:                %-8.4f", options.dt);
-    pretty_print("maxsteps:          %-8d", options.maxsteps);
+    pretty_print("minterm:                  %-s", tmp_minterm);
+    pretty_print("etol:                     %-8.4f", options.etol);
+    pretty_print("ftol:                     %-8.4f", options.ftol);
+    pretty_print("dt:                       %-8.4f", options.dt);
+    pretty_print("maxsteps:                 %-8d", options.maxsteps);
     pretty_print("");
-    pretty_print("area:              %-8.4f %-8.4f", options.area.x, options.area.y);
-    pretty_print("center:            %-8.4f %-8.4f", options.center.x, options.center.y);
-    pretty_print("zhigh:             %-8.4f", options.zhigh);
-    pretty_print("zlow:              %-8.4f", options.zlow);
-    pretty_print("dx:                %-8.4f", options.dx);
-    pretty_print("dy:                %-8.4f", options.dy);
-    pretty_print("dz:                %-8.4f", options.dz);
+    pretty_print("area:                     %-8.4f %-8.4f", options.area.x, options.area.y);
+    pretty_print("center:                   %-8.4f %-8.4f", options.center.x, options.center.y);
+    pretty_print("zhigh:                    %-8.4f", options.zhigh);
+    pretty_print("zlow:                     %-8.4f", options.zlow);
+    pretty_print("dx:                       %-8.4f", options.dx);
+    pretty_print("dy:                       %-8.4f", options.dy);
+    pretty_print("dz:                       %-8.4f", options.dz);
     pretty_print("");
-    pretty_print("coulomb:           %-s", tmp_coulomb);
+    pretty_print("coulomb:                  %-s", tmp_coulomb);
+    pretty_print("use_external_potential:   %-s", tmp_use_external_potential);
+    pretty_print("e_potential_file:         %-s", options.e_potential_file.c_str());
     pretty_print("");
-    pretty_print("flexible:          %-s", tmp_flexible);
-    pretty_print("rigidgrid:         %-s", tmp_rigidgrid);
+    pretty_print("flexible:                 %-s", tmp_flexible);
+    pretty_print("rigidgrid:                %-s", tmp_rigidgrid);
     pretty_print("");
     switch (options.minimiser_type) {
         case STEEPEST_DESCENT:
