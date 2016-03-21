@@ -1,5 +1,7 @@
 #include "data_grid.hpp"
 
+#include <complex>
+
 using namespace std;
 
 
@@ -17,6 +19,23 @@ void DataGrid<T>::initValues(int nx, int ny, int nz, const T& value) {
     n_grid_.y = ny;
     n_grid_.z = nz;
     values_.assign(nx*ny*nz, value);
+}
+
+
+template<typename T>
+void DataGrid<T>::scaleValues(double scaling_factor) {
+    for (auto it = values_.begin(); it != values_.end(); it++)
+        *it *= scaling_factor;
+}
+
+
+template<typename T>
+Vec3d DataGrid<T>::positionAt(int ix, int iy, int iz) const {
+    Vec3d position;
+    position.x = origin_.x + ix*spacing_.x;
+    position.y = origin_.y + iy*spacing_.y; 
+    position.z = origin_.z + iz*spacing_.z;
+    return position;
 }
 
 
@@ -77,5 +96,6 @@ void DataGrid<T>::swapValues(vector<T>& values_to_swap) {
 // add extra templates here if needed
 template class DataGrid<double>;
 template class DataGrid<int>;
+template class DataGrid<complex<double>>;
 template class DataGrid<Vec3d>;
 template class DataGrid<Vec3i>;

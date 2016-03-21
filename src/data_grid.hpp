@@ -17,6 +17,8 @@ using namespace std;
 
 /** \brief Generic container class for any data that is represented on a 3D grid.
  * 
+ * Works with types defined at the bottom of the cpp file. Add more if you need.
+ * 
  */
 
 template<typename T>
@@ -27,8 +29,12 @@ public:
     DataGrid(int nx, int ny, int nz, const T& value);
     ~DataGrid() {};
     
-    T& at(int ix, int iy, int iz) { return values_[index(ix, iy, iz)]; };
     void initValues(int nx, int ny, int nz, const T& value);
+    void scaleValues(double scaling_factor);
+    T& at(int ix, int iy, int iz) { return values_[index(ix, iy, iz)]; };
+    T& at(int ind) { return values_[ind]; };
+    const T& at(int ind) const { return values_[ind]; };
+    Vec3d positionAt(int ix, int iy, int iz) const;
     
     const Vec3i& getNGrid() const { return n_grid_; };
     const Vec3d& getSpacing() const { return spacing_; };

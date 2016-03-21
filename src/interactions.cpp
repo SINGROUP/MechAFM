@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "fft.hpp"
 #include "force_grid.hpp"
 #include "globals.hpp"
 #include "vectors.hpp"
@@ -44,10 +45,147 @@ void CoulombInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& for
     forces[atom_i2_] -= f;
 }
 
+ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataGrid<double>& e_potential, double tip_charge, double gaussian_width) {
+    const Vec3i& n_grid = e_potential.getNGrid();
+    const Vec3d& spacing = e_potential.getSpacing();
+    Vec3d tip_origin;
+    // Center the tip around position (0, 0, 0)
+    tip_origin.x = -0.5*n_grid.x*spacing.x;
+    tip_origin.y = -0.5*n_grid.y*spacing.y;
+    tip_origin.z = -0.5*n_grid.z*spacing.z;
+    
+    // Reserve storage space for the force
+    DataGrid<Vec3d> force(n_grid.x, n_grid.y, n_grid.z, Vec3d(0.0));
+    force.setSpacing(spacing);
+    force.setOrigin(e_potential.getOrigin());
+    
+    // Create Gaussian charge distribution of the tip
+    DataGrid<double> rho_tip(n_grid.x, n_grid.y, n_grid.z, 0.0);
+    rho_tip.setSpacing(spacing);
+    rho_tip.setOrigin(tip_origin);
+    Vec3d position;
+    double r_sqr;
+    double gaussian_width_sqr = pow(gaussian_width, 2);
+    double gaussian_norm_factor = 0.5/(pow(gaussian_width, 3)*PI*sqrt(2.0*PI));
+    for (int ix = 0; ix < n_grid.x; ix++) {
+        for (int iy = 0; iy < n_grid.y; iy++) {
+            for (int iz = 0; iz < n_grid.z; iz++) {
+                position = rho_tip.positionAt(ix, iy, iz);
+                r_sqr = position.lensqr();
+                rho_tip.at(ix, iy, iz) = tip_charge * gaussian_norm_factor * exp(-0.5*r_sqr/gaussian_width_sqr);
+            }
+        }
+    }
+    
+    // Do the FFTs for the potential and the charge distribution
+    DataGrid<dcomplex> pot_kspace, rho_kspace;
+    fft_data_grid(e_potential, pot_kspace);
+    fft_data_grid(rho_tip, rho_kspace);
+    
+    // Multiply rho_kspace with pot_kspace, which equals the energy in k-space.
+    // Store the values to pot_kspace to save memory.
+    for (int ix = 0; ix < n_grid.x; ix++) {
+        for (int iy = 0; iy < n_grid.y; iy++) {
+            for (int iz = 0; iz < n_grid.z; iz++) {
+                pot_kspace.at(ix, iy, iz) = pot_kspace.at(ix, iy, iz) * rho_kspace.at(ix, iy, iz);
+            }
+        }
+    }
+    
+    // To keep up with the progress, create a correctly named reference for the pot_kspace
+    DataGrid<dcomplex>& energy_kspace = pot_kspace;
+    
+    // rho_kspace is not needed anymore, so use it for temporary storage in k-space.
+    // Temporary storage is needed in real space also, but that we have to create.
+    DataGrid<dcomplex>& temp_kspace = rho_kspace;
+    DataGrid<double> temp_rspace;
+    temp_rspace.setOrigin(e_potential.getOrigin());
+    
+    // rho_tip is not needed anymore, so use the reserved memory for storing the energy
+    DataGrid<double>& energy = rho_tip;
+    energy.setOrigin(e_potential.getOrigin());
+    
+    // Do inverse FFT of rho_kspace * pot_kspace to obtain the energy
+    ffti_data_grid(energy_kspace, energy);
+    
+    // Calculate the components of the force one by one
+    vector<double> kx_points, ky_points, kz_points;
+    kx_points.reserve(n_grid.x);
+    ky_points.reserve(n_grid.y);
+    kz_points.reserve(n_grid.z);
+    for (int ix = 0; ix < n_grid.x; ix++) {
+        kx_points[ix] = ix*energy_kspace.getSpacing().x;
+        if (ix > int(n_grid.x/2))
+            kx_points[ix] = kx_points[ix] - n_grid.x*energy_kspace.getSpacing().x;
+    }
+    for (int iy = 0; iy < n_grid.y; iy++) {
+        ky_points[iy] = iy*energy_kspace.getSpacing().y;
+        if (iy > int(n_grid.y/2))
+            ky_points[iy] = ky_points[iy] - n_grid.y*energy_kspace.getSpacing().y;
+    }
+    for (int iz = 0; iz < n_grid.z; iz++) {
+        kz_points[iz] = iz*energy_kspace.getSpacing().z;
+        if (iz > int(n_grid.z/2))
+            kz_points[iz] = kz_points[iz] - n_grid.z*energy_kspace.getSpacing().z;
+    }
+    
+    // Force x component
+    for (int ix = 0; ix < n_grid.x; ix++) {
+        for (int iy = 0; iy < n_grid.y; iy++) {
+            for (int iz = 0; iz < n_grid.z; iz++) {
+                temp_kspace.at(ix, iy, iz) = 2.0*PI*dcomplex(0.0, 1.0)*kx_points[ix]*energy_kspace.at(ix, iy, iz);
+            }
+        }
+    }
+    ffti_data_grid(temp_kspace, temp_rspace);
+    for (int ind = 0; ind < n_grid.x*n_grid.y*n_grid.z; ind++)
+        force.at(ind).x = temp_rspace.at(ind);
+    
+    // Force y component
+    for (int ix = 0; ix < n_grid.x; ix++) {
+        for (int iy = 0; iy < n_grid.y; iy++) {
+            for (int iz = 0; iz < n_grid.z; iz++) {
+                temp_kspace.at(ix, iy, iz) = 2.0*PI*dcomplex(0.0, 1.0)*ky_points[iy]*energy_kspace.at(ix, iy, iz);
+            }
+        }
+    }
+    ffti_data_grid(temp_kspace, temp_rspace);
+    for (int ind = 0; ind < n_grid.x*n_grid.y*n_grid.z; ind++)
+        force.at(ind).y = temp_rspace.at(ind);
+    
+    // Force z component
+    for (int ix = 0; ix < n_grid.x; ix++) {
+        for (int iy = 0; iy < n_grid.y; iy++) {
+            for (int iz = 0; iz < n_grid.z; iz++) {
+                temp_kspace.at(ix, iy, iz) = 2.0*PI*dcomplex(0.0, 1.0)*kz_points[iz]*energy_kspace.at(ix, iy, iz);
+            }
+        }
+    }
+    ffti_data_grid(temp_kspace, temp_rspace);
+    for (int ind = 0; ind < n_grid.x*n_grid.y*n_grid.z; ind++)
+        force.at(ind).z = temp_rspace.at(ind);
+    
+    // Set up force_grid_ and move the energy and force values to it 
+    force_grid_.grid_points_ = n_grid;
+    force_grid_.spacing_ = spacing;
+    force_grid_.offset_ = e_potential.getOrigin();
+    force_grid_.setPeriodic(true);
+    force.swapValues(force_grid_.forces_);
+    energy.swapValues(force_grid_.energies_);
+}
+
+void ElectrostaticPotentialInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
+    Vec3d tip_force;
+    double tip_energy;
+    force_grid_.interpolate(positions[1], tip_force, tip_energy);
+    forces[1] += tip_force;
+    energies[1] += tip_energy;
+}
+
 void GridInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
     Vec3d tip_force;
     double tip_energy;
-    force_grid.interpolate(positions[1], tip_force, tip_energy);
+    force_grid_.interpolate(positions[1], tip_force, tip_energy);
     forces[1] += tip_force;
     energies[1] += tip_energy;
 }

@@ -1,11 +1,14 @@
 #pragma once
 
 #include <cmath>
+#include <complex>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
+#include "data_grid.hpp"
 #include "force_grid.hpp"
 #include "globals.hpp"
 #include "vectors.hpp"
@@ -72,6 +75,7 @@ class Interaction {
  private:
 };
 
+
 class LJInteraction: public Interaction {
  public:
     LJInteraction():
@@ -90,6 +94,7 @@ class LJInteraction: public Interaction {
     double es6_;
     double es12_;
 };
+
 
 class MorseInteraction: public Interaction {
  public:
@@ -129,17 +134,46 @@ class CoulombInteraction: public Interaction {
     double qq_;
 };
 
+
+/** \brief Represents interaction between tip and an electrostatic potential.
+ * 
+ * The ElectrostaticPotentialInteraction class is similar to the GridInteraction class,
+ * the only difference being that the force grid is created based on the electrostatic
+ * potential that is given to the constructor. The energy and force on the tip is
+ * calculated by evaluating the convolution of a Gaussian charge distribution at
+ * the tip and the electrostatic potential using FFT. For more information, see
+ * the supplementary material of http://dx.doi.org/10.1103/PhysRevLett.113.226101
+ * 
+ */ 
+class ElectrostaticPotentialInteraction: public Interaction {
+ public:
+    /**
+     *  e_potential is the electrostatic potential, tip_charge is the charge of
+     *  the tip atom and gaussian_width determines the width of the Gaussian
+     *  charge distribution at the tip.
+     */
+    ElectrostaticPotentialInteraction(const DataGrid<double>& e_potential, double tip_charge, double gaussian_width);
+    void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
+    bool isTipSurface() const override {
+        return true;
+    }
+ private:
+    ForceGrid force_grid_; // Force grid containing samples of the energy and force on tip due to electrostatic potential
+};
+
+
 class GridInteraction: public Interaction {
  public:
-    GridInteraction(ForceGrid& fg): force_grid(fg) {};
+    GridInteraction(ForceGrid& fg): force_grid_(fg) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
     bool isTipSurface() const override {
         return true;
     }
 
  private:
-    ForceGrid force_grid; // The force grid containing the samples
+    ForceGrid force_grid_; // The force grid containing the samples
 };
+
 
 class TipHarmonicInteraction: public Interaction {
  public:
@@ -159,6 +193,7 @@ class TipHarmonicInteraction: public Interaction {
     double r0_;
 };
 
+
 class XYHarmonicInteraction: public Interaction {
  public:
     XYHarmonicInteraction():
@@ -176,6 +211,7 @@ class XYHarmonicInteraction: public Interaction {
     double k_;
     Vec2d p0_;
 };
+
 
 class SubstrateInteraction: public Interaction {
  public:
@@ -207,6 +243,7 @@ class SubstrateInteraction: public Interaction {
     double z0_;
 };
 
+
 class HarmonicInteraction: public Interaction {
  public:
     HarmonicInteraction():
@@ -225,6 +262,7 @@ class HarmonicInteraction: public Interaction {
     double r0_;
 };
 
+
 class HarmonicAngleInteraction: public Interaction {
  public:
     HarmonicAngleInteraction():
@@ -242,6 +280,7 @@ class HarmonicAngleInteraction: public Interaction {
     double k_;
     double theta0_;
 };
+
 
 class HarmonicDihedralInteraction: public Interaction {
  public:

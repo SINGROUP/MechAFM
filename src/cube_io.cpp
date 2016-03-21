@@ -6,10 +6,8 @@
 
 using namespace std;
 
-const double bohr_to_angst = 0.52917721092;
 
 CubeReader::CubeReader(const string& filepath) {
-    is_length_unit_bohr_ = true;
     voxel_vectors_.assign(3, Vec3d(0));
     
     // open file access and read metadata
@@ -24,6 +22,7 @@ CubeReader::CubeReader(const string& filepath) {
 }
 
 
+//TODO: let user to choose whether to return spacing in units of Bohr or Angstrom
 Vec3d CubeReader::getVoxelSpacing() const {
     Vec3d voxel_spacing;
     if (isVoxelsOrthogonal()) {
@@ -69,11 +68,11 @@ void CubeReader::readVolumetricData(vector<double>& volumetric_data) {
 }
 
 
-void CubeReader::storeToDataGrid(DataGrid<double>& data_grid) {
+void CubeReader::storeToDataGrid(DataGrid<double>& data_grid, const Vec3d& offset) {
     vector<double> volumetric_data = readVolumetricData();
     data_grid.setNGrid(n_voxels_);
     data_grid.setSpacing(getVoxelSpacing());
-    data_grid.setOrigin(origin_);
+    data_grid.setOrigin(origin_ + offset);
     data_grid.swapValues(volumetric_data);
 }
 
@@ -88,6 +87,7 @@ bool CubeReader::isVoxelsOrthogonal() const {
 bool CubeReader::readMetadata() {
     string line;
     double temp;
+    bool is_bohr;
     
     try {
         // read the two comment lines
@@ -102,12 +102,17 @@ bool CubeReader::readMetadata() {
         cube_file_ >> n_voxels_.y >> voxel_vectors_[1].x >> voxel_vectors_[1].y >> voxel_vectors_[1].z;
         cube_file_ >> n_voxels_.z >> voxel_vectors_[2].x >> voxel_vectors_[2].y >> voxel_vectors_[2].z;
         
+        // length in Angstroms
         if (n_voxels_.x < 0) {
-            is_length_unit_bohr_ = false;
+            is_bohr = false;
             n_voxels_ *= -1;
         }
+        // length in Bohr
         else {
-            is_length_unit_bohr_ = true;
+            is_bohr = true;
+            for (int i = 0; i < 3; i++)
+                voxel_vectors_[i] *= bohr_to_angst;
+            origin_ *= bohr_to_angst;
         }
         
         // reserve memory for atomic data
@@ -117,6 +122,8 @@ bool CubeReader::readMetadata() {
         // read atom types and positions
         for (int ia = 0; ia < n_atoms_; ia++) {
             cube_file_ >> atom_numbers_[ia] >> temp >> atom_positions_[ia].x >> atom_positions_[ia].y >> atom_positions_[ia].z;
+            if (is_bohr)
+                atom_positions_[ia] *= bohr_to_angst;
         }
         
         // record the position of file at which the volumetric data begins
