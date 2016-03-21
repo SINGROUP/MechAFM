@@ -30,6 +30,8 @@ class System {
     void setTipDummyDistance(double d) {tip_dummy_d_ = d;}
     // Returns the tip and dummy initial distance
     double getTipDummyDistance() {return tip_dummy_d_;}
+    // Returns the offset of the system compared to the input coordinates
+    const Vec3d& getOffset() { return offset_; };
     // Sets dummy x, y coordinates and moves the tip there aswell
     void setDummyXY(double x, double y) {
         positions_[0].x = x;
@@ -59,4 +61,5 @@ class System {
 
  private:
     double tip_dummy_d_;  // Initial distance of the tip and dummy atoms
+    Vec3d offset_;
 };

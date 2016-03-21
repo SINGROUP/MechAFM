@@ -12,7 +12,11 @@
 #include <unordered_set>
 #include <utility>
 
+//debug only
+#include <iostream>
+
 #include "cube_io.hpp"
+#include "fft.hpp"
 #include "interactions.hpp"
 #include "messages.hpp"
 #include "vectors.hpp"
@@ -265,11 +269,63 @@ void Simulation::buildTipSurfaceInteractions() {
             addCoulombInteraction(1, i);
         } 
     }
+    
+    // Interaction of tip atom with an external electrostatic potential
     if (options_.use_external_potential) {
         DataGrid<double> electrostatic_potential;
+        CubeReader cube_file(options_.e_potential_file);
         if (rootProcess()) {
-            CubeReader cube_file(options_.e_potential_file);
-            cube_file.storeToDataGrid(electrostatic_potential);
+            cube_file.storeToDataGrid(electrostatic_potential, system.getOffset());
+        } else {
+            const Vec3i& n_grid = cube_file.getNVoxels();
+            Vec3d spacing = cube_file.getVoxelSpacing();
+            const Vec3d& origin = cube_file.getOrigin();
+            electrostatic_potential.initValues(n_grid.x, n_grid.y, n_grid.z, 0.0);
+            electrostatic_potential.setSpacing(spacing);
+            electrostatic_potential.setOrigin(origin + system.getOffset());
+        }
+        
+#if MPI_BUILD
+        // Broadcast electrostatic potential values from root process to others
+        vector<double> tmp_values;
+        electrostatic_potential.swapValues(tmp_values);
+        MPI_Bcast(tmp_values.data(), tmp_values.size(), MPI_DOUBLE, root_process_, universe);
+        electrostatic_potential.swapValues(tmp_values);
+#endif
+        
+        // Units for potential are in Hartree units in the case of CP2k cube files
+        electrostatic_potential.scaleValues(hartree_to_eV);
+        
+        // Create the interaction between the tip atom and the electrostatic potential
+        interactions_.emplace_back(new ElectrostaticPotentialInteraction(electrostatic_potential, system.charges_[1], 1.0)); //TODO: get gaussian_width from input file
+
+        if (DEBUG_MODE) {
+            cout << "Hello from process " << current_process_ << endl;
+            cout << electrostatic_potential.getNGrid().x << " " << electrostatic_potential.getNGrid().y << " " << electrostatic_potential.getNGrid().z << endl;
+            cout << electrostatic_potential.getSpacing().x << " " << electrostatic_potential.getSpacing().y << " " << electrostatic_potential.getSpacing().z << endl;
+            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(0,0,1) << " " << electrostatic_potential.at(0,0,2) << endl;
+
+            // Test FFT
+            DataGrid<dcomplex> e_potential_kspace;
+            chrono::high_resolution_clock::time_point start, end;
+            chrono::duration<double> time_interval;
+            
+            start = chrono::high_resolution_clock::now();
+            fft_data_grid(electrostatic_potential, e_potential_kspace);
+            end = chrono::high_resolution_clock::now();
+            time_interval = end - start;
+            cout << "FFT took " << time_interval.count() << " s" << endl;
+            
+            start = chrono::high_resolution_clock::now();
+            ffti_data_grid(e_potential_kspace, electrostatic_potential);
+            end = chrono::high_resolution_clock::now();
+            time_interval = end - start;
+            cout << "Inverse FFT took " << time_interval.count() << " s" << endl;
+            
+            cout << "Hello from process " << current_process_ << endl;
+            cout << electrostatic_potential.getNGrid().x << " " << electrostatic_potential.getNGrid().y << " " << electrostatic_potential.getNGrid().z << endl;
+            cout << electrostatic_potential.getSpacing().x << " " << electrostatic_potential.getSpacing().y << " " << electrostatic_potential.getSpacing().z << endl;
+            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(0,0,1) << " " << electrostatic_potential.at(0,0,2) << endl;
         }
     }
 }

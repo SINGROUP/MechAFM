@@ -24,6 +24,7 @@ void System::initialize(int n_atoms) {
     fixed_[1] = 0;
 }
 
+
 OutputData System::getOutput() const {
     OutputData data;
     data.position = positions_[0];
@@ -33,6 +34,7 @@ OutputData System::getOutput() const {
     evalTipSurfaceForces(data.tip_force, data.tip_energy);
     return data;
 }
+
 
 void System::evalTipSurfaceForces(Vec3d& tip_force, double& tip_energy) const {
     vector<Vec3d> forces(n_atoms_, Vec3d(0));
@@ -45,6 +47,7 @@ void System::evalTipSurfaceForces(Vec3d& tip_force, double& tip_energy) const {
     tip_force = forces[1];
     tip_energy = energies[1];
 }
+
 
 void System::makeXYZFile(string folder) const {
     char file_name[NAME_LENGTH];
@@ -59,6 +62,7 @@ void System::makeXYZFile(string folder) const {
     printf("+- Wrote %s\n", file_name);
 }
 
+
 void System::setMoleculeZ() {
     double min_z = 10e10;
     for (int i = 2; i < n_atoms_; ++i) {
@@ -71,9 +75,11 @@ void System::setMoleculeZ() {
     for (int i = 2; i < n_atoms_; ++i) {
         positions_[i].z -= min_z;
     }
+    offset_.z = -min_z;
 }
 
-void System::centerMolecule(Vec2d pos){
+
+void System::centerMolecule(Vec2d pos) {
     double avgx = 0.0;
     double avgy = 0.0;
     for (int i = 2; i < n_atoms_; ++i) {
@@ -88,5 +94,7 @@ void System::centerMolecule(Vec2d pos){
         positions_[i].x += dx;
         positions_[i].y += dy;
     }
+    offset_.x = dx;
+    offset_.y = dy;
 }
 
