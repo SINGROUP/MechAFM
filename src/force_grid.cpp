@@ -1,6 +1,8 @@
 #include "force_grid.hpp"
 
+#include <chrono>
 #include <cmath>
+#include <iostream>
 
 #include "interactions.hpp"
 #include "messages.hpp"
@@ -8,59 +10,118 @@
 
 using namespace std;
 
+
 Vec3i ForceGrid::getGridPoint(const Vec3d& pos) const {
     Vec3i grid_point;
     grid_point.x = floor((pos.x - offset_.x) / spacing_.x);
     grid_point.y = floor((pos.y - offset_.y) / spacing_.y);
     grid_point.z = floor((pos.z - offset_.z) / spacing_.z);
-    if (grid_point.x < 0) {
-        warning("Position outside of grid borders %f, %f, %f!",
-                pos.x, pos.y, pos.z);
-        grid_point.x = 0;
+    
+    // If grid_point is outside the grid, use periodic boundary conditions if
+    // the system is periodic, or inform the user and take the edge point instead
+    if (is_periodic_) {
+        grid_point = pbcGridPoint(grid_point);
     }
-    if (grid_point.y < 0) {
-        warning("Position outside of grid borders %f, %f, %f!",
-                pos.x, pos.y, pos.z);
-        grid_point.y = 0;
+    else {
+        // Check if grid_point.x is outside the grid
+        if (grid_point.x < 0) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.x = 0;
+        }
+        else if (grid_point.x >= grid_points_.x) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.x = grid_points_.x - 1;
+        }
+        
+        // Check if grid_point.y is outside the grid
+        if (grid_point.y < 0) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.y = 0;
+        }
+        else if (grid_point.y >= grid_points_.y) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.y = grid_points_.y - 1;
+        }
+        
+        // Check if grid_point.z is outside the grid
+        if (grid_point.z < 0) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.z = 0;
+        }
+        else if (grid_point.z >= grid_points_.z) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.z = grid_points_.z - 1;
+        }
     }
-    if (grid_point.z < 0) {
-        warning("Position outside of grid borders %f, %f, %f!",
-                pos.x, pos.y, pos.z);
-        grid_point.z = 0;
-    }
-    if (grid_point.x >= grid_points_.x) {
-        warning("Position outside of grid borders %f, %f, %f!",
-                pos.x, pos.y, pos.z);
-        grid_point.x = grid_points_.x - 1;
-    }
-    if (grid_point.y >= grid_points_.y) {
-        warning("Position outside of grid borders %f, %f, %f!",
-                pos.x, pos.y, pos.z);
-        grid_point.y = grid_points_.y - 1;
-    }
-    if (grid_point.z >= grid_points_.z) {
-        warning("Position outside of grid borders %f, %f, %f!",
-                pos.x, pos.y, pos.z);
-        grid_point.z = grid_points_.z - 1;
-    }
+    
     return grid_point;
 }
 
+
 int ForceGrid::getGridPointIndex(const Vec3i& grid_point) const {
+    int index = 0;
+    
+    // Check if the grid_point is outside the grid and react accordingly
     if (grid_point.x < 0 || grid_point.y < 0 || grid_point.z < 0
        || grid_point.x >= grid_points_.x || grid_point.y >= grid_points_.y
        || grid_point.z >= grid_points_.z) {
-        error("Invalid grid point %d, %d, %d (limit: %d, %d, %d)",
+        
+        if (is_periodic_) {
+            Vec3i pbc_grid_point = pbcGridPoint(grid_point);
+            index = pbc_grid_point.x * grid_points_.y * grid_points_.z
+                    + pbc_grid_point.y * grid_points_.z + pbc_grid_point.z;
+        }
+        else {
+            error("Invalid grid point %d, %d, %d (limit: %d, %d, %d)",
                 grid_point.x, grid_point.y, grid_point.z,
                 grid_points_.x, grid_points_.y, grid_points_.z);
+        }
     }
-    int index = grid_point.x * grid_points_.y * grid_points_.z
+    
+    else {
+        index = grid_point.x * grid_points_.y * grid_points_.z
                 + grid_point.y * grid_points_.z + grid_point.z;
+    }
+    
     return index;
 }
 
+
+Vec3i ForceGrid::pbcGridPoint(const Vec3i& grid_point) const {
+    Vec3i pbc_grid_point = grid_point;
+    int n;
+    
+    // Check if grid_point.x is outside the grid
+    if ((grid_point.x < 0) || (grid_point.x >= grid_points_.x)) {
+        n = floor(double(grid_point.x)/grid_points_.x);
+        pbc_grid_point.x -= n*grid_points_.x;
+    }
+    
+    // Check if grid_point.y is outside the grid
+    if ((grid_point.y < 0) || (grid_point.y >= grid_points_.y)) {
+        n = floor(double(grid_point.y)/grid_points_.y);
+        pbc_grid_point.y -= n*grid_points_.y;
+    }
+    
+    // Check if grid_point.z is outside the grid
+    if ((grid_point.z < 0) || (grid_point.z >= grid_points_.z)) {
+        n = floor(double(grid_point.z)/grid_points_.z);
+        pbc_grid_point.z -= n*grid_points_.z;
+    }
+    
+    return pbc_grid_point;
+}
+
+
 void ForceGrid::interpolate(const Vec3d& position, Vec3d& force, double& energy) const {
     // What is the nearest grid point matching position of the tip?
+    
     Vec3i grid_point = getGridPoint(position);
 
     // Find the surrounding grid points as array indices and retrieve the force values
@@ -114,4 +175,5 @@ void ForceGrid::interpolate(const Vec3d& position, Vec3d& force, double& energy)
     e0 = e00 * (1 - d.y) + e10 * d.y;
     e1 = e01 * (1 - d.y) + e11 * d.y;
     energy = e0 * (1 - d.z) + e1 * (d.z);
+    
 }
