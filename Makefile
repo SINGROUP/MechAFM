@@ -27,7 +27,7 @@ mpi: FULLFLAG += -D MPI_BUILD
 SSUFFIX := -omp
 omp: CC := $(SCC)
 
-sources := mechafm messages simulation parse system utility interactions minimiser integrators force_grid data_grid cube_io
+sources := mechafm messages simulation parse system utility interactions minimiser integrators force_grid data_grid cube_io fft kiss_fft kiss_fftnd
 s_objects := $(addsuffix $(SSUFFIX).o, $(addprefix $(BUILDDIR), $(sources)))
 m_objects := $(addsuffix $(MSUFFIX).o, $(addprefix $(BUILDDIR), $(sources)))
 
@@ -57,7 +57,7 @@ $(BINDIR):
 	mkdir -p $(BINDIR)
 
 ## Create all the mpi object files and process dependencies
-$(BUILDDIR)%$(MSUFFIX).o: $(SRCDIR)%.cpp
+$(BUILDDIR)%$(MSUFFIX).o: $(SRCDIR)%.c* ##pp
 	$(CC) $(FULLFLAG) -MD -c $< -o $@
 	@cp $(BUILDDIR)$*$(MSUFFIX).d $(BUILDDIR)$*$(MSUFFIX).P; \
 	sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
@@ -65,7 +65,7 @@ $(BUILDDIR)%$(MSUFFIX).o: $(SRCDIR)%.cpp
 	rm -f $(BUILDDIR)$*$(MSUFFIX).d
 
 ## Create all the omp object files and process dependencies
-$(BUILDDIR)%$(SSUFFIX).o: $(SRCDIR)%.cpp
+$(BUILDDIR)%$(SSUFFIX).o: $(SRCDIR)%.c* ##pp
 	$(CC) $(FULLFLAG) -MD -c $< -o $@
 	@cp $(BUILDDIR)$*$(SSUFFIX).d $(BUILDDIR)$*$(SSUFFIX).P; \
 	sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
