@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include "vectors.hpp"
@@ -31,6 +32,9 @@ public:
     
     void initValues(int nx, int ny, int nz, const T& value);
     void scaleValues(double scaling_factor);
+    void swapValues(vector<T>& values_to_swap);
+    void rotateCoordAxes(const string& new_coord_sequence);
+    
     T& at(int ix, int iy, int iz) { return values_[index(ix, iy, iz)]; };
     T& at(int ind) { return values_[ind]; };
     const T& at(int ind) const { return values_[ind]; };
@@ -46,7 +50,6 @@ public:
     void setSpacing(const Vec3d& spacing);
     void setOrigin(double x, double y, double z);
     void setOrigin(const Vec3d& origin);
-    void swapValues(vector<T>& values_to_swap);
     
 private:
     inline int index(int ix, int iy, int iz) { return ix*n_grid_.y*n_grid_.z + iy*n_grid_.z + iz; };

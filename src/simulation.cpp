@@ -28,6 +28,12 @@ bool Simulation::rootProcess() {
 }
 
 void Simulation::initialize() {
+    // Rotate system if z axis is not perpendicular to the surface
+    if (options_.normal == NORMAL_X) {
+        system.rotateCoordAxes("YZX");
+    } else if (options_.normal == NORMAL_Y) {
+        system.rotateCoordAxes("ZXY");
+    }
     system.centerMolecule(options_.center);
     system.setMoleculeZ();
     calculateTipDummyDistance();
@@ -275,14 +281,14 @@ void Simulation::buildTipSurfaceInteractions() {
         DataGrid<double> electrostatic_potential;
         CubeReader cube_file(options_.e_potential_file);
         if (rootProcess()) {
-            cube_file.storeToDataGrid(electrostatic_potential, system.getOffset());
+            cube_file.storeToDataGrid(electrostatic_potential);
         } else {
             const Vec3i& n_grid = cube_file.getNVoxels();
             Vec3d spacing = cube_file.getVoxelSpacing();
             const Vec3d& origin = cube_file.getOrigin();
             electrostatic_potential.initValues(n_grid.x, n_grid.y, n_grid.z, 0.0);
             electrostatic_potential.setSpacing(spacing);
-            electrostatic_potential.setOrigin(origin + system.getOffset());
+            electrostatic_potential.setOrigin(origin);
         }
         
 #if MPI_BUILD
@@ -294,16 +300,24 @@ void Simulation::buildTipSurfaceInteractions() {
 #endif
         
         // Units for potential are in Hartree units in the case of CP2k cube files
-        electrostatic_potential.scaleValues(hartree_to_eV);
+        // Hartree potential is defined for negatively charge electrons -> multiply by -1
+        electrostatic_potential.scaleValues(-hartree_to_eV);
         
-        // Create the interaction between the tip atom and the electrostatic potential
-        interactions_.emplace_back(new ElectrostaticPotentialInteraction(electrostatic_potential, system.charges_[1], 1.0)); //TODO: get gaussian_width from input file
-
+        // Rotate potential grid if z coordinate is not perpendicular to the surface
+        if (options_.normal == NORMAL_X) {
+            electrostatic_potential.rotateCoordAxes("ZYX");
+        } else if (options_.normal == NORMAL_Y) {
+            electrostatic_potential.rotateCoordAxes("ZXY");
+        }
+        
+        // Offset the potential data by the same amount as the atomic system
+        electrostatic_potential.setOrigin(electrostatic_potential.getOrigin() + system.getOffset());
+        
         if (DEBUG_MODE) {
             cout << "Hello from process " << current_process_ << endl;
             cout << electrostatic_potential.getNGrid().x << " " << electrostatic_potential.getNGrid().y << " " << electrostatic_potential.getNGrid().z << endl;
             cout << electrostatic_potential.getSpacing().x << " " << electrostatic_potential.getSpacing().y << " " << electrostatic_potential.getSpacing().z << endl;
-            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(0,0,1) << " " << electrostatic_potential.at(0,0,2) << endl;
+            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(1,0,0) << " " << electrostatic_potential.at(2,0,0) << endl;
 
             // Test FFT
             DataGrid<dcomplex> e_potential_kspace;
@@ -325,8 +339,11 @@ void Simulation::buildTipSurfaceInteractions() {
             cout << "Hello from process " << current_process_ << endl;
             cout << electrostatic_potential.getNGrid().x << " " << electrostatic_potential.getNGrid().y << " " << electrostatic_potential.getNGrid().z << endl;
             cout << electrostatic_potential.getSpacing().x << " " << electrostatic_potential.getSpacing().y << " " << electrostatic_potential.getSpacing().z << endl;
-            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(0,0,1) << " " << electrostatic_potential.at(0,0,2) << endl;
+            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(1,0,0) << " " << electrostatic_potential.at(2,0,0) << endl;
         }
+        
+        // Create the interaction between the tip atom and the electrostatic potential
+        interactions_.emplace_back(new ElectrostaticPotentialInteraction(electrostatic_potential, system.charges_[1], 0.5)); //TODO: get gaussian_width from input file
     }
 }
 

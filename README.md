@@ -84,6 +84,11 @@ The simulation requires three input files to run: the input file defines the inp
     
     dz: Defines the z distance between the simulation points. (default: 0.1)
     
+    surface_normal: Defines the direction of the surface normal. The model is rotated so that the
+                    normal is always along the z-axis. If surface_normal = y, rotation is done by
+                    substituting coordinates X->Y, Y->Z, Z->X. If surface_normal = x,
+                    the substitution is X->Z, Y->X, Z->Y. (default: z)
+    
     etol: Defines the energy value used to check for convergence. (default: 0.01)
     
     ftol: Defines the force value used to check for convergence. (default: 0.01)

@@ -90,7 +90,7 @@ void readInputFile(Simulation& simulation) {
     char dump[LINE_LENGTH];
     char tmp_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH];
     char tmp_gzip[NAME_LENGTH], tmp_statistics[NAME_LENGTH], tmp_units[NAME_LENGTH];
-    char tmp_flexible[NAME_LENGTH], tmp_rigidgrid[NAME_LENGTH];
+    char tmp_flexible[NAME_LENGTH], tmp_rigidgrid[NAME_LENGTH], tmp_normal[NAME_LENGTH];
     char tmp_use_external_potential[NAME_LENGTH];
 
     // Initialize the mandatory options
@@ -115,6 +115,8 @@ void readInputFile(Simulation& simulation) {
     options.zlow = 6.0;
     options.zhigh = 10.0;
     options.zplane = NEGVAL;
+    options.normal = NORMAL_Z;
+    sprintf(tmp_normal, "%s" ,"z");
     options.etol = 0.01;
     options.ftol = 0.01;
     options.dt = 0.001;
@@ -224,6 +226,18 @@ void readInputFile(Simulation& simulation) {
             } else {
                 error("Option %s must be either on or off!", keyword);
             }
+        } else if(strcmp(keyword, "surface_normal") == 0) {
+            strlow(value);
+            if (strcmp(value, "z") == 0) {
+                options.normal = NORMAL_Z;
+            } else if (strcmp(value, "y") == 0) {
+                options.normal = NORMAL_Y;
+            } else if (strcmp(value, "x") == 0) {
+                options.normal = NORMAL_X;
+            } else {
+                error("Option %s must be either X, Y or Z!", keyword);
+            }
+            sprintf(tmp_normal, "%s", value);
         } else if (strcmp(keyword, "minterm") == 0) {
             if (strcmp(value, "e") == 0) {
                 options.minterm = MIN_E;
@@ -371,6 +385,7 @@ void readInputFile(Simulation& simulation) {
     pretty_print("dx:                       %-8.4f", options.dx);
     pretty_print("dy:                       %-8.4f", options.dy);
     pretty_print("dz:                       %-8.4f", options.dz);
+    pretty_print("surface_normal:           %-s", tmp_normal);
     pretty_print("");
     pretty_print("coulomb:                  %-s", tmp_coulomb);
     pretty_print("use_external_potential:   %-s", tmp_use_external_potential);

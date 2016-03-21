@@ -20,6 +20,9 @@ using namespace std;
 // Defines all the different minimization criteria
 enum MinimizationCriteria {MIN_E, MIN_F, MIN_EF, NOT_SET};
 
+// Defines the direction of the surface normal
+enum SurfNormal {NORMAL_X, NORMAL_Y, NORMAL_Z};
+
 // Defines the possible unit systems
 enum Units {U_KCAL, U_KJ, U_EV};
 
@@ -37,6 +40,7 @@ struct InputOptions {
     Vec2d area, center;
     double dx, dy, dz;
     double zlow, zhigh, zplane;
+    SurfNormal normal;
     Units units;
     bool coulomb;
     bool use_external_potential;

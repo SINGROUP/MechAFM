@@ -63,6 +63,31 @@ void System::makeXYZFile(string folder) const {
 }
 
 
+void System::rotateCoordAxes(const string& new_coord_sequence) {
+    vector<Vec3d> new_positions;
+    new_positions.resize(positions_.size());
+    
+    if (new_coord_sequence == "ZXY") {
+        for (unsigned int ia = 0; ia < positions_.size(); ia++) {
+            new_positions[ia].x = positions_[ia].z;
+            new_positions[ia].y = positions_[ia].x;
+            new_positions[ia].z = positions_[ia].y;
+        }
+    } else if (new_coord_sequence == "YZX") {
+        for (unsigned int ia = 0; ia < positions_.size(); ia++) {
+            new_positions[ia].x = positions_[ia].y;
+            new_positions[ia].y = positions_[ia].z;
+            new_positions[ia].z = positions_[ia].x;
+        }
+    } else {
+        error("Cannot rotate coordinate axes to %s! Possible choices are ZXY and YZX.",
+              new_coord_sequence.c_str());
+    }
+    
+    positions_.swap(new_positions);
+}
+
+
 void System::setMoleculeZ() {
     double min_z = 10e10;
     for (int i = 2; i < n_atoms_; ++i) {

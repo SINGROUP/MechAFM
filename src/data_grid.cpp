@@ -30,6 +30,72 @@ void DataGrid<T>::scaleValues(double scaling_factor) {
 
 
 template<typename T>
+void DataGrid<T>::swapValues(vector<T>& values_to_swap) {
+    values_.swap(values_to_swap);
+}
+
+
+template<typename T>
+void DataGrid<T>::rotateCoordAxes(const string& new_coord_sequence) {
+    Vec3i new_n_grid;
+    Vec3d new_spacing;
+    Vec3d new_origin;
+    int new_index;
+    vector<T> new_values;
+    new_values.resize(values_.size());
+    
+    if (new_coord_sequence == "ZXY") {
+        new_n_grid.x = n_grid_.z;
+        new_n_grid.y = n_grid_.x;
+        new_n_grid.z = n_grid_.y;
+        new_spacing.x = spacing_.z;
+        new_spacing.y = spacing_.x;
+        new_spacing.z = spacing_.y;
+        new_origin.x = origin_.z;
+        new_origin.y = origin_.x;
+        new_origin.z = origin_.y;
+        
+        for (int ix = 0; ix < new_n_grid.x; ix++) {
+            for (int iy = 0; iy < new_n_grid.y; iy++) {
+                for (int iz = 0; iz < new_n_grid.z; iz++) {
+                    new_index = ix*new_n_grid.y*new_n_grid.z + iy*new_n_grid.z + iz;
+                    new_values[new_index] = values_[index(iy, iz, ix)];
+                }
+            }
+        }
+    }
+    else if (new_coord_sequence == "YZX") {
+        new_n_grid.x = n_grid_.y;
+        new_n_grid.y = n_grid_.z;
+        new_n_grid.z = n_grid_.x;
+        new_spacing.x = spacing_.y;
+        new_spacing.y = spacing_.z;
+        new_spacing.z = spacing_.x;
+        new_origin.x = origin_.y;
+        new_origin.y = origin_.z;
+        new_origin.z = origin_.x;
+        
+        for (int ix = 0; ix < new_n_grid.x; ix++) {
+            for (int iy = 0; iy < new_n_grid.y; iy++) {
+                for (int iz = 0; iz < new_n_grid.z; iz++) {
+                    new_index = ix*new_n_grid.y*new_n_grid.z + iy*new_n_grid.z + iz;
+                    new_values[new_index] = values_[index(iz, ix, iy)];
+                }
+            }
+        }
+    }
+    else {
+        throw "The coordinate sequence for rotateCoordAxes must be either ZXY or YZX.";
+    }
+    
+    n_grid_ = new_n_grid;
+    spacing_ = new_spacing;
+    origin_ = new_origin;
+    values_.swap(new_values);
+}
+
+
+template<typename T>
 Vec3d DataGrid<T>::positionAt(int ix, int iy, int iz) const {
     Vec3d position;
     position.x = origin_.x + ix*spacing_.x;
@@ -84,12 +150,6 @@ void DataGrid<T>::setOrigin(const Vec3d& origin) {
     origin_.x = origin.x;
     origin_.y = origin.y;
     origin_.z = origin.z;
-}
-
-
-template<typename T>
-void DataGrid<T>::swapValues(vector<T>& values_to_swap) {
-    values_.swap(values_to_swap);
 }
 
 

@@ -22,6 +22,8 @@ class System {
     void evalTipSurfaceForces(Vec3d& force, double& energy) const;
     // Writes the current atom positions to a xyz file
     void makeXYZFile(string folder = "") const;
+    // Rotates the coordinate axes from XYZ to either ZXY or YZX (affects positions only)
+    void rotateCoordAxes(const string& new_coord_sequence);
     // Centers the molecule around pos in x, y
     void centerMolecule(const Vec2d pos);
     // Positions the molecule in z to lie on the substrate
