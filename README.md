@@ -62,6 +62,12 @@ The simulation requires three input files to run: the input file defines the inp
     units: The units used by the simulation. Affects some constants. (default: kcal/mol)
   
     coulomb: Defines whether coulomb interactions are on or off. (default: off)
+    
+    use_external_potential: Defines whether the tip atom interacts with an external electrostatic
+                            potential. Works only for rigid systems with coulomb off. (default: off)
+  
+    e_potential_file: The file from which the electrostatic (Hartree) potential is read if 
+                      use_external_potential is on. Only cube files supported at the moment.
   
     area: Defines the size of the simulation area in x and y. (default: 10.0 10.0)
 
