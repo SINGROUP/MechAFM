@@ -17,12 +17,9 @@ Vec3i ForceGrid::getGridPoint(const Vec3d& pos) const {
     grid_point.y = floor((pos.y - offset_.y) / spacing_.y);
     grid_point.z = floor((pos.z - offset_.z) / spacing_.z);
     
-    // If grid_point is outside the grid, use periodic boundary conditions if
-    // the system is periodic, or inform the user and take the edge point instead
-    if (is_periodic_) {
-        grid_point = pbcGridPoint(grid_point);
-    }
-    else {
+    // If grid_point is outside the grid inform the user and take the edge point instead.
+    // If force grid is periodic, ignore the point being outside the grid.
+    if (not is_periodic_) {
         // Check if grid_point.x is outside the grid
         if (grid_point.x < 0) {
             warning("Position outside of grid borders %f, %f, %f!",
@@ -121,7 +118,8 @@ Vec3i ForceGrid::pbcGridPoint(const Vec3i& grid_point) const {
 
 void ForceGrid::interpolate(const Vec3d& position, Vec3d& force, double& energy) const {
     // What is the nearest grid point matching position of the tip?
-    
+    // Note: grid_point may have negative values if force grid is periodic.
+    //       getGridPointIndex() handles periodicity
     Vec3i grid_point = getGridPoint(position);
 
     // Find the surrounding grid points as array indices and retrieve the force values
