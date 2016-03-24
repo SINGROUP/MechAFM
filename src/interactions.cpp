@@ -2,6 +2,9 @@
 
 #include <cmath>
 
+// debug only
+#include <iostream>
+
 #include "fft.hpp"
 #include "force_grid.hpp"
 #include "globals.hpp"
@@ -48,33 +51,52 @@ void CoulombInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& for
 ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataGrid<double>& e_potential, double tip_charge, double gaussian_width) {
     const Vec3i& n_grid = e_potential.getNGrid();
     const Vec3d& spacing = e_potential.getSpacing();
-    Vec3d tip_origin;
-    // Center the tip around position (0, 0, 0)
-    tip_origin.x = -0.5*n_grid.x*spacing.x;
-    tip_origin.y = -0.5*n_grid.y*spacing.y;
-    tip_origin.z = -0.5*n_grid.z*spacing.z;
+    const Vec3d& origin = e_potential.getOrigin();
     
     // Reserve storage space for the force
     DataGrid<Vec3d> force(n_grid.x, n_grid.y, n_grid.z, Vec3d(0.0));
     force.setSpacing(spacing);
-    force.setOrigin(e_potential.getOrigin());
+    force.setOrigin(origin);
     
     // Create Gaussian charge distribution of the tip
     DataGrid<double> rho_tip(n_grid.x, n_grid.y, n_grid.z, 0.0);
     rho_tip.setSpacing(spacing);
-    rho_tip.setOrigin(tip_origin);
     Vec3d position;
     double r_sqr;
     double gaussian_width_sqr = pow(gaussian_width, 2);
-    double gaussian_norm_factor = 0.5/(pow(gaussian_width, 3)*PI*sqrt(2.0*PI));
-    for (int ix = 0; ix < n_grid.x; ix++) {
-        for (int iy = 0; iy < n_grid.y; iy++) {
-            for (int iz = 0; iz < n_grid.z; iz++) {
+    double gaussian_norm_factor = 1.0/pow(gaussian_width*sqrt(2.0*PI), 3);
+    // Find suitable cutoff distance for the Gaussian
+    int n_min = min(min(n_grid.x, n_grid.y), n_grid.z);
+    int cutoff_dist = n_min;
+    for (int ix = 0; ix < n_min-1; ix++) {
+        double x_sqr = pow(ix*spacing.x, 2);
+        if (exp(-0.5*x_sqr/gaussian_width_sqr) < 1.0e-10) { //TODO: make sure 1.0e-10 is a good cutoff value and define in globals
+            cutoff_dist = ix;
+            break;
+        }
+    }
+    // Evaluate the Gaussian at grid points within the cutoff
+    for (int ix = -cutoff_dist; ix <= cutoff_dist; ix++) {
+        for (int iy = -cutoff_dist; iy <= cutoff_dist; iy++) {
+            for (int iz = -cutoff_dist; iz < cutoff_dist; iz++) {
                 position = rho_tip.positionAt(ix, iy, iz);
                 r_sqr = position.lensqr();
-                rho_tip.at(ix, iy, iz) = tip_charge * gaussian_norm_factor * exp(-0.5*r_sqr/gaussian_width_sqr);
+                rho_tip.atPBC(ix, iy, iz) = tip_charge * gaussian_norm_factor * exp(-0.5*r_sqr/gaussian_width_sqr);
             }
         }
+    }
+    
+    if (DEBUG_MODE) {
+        double total_charge = 0.0;
+        for (int ix = 0; ix < n_grid.x; ix++) {
+            for (int iy = 0; iy < n_grid.y; iy++) {
+                for (int iz = 0; iz < n_grid.z; iz++) {
+                    total_charge += rho_tip.at(ix, iy, iz);
+                }
+            }
+        }
+        total_charge *= spacing.x*spacing.y*spacing.z;
+        cout << "Total charge at tip: " << total_charge << endl;
     }
     
     // Do the FFTs for the potential and the charge distribution
@@ -87,7 +109,7 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     for (int ix = 0; ix < n_grid.x; ix++) {
         for (int iy = 0; iy < n_grid.y; iy++) {
             for (int iz = 0; iz < n_grid.z; iz++) {
-                pot_kspace.at(ix, iy, iz) = pot_kspace.at(ix, iy, iz) * rho_kspace.at(ix, iy, iz);
+                pot_kspace.at(ix, iy, iz) *= rho_kspace.at(ix, iy, iz);
             }
         }
     }
@@ -133,7 +155,7 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     for (int ix = 0; ix < n_grid.x; ix++) {
         for (int iy = 0; iy < n_grid.y; iy++) {
             for (int iz = 0; iz < n_grid.z; iz++) {
-                temp_kspace.at(ix, iy, iz) = 2.0*PI*dcomplex(0.0, 1.0)*kx_points[ix]*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) = -2.0*PI*dcomplex(0.0, 1.0)*kx_points[ix]*energy_kspace.at(ix, iy, iz);
             }
         }
     }
@@ -145,7 +167,7 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     for (int ix = 0; ix < n_grid.x; ix++) {
         for (int iy = 0; iy < n_grid.y; iy++) {
             for (int iz = 0; iz < n_grid.z; iz++) {
-                temp_kspace.at(ix, iy, iz) = 2.0*PI*dcomplex(0.0, 1.0)*ky_points[iy]*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) = -2.0*PI*dcomplex(0.0, 1.0)*ky_points[iy]*energy_kspace.at(ix, iy, iz);
             }
         }
     }
@@ -157,7 +179,7 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     for (int ix = 0; ix < n_grid.x; ix++) {
         for (int iy = 0; iy < n_grid.y; iy++) {
             for (int iz = 0; iz < n_grid.z; iz++) {
-                temp_kspace.at(ix, iy, iz) = 2.0*PI*dcomplex(0.0, 1.0)*kz_points[iz]*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) = -2.0*PI*dcomplex(0.0, 1.0)*kz_points[iz]*energy_kspace.at(ix, iy, iz);
             }
         }
     }
@@ -168,7 +190,7 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     // Set up force_grid_ and move the energy and force values to it 
     force_grid_.grid_points_ = n_grid;
     force_grid_.spacing_ = spacing;
-    force_grid_.offset_ = e_potential.getOrigin();
+    force_grid_.offset_ = origin;
     force_grid_.setPeriodic(true);
     force.swapValues(force_grid_.forces_);
     energy.swapValues(force_grid_.energies_);

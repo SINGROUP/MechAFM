@@ -96,6 +96,32 @@ void DataGrid<T>::rotateCoordAxes(const string& new_coord_sequence) {
 
 
 template<typename T>
+T& DataGrid<T>::atPBC(int ix, int iy, int iz) {
+    int n;
+    
+    // Check if ix is outside the grid
+    if ((ix < 0) || (ix >= n_grid_.x)) {
+        n = floor(double(ix)/n_grid_.x);
+        ix -= n*n_grid_.x;
+    }
+    
+    // Check if iy is outside the grid
+    if ((iy < 0) || (iy >= n_grid_.y)) {
+        n = floor(double(iy)/n_grid_.y);
+        iy -= n*n_grid_.y;
+    }
+    
+    // Check if iz is outside the grid
+    if ((iz < 0) || (iz >= n_grid_.z)) {
+        n = floor(double(iz)/n_grid_.z);
+        iz -= n*n_grid_.z;
+    }
+    
+    return at(ix, iy, iz);
+}
+
+
+template<typename T>
 Vec3d DataGrid<T>::positionAt(int ix, int iy, int iz) const {
     Vec3d position;
     position.x = origin_.x + ix*spacing_.x;

@@ -35,9 +35,15 @@ public:
     void swapValues(vector<T>& values_to_swap);
     void rotateCoordAxes(const string& new_coord_sequence);
     
+    // Returns reference to value at given grid indices
     T& at(int ix, int iy, int iz) { return values_[index(ix, iy, iz)]; };
+    // at() with periodic boundary conditions
+    T& atPBC(int ix, int iy, int iz);
+    // Returns reference to value at given internal storage index
     T& at(int ind) { return values_[ind]; };
+    // Returns constant reference to value at given internal storage index
     const T& at(int ind) const { return values_[ind]; };
+    // Returns position at given grid indices
     Vec3d positionAt(int ix, int iy, int iz) const;
     
     const Vec3i& getNGrid() const { return n_grid_; };
