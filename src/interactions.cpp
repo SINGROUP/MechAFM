@@ -106,10 +106,12 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     
     // Multiply rho_kspace with pot_kspace, which equals the energy in k-space.
     // Store the values to pot_kspace to save memory.
+    // Scale the values with the volume unit from the integral.
+    double volume_unit = spacing.x*spacing.y*spacing.z;
     for (int ix = 0; ix < n_grid.x; ix++) {
         for (int iy = 0; iy < n_grid.y; iy++) {
             for (int iz = 0; iz < n_grid.z; iz++) {
-                pot_kspace.at(ix, iy, iz) *= rho_kspace.at(ix, iy, iz);
+                pot_kspace.at(ix, iy, iz) *= volume_unit*rho_kspace.at(ix, iy, iz);
             }
         }
     }
@@ -137,17 +139,17 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     kz_points.reserve(n_grid.z);
     for (int ix = 0; ix < n_grid.x; ix++) {
         kx_points[ix] = ix*energy_kspace.getSpacing().x;
-        if (ix > int(n_grid.x/2))
+        if (ix >= int(n_grid.x/2))
             kx_points[ix] = kx_points[ix] - n_grid.x*energy_kspace.getSpacing().x;
     }
     for (int iy = 0; iy < n_grid.y; iy++) {
         ky_points[iy] = iy*energy_kspace.getSpacing().y;
-        if (iy > int(n_grid.y/2))
+        if (iy >= int(n_grid.y/2))
             ky_points[iy] = ky_points[iy] - n_grid.y*energy_kspace.getSpacing().y;
     }
     for (int iz = 0; iz < n_grid.z; iz++) {
         kz_points[iz] = iz*energy_kspace.getSpacing().z;
-        if (iz > int(n_grid.z/2))
+        if (iz >= int(n_grid.z/2))
             kz_points[iz] = kz_points[iz] - n_grid.z*energy_kspace.getSpacing().z;
     }
     

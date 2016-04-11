@@ -30,12 +30,10 @@ void fft_data_grid(const DataGrid<double>& data_grid_in, DataGrid<dcomplex>& dat
     free(st);
     
     // Copy the values from kspace_out to data_grid_out (from kiss_fft_cpx to complex<double> type)
-    // Normalize at the same time with 1/sqrt(nx*ny*nz)
     data_grid_out.initValues(n_grid.x, n_grid.y, n_grid.z, dcomplex(0.0, 0.0));
-    double norm_factor = sqrt(n_grid_total);
     for (int i = 0; i < n_grid_total; i++) {
-        data_grid_out.at(i).real(kspace_out[i].r / norm_factor);
-        data_grid_out.at(i).imag(kspace_out[i].i / norm_factor);
+        data_grid_out.at(i).real(kspace_out[i].r);
+        data_grid_out.at(i).imag(kspace_out[i].i);
     }
     
     // Set the spacing in k-space
@@ -71,12 +69,11 @@ void ffti_data_grid(const DataGrid<dcomplex>& data_grid_in, DataGrid<double>& da
     free(st);
     
     // Copy the values from kspace_out to data_grid_out (from kiss_fft_cpx to double type)
-    // Normalize at the same time with 1/sqrt(nx*ny*nz)
+    // Normalize at the same time with 1/(nx*ny*nz)
     data_grid_out.initValues(n_grid.x, n_grid.y, n_grid.z, 0.0);
-    double norm_factor = sqrt(n_grid_total);
     for (int i = 0; i < n_grid_total; i++) {
-        data_grid_out.at(i) = realspace_out[i].r / norm_factor;
-        if (realspace_out[i].i > 1.0e-8) {
+        data_grid_out.at(i) = realspace_out[i].r / n_grid_total;
+        if (realspace_out[i].i / n_grid_total > 1.0e-8) {
             char buf[100];
             sprintf(buf, "Imaginary part of inverse FFT exceeded threshold 1.0e-8! Value: %e", realspace_out[i].i);
             throw runtime_error(buf);
