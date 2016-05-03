@@ -13,7 +13,12 @@
 #define PI 3.14159265358979323846
 #define SIXTHRT2 1.12246204830937298142
 
+const double g_force_grid_margin = 1.5; // How wide of a margin force grid has around the simulation area when 'rigidgrid' is used
+
+// unit conversion factors
 const double hartree_to_eV = 27.211386;
+
+
 
 // Define a structure for easy processor communication
 struct OutputData {

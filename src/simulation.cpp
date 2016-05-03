@@ -301,7 +301,15 @@ void Simulation::buildTipSurfaceInteractions() {
         
         // Units for potential are in Hartree units in the case of CP2k cube files
         // Hartree potential is defined for negatively charge electrons -> multiply by -1
-        electrostatic_potential.scaleValues(-hartree_to_eV);
+        //TODO: convert units from Hartree to kcal/mol or kJ if those units are used
+        if (options_.units == U_EV)
+            electrostatic_potential.scaleValues(-hartree_to_eV);
+        else if (options_.units == U_KJ)
+            error("unit conversion of Hartree potential to kJ is not implemented!");
+        else if (options_.units == U_KCAL)
+            error("unit conversion of Hartree potential to kcal/mol is not implemented!");
+        else
+            error("unit conversion of Hartree potential to given units is not implemented");
         
         // Rotate potential grid if z coordinate is not perpendicular to the surface
         if (options_.normal == NORMAL_X) {
@@ -355,50 +363,53 @@ void Simulation::buildTipGridInteractions() {
     // Build the interactions we want to replace with the grid
     buildTipSurfaceInteractions();
 
-    ForceGrid fg;
-    fg.spacing_ = Vec3d(options_.dx, options_.dy, options_.dz) / 2;
+    Vec3d spacing = Vec3d(options_.dx, options_.dy, options_.dz) / 2;
     Vec3i border;
-    border.x = ceil(fg.edge_ / fg.spacing_.x);
-    border.y = ceil(fg.edge_ / fg.spacing_.y);
-    border.z = ceil(fg.edge_ / fg.spacing_.z);
-    fg.grid_points_.x = floor(options_.area.x / fg.spacing_.x) + 2*border.x + 1;
-    fg.grid_points_.y = floor(options_.area.y / fg.spacing_.y) + 2*border.y + 1;
-    fg.grid_points_.z = floor((options_.zhigh - options_.zlow) / fg.spacing_.z) + 2*border.z + 1;
-    int total_points = fg.grid_points_.x * fg.grid_points_.y * fg.grid_points_.z;
-    fg.offset_.x = -border.x * fg.spacing_.x;
-    fg.offset_.y = -border.y * fg.spacing_.y;
-    fg.offset_.z = options_.zhigh - system.getTipDummyDistance()
-                   - (fg.grid_points_.z - border.z - 1) * fg.spacing_.z;
+    border.x = ceil(g_force_grid_margin / spacing.x);
+    border.y = ceil(g_force_grid_margin / spacing.y);
+    border.z = ceil(g_force_grid_margin / spacing.z);
+    Vec3i n_grid;
+    n_grid.x = floor(options_.area.x / spacing.x) + 2*border.x + 1;
+    n_grid.y = floor(options_.area.y / spacing.y) + 2*border.y + 1;
+    n_grid.z = floor((options_.zhigh - options_.zlow) / spacing.z) + 2*border.z + 1;
+    int total_points = n_grid.x * n_grid.y * n_grid.z;
+    Vec3d offset;
+    offset.x = -border.x * spacing.x;
+    offset.y = -border.y * spacing.y;
+    offset.z = options_.zhigh - system.getTipDummyDistance()
+                   - (n_grid.z - border.z - 1) * spacing.z;
 
     pretty_print("Computing 3D force grid: %d, %d, %d (%d grid points)",
-        fg.grid_points_.x, fg.grid_points_.y, fg.grid_points_.z, total_points);
-    // Initialize the sample vectors
-    fg.forces_.assign(total_points, Vec3d(0));
-    fg.energies_.assign(total_points, 0);
+        n_grid.x, n_grid.y, n_grid.z, total_points);
+    // Initialize temporary sample vectors
+    vector<Vec3d> forces;
+    vector<double> energies;
+    forces.assign(total_points, Vec3d(0));
+    energies.assign(total_points, 0);
 #pragma omp parallel for schedule(dynamic, 1)
-    for (int i = 0; i < fg.grid_points_.x; ++i) {
-        double x = i * fg.spacing_.x + fg.offset_.x;
-        for (int j = 0; j < fg.grid_points_.y; ++j) {
-            double y = j * fg.spacing_.y + fg.offset_.y;
+    for (int i = 0; i < n_grid.x; ++i) {
+        double x = i * spacing.x + offset.x;
+        for (int j = 0; j < n_grid.y; ++j) {
+            double y = j * spacing.y + offset.y;
 
             // Check if this point is handled by this process
-            int current_point = i * fg.grid_points_.y + j;
+            int current_point = i * n_grid.y + j;
             if (current_point % n_processes_ != current_process_) {
                 continue;
             }
 
-            for (int k = 0; k < fg.grid_points_.z; ++k) {
-                double z = k * fg.spacing_.z + fg.offset_.z;
+            for (int k = 0; k < n_grid.z; ++k) {
+                double z = k * spacing.z + offset.z;
                 vector<Vec3d> positions = system.positions_;
                 positions[1] = Vec3d(x, y, z);
-                vector<Vec3d> forces(system.n_atoms_);
-                vector<double> energies(system.n_atoms_, 0);
+                vector<Vec3d> atom_forces(system.n_atoms_);
+                vector<double> atom_energies(system.n_atoms_, 0);
                 for (const auto& interaction : interactions_) {
-                    interaction->eval(positions, forces, energies);
+                    interaction->eval(positions, atom_forces, atom_energies);
                 }
-                int index = i * fg.grid_points_.y * fg.grid_points_.z + j * fg.grid_points_.z + k;
-                fg.forces_[index] = forces[1];
-                fg.energies_[index] = energies[1];
+                int index = i * n_grid.y * n_grid.z + j * n_grid.z + k;
+                forces[index] = atom_forces[1];
+                energies[index] = atom_energies[1];
             } // z
         } // y
     } // x
@@ -410,6 +421,14 @@ void Simulation::buildTipGridInteractions() {
     MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(fg.energies_.data()),
                   total_points, MPI_DOUBLE, MPI_SUM, universe);
 #endif
+
+    // Initialize ForceGrid object
+    ForceGrid fg;
+    fg.setNGrid(n_grid);
+    fg.setSpacing(spacing);
+    fg.setOffset(offset);
+    fg.swapForceValues(forces);
+    fg.swapEnergyValues(energies);
 
     // Replace the interactions with the grid
     interactions_.clear();

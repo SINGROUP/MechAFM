@@ -11,108 +11,65 @@
 using namespace std;
 
 
-Vec3i ForceGrid::getGridPoint(const Vec3d& pos) const {
-    Vec3i grid_point;
-    grid_point.x = floor((pos.x - offset_.x) / spacing_.x);
-    grid_point.y = floor((pos.y - offset_.y) / spacing_.y);
-    grid_point.z = floor((pos.z - offset_.z) / spacing_.z);
-    
-    // If grid_point is outside the grid inform the user and take the edge point instead.
-    // If force grid is periodic, ignore the point being outside the grid.
-    if (not is_periodic_) {
-        // Check if grid_point.x is outside the grid
-        if (grid_point.x < 0) {
-            warning("Position outside of grid borders %f, %f, %f!",
-                    pos.x, pos.y, pos.z);
-            grid_point.x = 0;
-        }
-        else if (grid_point.x >= grid_points_.x) {
-            warning("Position outside of grid borders %f, %f, %f!",
-                    pos.x, pos.y, pos.z);
-            grid_point.x = grid_points_.x - 1;
-        }
-        
-        // Check if grid_point.y is outside the grid
-        if (grid_point.y < 0) {
-            warning("Position outside of grid borders %f, %f, %f!",
-                    pos.x, pos.y, pos.z);
-            grid_point.y = 0;
-        }
-        else if (grid_point.y >= grid_points_.y) {
-            warning("Position outside of grid borders %f, %f, %f!",
-                    pos.x, pos.y, pos.z);
-            grid_point.y = grid_points_.y - 1;
-        }
-        
-        // Check if grid_point.z is outside the grid
-        if (grid_point.z < 0) {
-            warning("Position outside of grid borders %f, %f, %f!",
-                    pos.x, pos.y, pos.z);
-            grid_point.z = 0;
-        }
-        else if (grid_point.z >= grid_points_.z) {
-            warning("Position outside of grid borders %f, %f, %f!",
-                    pos.x, pos.y, pos.z);
-            grid_point.z = grid_points_.z - 1;
-        }
-    }
-    
-    return grid_point;
+ForceGrid::ForceGrid() {
+    is_periodic_ = false;
+    is_orthogonal_coord_ = false;
+    n_grid_ = Vec3i(0);
+    basis_vectors_.assign(3, Vec3d(0));
+    offset_ = Vec3d(0);
 }
 
 
-int ForceGrid::getGridPointIndex(const Vec3i& grid_point) const {
-    int index = 0;
-    
-    // Check if the grid_point is outside the grid and react accordingly
-    if (grid_point.x < 0 || grid_point.y < 0 || grid_point.z < 0
-       || grid_point.x >= grid_points_.x || grid_point.y >= grid_points_.y
-       || grid_point.z >= grid_points_.z) {
-        
-        if (is_periodic_) {
-            Vec3i pbc_grid_point = pbcGridPoint(grid_point);
-            index = pbc_grid_point.x * grid_points_.y * grid_points_.z
-                    + pbc_grid_point.y * grid_points_.z + pbc_grid_point.z;
-        }
-        else {
-            error("Invalid grid point %d, %d, %d (limit: %d, %d, %d)",
-                grid_point.x, grid_point.y, grid_point.z,
-                grid_points_.x, grid_points_.y, grid_points_.z);
-        }
-    }
-    
-    else {
-        index = grid_point.x * grid_points_.y * grid_points_.z
-                + grid_point.y * grid_points_.z + grid_point.z;
-    }
-    
-    return index;
+void ForceGrid::setNGrid(const Vec3i& n_grid) {
+    n_grid_.x = n_grid.x;
+    n_grid_.y = n_grid.y;
+    n_grid_.z = n_grid.z;
 }
 
 
-Vec3i ForceGrid::pbcGridPoint(const Vec3i& grid_point) const {
-    Vec3i pbc_grid_point = grid_point;
-    int n;
-    
-    // Check if grid_point.x is outside the grid
-    if ((grid_point.x < 0) || (grid_point.x >= grid_points_.x)) {
-        n = floor(double(grid_point.x)/grid_points_.x);
-        pbc_grid_point.x -= n*grid_points_.x;
+void ForceGrid::setSpacing(const Vec3d& spacing) {
+    is_orthogonal_coord_ = true;
+    basis_vectors_.assign(3, Vec3d(0));
+    basis_vectors_[0].x = spacing.x;
+    basis_vectors_[1].y = spacing.y;
+    basis_vectors_[2].z = spacing.z;
+}
+
+
+void ForceGrid::setBasisVectors(const vector<Vec3d>& basis_vectors) {
+    is_orthogonal_coord_ = false;
+    for (int i = 0; i < 3; i++) {
+        basis_vectors_[i].x = basis_vectors[i].x;
+        basis_vectors_[i].y = basis_vectors[i].y;
+        basis_vectors_[i].z = basis_vectors[i].z;
     }
-    
-    // Check if grid_point.y is outside the grid
-    if ((grid_point.y < 0) || (grid_point.y >= grid_points_.y)) {
-        n = floor(double(grid_point.y)/grid_points_.y);
-        pbc_grid_point.y -= n*grid_points_.y;
-    }
-    
-    // Check if grid_point.z is outside the grid
-    if ((grid_point.z < 0) || (grid_point.z >= grid_points_.z)) {
-        n = floor(double(grid_point.z)/grid_points_.z);
-        pbc_grid_point.z -= n*grid_points_.z;
-    }
-    
-    return pbc_grid_point;
+}
+
+
+void ForceGrid::setOffset(const Vec3d& offset) {
+    offset_.x = offset.x;
+    offset_.y = offset.y;
+    offset_.z = offset.z;
+}
+
+
+void ForceGrid::swapForceValues(vector<Vec3d>& forces_to_swap) {
+    forces_.swap(forces_to_swap);
+}
+
+
+void ForceGrid::swapForceValues(DataGrid<Vec3d>& forces_to_swap) {
+    forces_to_swap.swapValues(forces_);
+}
+
+
+void ForceGrid::swapEnergyValues(vector<double>& energies_to_swap) {
+    energies_.swap(energies_to_swap);
+}
+
+
+void ForceGrid::swapEnergyValues(DataGrid<double>& energies_to_swap) {
+    energies_to_swap.swapValues(energies_);
 }
 
 
@@ -150,9 +107,9 @@ void ForceGrid::interpolate(const Vec3d& position, Vec3d& force, double& energy)
 
     // How far are we inside the cube
     Vec3d d;
-    d.x = (position.x - offset_.x - grid_point.x * spacing_.x) / spacing_.x;
-    d.y = (position.y - offset_.y - grid_point.y * spacing_.y) / spacing_.y;
-    d.z = (position.z - offset_.z - grid_point.z * spacing_.z) / spacing_.z;
+    d.x = (position.x - offset_.x - grid_point.x * basis_vectors_[1].x) / basis_vectors_[1].x;
+    d.y = (position.y - offset_.y - grid_point.y * basis_vectors_[2].y) / basis_vectors_[2].y;
+    d.z = (position.z - offset_.z - grid_point.z * basis_vectors_[3].z) / basis_vectors_[3].z;
 
     // Construct the force
     Vec3d f00, f01, f10, f11, f0, f1;
@@ -174,4 +131,115 @@ void ForceGrid::interpolate(const Vec3d& position, Vec3d& force, double& energy)
     e1 = e01 * (1 - d.y) + e11 * d.y;
     energy = e0 * (1 - d.z) + e1 * (d.z);
     
+}
+
+
+Vec3i ForceGrid::getGridPoint(const Vec3d& pos) const {
+    Vec3i grid_point;
+    
+    if (is_orthogonal_coord_) {
+        grid_point.x = floor((pos.x - offset_.x) / basis_vectors_[0].x);
+        grid_point.y = floor((pos.y - offset_.y) / basis_vectors_[1].y);
+        grid_point.z = floor((pos.z - offset_.z) / basis_vectors_[2].z);
+    }
+    else {
+        Vec3d pos_in_grid_basis;
+    }
+    
+    // If grid_point is outside the grid inform the user and take the edge point instead.
+    // If force grid is periodic, ignore the point being outside the grid.
+    if (not is_periodic_) {
+        // Check if grid_point.x is outside the grid
+        if (grid_point.x < 0) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.x = 0;
+        }
+        else if (grid_point.x >= n_grid_.x) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.x = n_grid_.x - 1;
+        }
+        
+        // Check if grid_point.y is outside the grid
+        if (grid_point.y < 0) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.y = 0;
+        }
+        else if (grid_point.y >= n_grid_.y) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.y = n_grid_.y - 1;
+        }
+        
+        // Check if grid_point.z is outside the grid
+        if (grid_point.z < 0) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.z = 0;
+        }
+        else if (grid_point.z >= n_grid_.z) {
+            warning("Position outside of grid borders %f, %f, %f!",
+                    pos.x, pos.y, pos.z);
+            grid_point.z = n_grid_.z - 1;
+        }
+    }
+    
+    return grid_point;
+}
+
+
+int ForceGrid::getGridPointIndex(const Vec3i& grid_point) const {
+    int index = 0;
+    
+    // Check if the grid_point is outside the grid and react accordingly
+    if (grid_point.x < 0 || grid_point.y < 0 || grid_point.z < 0
+       || grid_point.x >= n_grid_.x || grid_point.y >= n_grid_.y
+       || grid_point.z >= n_grid_.z) {
+        
+        if (is_periodic_) {
+            Vec3i pbc_grid_point = pbcGridPoint(grid_point);
+            index = pbc_grid_point.x * n_grid_.y * n_grid_.z
+                    + pbc_grid_point.y * n_grid_.z + pbc_grid_point.z;
+        }
+        else {
+            error("Invalid grid point %d, %d, %d (limit: %d, %d, %d)",
+                grid_point.x, grid_point.y, grid_point.z,
+                n_grid_.x, n_grid_.y, n_grid_.z);
+        }
+    }
+    
+    else {
+        index = grid_point.x * n_grid_.y * n_grid_.z
+                + grid_point.y * n_grid_.z + grid_point.z;
+    }
+    
+    return index;
+}
+
+
+Vec3i ForceGrid::pbcGridPoint(const Vec3i& grid_point) const {
+    Vec3i pbc_grid_point = grid_point;
+    int n;
+    
+    // Check if grid_point.x is outside the grid
+    if ((grid_point.x < 0) || (grid_point.x >= n_grid_.x)) {
+        n = floor(double(grid_point.x)/n_grid_.x);
+        pbc_grid_point.x -= n*n_grid_.x;
+    }
+    
+    // Check if grid_point.y is outside the grid
+    if ((grid_point.y < 0) || (grid_point.y >= n_grid_.y)) {
+        n = floor(double(grid_point.y)/n_grid_.y);
+        pbc_grid_point.y -= n*n_grid_.y;
+    }
+    
+    // Check if grid_point.z is outside the grid
+    if ((grid_point.z < 0) || (grid_point.z >= n_grid_.z)) {
+        n = floor(double(grid_point.z)/n_grid_.z);
+        pbc_grid_point.z -= n*n_grid_.z;
+    }
+    
+    return pbc_grid_point;
 }

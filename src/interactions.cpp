@@ -190,12 +190,12 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
         force.at(ind).z = temp_rspace.at(ind);
     
     // Set up force_grid_ and move the energy and force values to it 
-    force_grid_.grid_points_ = n_grid;
-    force_grid_.spacing_ = spacing;
-    force_grid_.offset_ = origin;
+    force_grid_.setNGrid(n_grid);
+    force_grid_.setSpacing(spacing);
+    force_grid_.setOffset(origin);
     force_grid_.setPeriodic(true);
-    force.swapValues(force_grid_.forces_);
-    energy.swapValues(force_grid_.energies_);
+    force_grid_.swapForceValues(force);
+    force_grid_.swapEnergyValues(energy);
 }
 
 void ElectrostaticPotentialInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
