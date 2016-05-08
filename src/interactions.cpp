@@ -3,11 +3,13 @@
 #include <cmath>
 
 // debug only
+#include <iomanip>
 #include <iostream>
 
 #include "fft.hpp"
 #include "force_grid.hpp"
 #include "globals.hpp"
+#include "matrices.hpp"
 #include "vectors.hpp"
 
 void LJInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
@@ -50,43 +52,74 @@ void CoulombInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& for
 
 ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataGrid<double>& e_potential, double tip_charge, double gaussian_width) {
     const Vec3i& n_grid = e_potential.getNGrid();
-    const Vec3d& spacing = e_potential.getSpacing();
+    const Mat3d& basis = e_potential.getBasis();
     const Vec3d& origin = e_potential.getOrigin();
     
     // Reserve storage space for the force
     DataGrid<Vec3d> force(n_grid.x, n_grid.y, n_grid.z, Vec3d(0.0));
-    force.setSpacing(spacing);
+    force.setBasis(basis);
     force.setOrigin(origin);
     
     // Create Gaussian charge distribution of the tip
     DataGrid<double> rho_tip(n_grid.x, n_grid.y, n_grid.z, 0.0);
-    rho_tip.setSpacing(spacing);
+    rho_tip.setBasis(basis);
     Vec3d position;
     double r_sqr;
     double gaussian_width_sqr = pow(gaussian_width, 2);
     double gaussian_norm_factor = 1.0/pow(gaussian_width*sqrt(2.0*PI), 3);
     // Find suitable cutoff distance for the Gaussian
     int n_min = min(min(n_grid.x, n_grid.y), n_grid.z);
-    int cutoff_dist = n_min;
+    int x_cutoff = n_min;
+    int y_cutoff = n_min;
+    int z_cutoff = n_min;
     for (int ix = 0; ix < n_min-1; ix++) {
-        double x_sqr = pow(ix*spacing.x, 2);
+        double x_sqr = (ix*basis.getColumn(0)).lensqr();
         if (exp(-0.5*x_sqr/gaussian_width_sqr) < 1.0e-10) { //TODO: make sure 1.0e-10 is a good cutoff value and define in globals
-            cutoff_dist = ix;
+            x_cutoff = ix;
+            break;
+        }
+    }
+    for (int iy = 0; iy < n_min-1; iy++) {
+        double y_sqr = (iy*basis.getColumn(1)).lensqr();
+        if (exp(-0.5*y_sqr/gaussian_width_sqr) < 1.0e-10) { //TODO: make sure 1.0e-10 is a good cutoff value and define in globals
+            y_cutoff = iy;
+            break;
+        }
+    }
+    for (int iz = 0; iz < n_min-1; iz++) {
+        double z_sqr = (iz*basis.getColumn(2)).lensqr();
+        if (exp(-0.5*z_sqr/gaussian_width_sqr) < 1.0e-10) { //TODO: make sure 1.0e-10 is a good cutoff value and define in globals
+            z_cutoff = iz;
             break;
         }
     }
     // Evaluate the Gaussian at grid points within the cutoff
-    for (int ix = -cutoff_dist; ix <= cutoff_dist; ix++) {
-        for (int iy = -cutoff_dist; iy <= cutoff_dist; iy++) {
-            for (int iz = -cutoff_dist; iz < cutoff_dist; iz++) {
+    for (int ix = -x_cutoff; ix <= x_cutoff; ix++) {
+        for (int iy = -y_cutoff; iy <= y_cutoff; iy++) {
+            for (int iz = -z_cutoff; iz < z_cutoff; iz++) {
                 position = rho_tip.positionAt(ix, iy, iz);
                 r_sqr = position.lensqr();
-                rho_tip.atPBC(ix, iy, iz) = tip_charge * gaussian_norm_factor * exp(-0.5*r_sqr/gaussian_width_sqr);
+                rho_tip.atPBC(ix, iy, iz) += tip_charge * gaussian_norm_factor * exp(-0.5*r_sqr/gaussian_width_sqr);
             }
         }
     }
     
     if (DEBUG_MODE) {
+        double basis_det = basis.determinant();
+        Mat3d basis_inv = basis.inverse();
+        Mat3d basis_t = basis.transpose();
+        
+        cout << endl <<"========== Debug ==========" << endl << endl;
+        
+        cout << "Basis matrix:" << endl;
+        basis.print();
+        cout << "Basis inverse:" << endl;
+        basis_inv.print();
+        cout << "Basis transpose:" << endl;
+        basis_t.print();
+        cout << "Basis determinant:" << endl;
+        cout << basis_det << endl;
+        
         double total_charge = 0.0;
         for (int ix = 0; ix < n_grid.x; ix++) {
             for (int iy = 0; iy < n_grid.y; iy++) {
@@ -95,8 +128,10 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
                 }
             }
         }
-        total_charge *= spacing.x*spacing.y*spacing.z;
+        total_charge *= basis.determinant();
         cout << "Total charge at tip: " << total_charge << endl;
+        
+        cout << endl <<"========== End debug ==========" << endl << endl;
     }
     
     // Do the FFTs for the potential and the charge distribution
@@ -104,10 +139,17 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     fft_data_grid(e_potential, pot_kspace);
     fft_data_grid(rho_tip, rho_kspace);
     
+    if (DEBUG_MODE) {
+        cout << endl << "========== Debug ==========" << endl << endl;
+        cout << "Basis matrix in k-space:" << endl;
+        pot_kspace.getBasis().print();
+        cout << endl << "========== End debug ==========" << endl << endl;
+    }
+    
     // Multiply rho_kspace with pot_kspace, which equals the energy in k-space.
     // Store the values to pot_kspace to save memory.
     // Scale the values with the volume unit from the integral.
-    double volume_unit = spacing.x*spacing.y*spacing.z;
+    double volume_unit = basis.determinant();
     for (int ix = 0; ix < n_grid.x; ix++) {
         for (int iy = 0; iy < n_grid.y; iy++) {
             for (int iz = 0; iz < n_grid.z; iz++) {
@@ -133,31 +175,34 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     ffti_data_grid(energy_kspace, energy);
     
     // Calculate the components of the force one by one
-    vector<double> kx_points, ky_points, kz_points;
-    kx_points.reserve(n_grid.x);
-    ky_points.reserve(n_grid.y);
-    kz_points.reserve(n_grid.z);
+    //TODO: kx, ky and kz should be vectors ka, kb, and kc instead
+    vector<Vec3d> ka_vectors, kb_vectors, kc_vectors;
+    ka_vectors.reserve(n_grid.x);
+    kb_vectors.reserve(n_grid.y);
+    kc_vectors.reserve(n_grid.z);
     for (int ix = 0; ix < n_grid.x; ix++) {
-        kx_points[ix] = ix*energy_kspace.getSpacing().x;
+        ka_vectors[ix] = ix*energy_kspace.getBasis().getColumn(0);
         if (ix >= int(n_grid.x/2))
-            kx_points[ix] = kx_points[ix] - n_grid.x*energy_kspace.getSpacing().x;
+            ka_vectors[ix] = ka_vectors[ix] - n_grid.x*energy_kspace.getBasis().getColumn(0);
     }
     for (int iy = 0; iy < n_grid.y; iy++) {
-        ky_points[iy] = iy*energy_kspace.getSpacing().y;
+        kb_vectors[iy] = iy*energy_kspace.getBasis().getColumn(1);
         if (iy >= int(n_grid.y/2))
-            ky_points[iy] = ky_points[iy] - n_grid.y*energy_kspace.getSpacing().y;
+            kb_vectors[iy] = kb_vectors[iy] - n_grid.y*energy_kspace.getBasis().getColumn(1);
     }
     for (int iz = 0; iz < n_grid.z; iz++) {
-        kz_points[iz] = iz*energy_kspace.getSpacing().z;
+        kc_vectors[iz] = iz*energy_kspace.getBasis().getColumn(2);
         if (iz >= int(n_grid.z/2))
-            kz_points[iz] = kz_points[iz] - n_grid.z*energy_kspace.getSpacing().z;
+            kc_vectors[iz] = kc_vectors[iz] - n_grid.z*energy_kspace.getBasis().getColumn(2);
     }
     
     // Force x component
     for (int ix = 0; ix < n_grid.x; ix++) {
         for (int iy = 0; iy < n_grid.y; iy++) {
             for (int iz = 0; iz < n_grid.z; iz++) {
-                temp_kspace.at(ix, iy, iz) = -2.0*PI*dcomplex(0.0, 1.0)*kx_points[ix]*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) = -2.0*PI*dcomplex(0.0, 1.0)*ka_vectors[ix].x*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) += -2.0*PI*dcomplex(0.0, 1.0)*kb_vectors[iy].x*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) += -2.0*PI*dcomplex(0.0, 1.0)*kc_vectors[iz].x*energy_kspace.at(ix, iy, iz);
             }
         }
     }
@@ -169,7 +214,9 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     for (int ix = 0; ix < n_grid.x; ix++) {
         for (int iy = 0; iy < n_grid.y; iy++) {
             for (int iz = 0; iz < n_grid.z; iz++) {
-                temp_kspace.at(ix, iy, iz) = -2.0*PI*dcomplex(0.0, 1.0)*ky_points[iy]*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) = -2.0*PI*dcomplex(0.0, 1.0)*ka_vectors[ix].y*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) += -2.0*PI*dcomplex(0.0, 1.0)*kb_vectors[iy].y*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) += -2.0*PI*dcomplex(0.0, 1.0)*kc_vectors[iz].y*energy_kspace.at(ix, iy, iz);
             }
         }
     }
@@ -181,7 +228,9 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     for (int ix = 0; ix < n_grid.x; ix++) {
         for (int iy = 0; iy < n_grid.y; iy++) {
             for (int iz = 0; iz < n_grid.z; iz++) {
-                temp_kspace.at(ix, iy, iz) = -2.0*PI*dcomplex(0.0, 1.0)*kz_points[iz]*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) = -2.0*PI*dcomplex(0.0, 1.0)*ka_vectors[ix].z*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) += -2.0*PI*dcomplex(0.0, 1.0)*kb_vectors[iy].z*energy_kspace.at(ix, iy, iz);
+                temp_kspace.at(ix, iy, iz) += -2.0*PI*dcomplex(0.0, 1.0)*kc_vectors[iz].z*energy_kspace.at(ix, iy, iz);
             }
         }
     }
@@ -191,7 +240,7 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     
     // Set up force_grid_ and move the energy and force values to it 
     force_grid_.setNGrid(n_grid);
-    force_grid_.setSpacing(spacing);
+    force_grid_.setBasis(basis);
     force_grid_.setOffset(origin);
     force_grid_.setPeriodic(true);
     force_grid_.swapForceValues(force);

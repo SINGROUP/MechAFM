@@ -19,6 +19,7 @@
 #include "fft.hpp"
 #include "interactions.hpp"
 #include "messages.hpp"
+#include "matrices.hpp"
 #include "vectors.hpp"
 
 using namespace std;
@@ -284,10 +285,10 @@ void Simulation::buildTipSurfaceInteractions() {
             cube_file.storeToDataGrid(electrostatic_potential);
         } else {
             const Vec3i& n_grid = cube_file.getNVoxels();
-            Vec3d spacing = cube_file.getVoxelSpacing();
+            const vector<Vec3d> voxel_vectors = cube_file.getVoxelVectors();
             const Vec3d& origin = cube_file.getOrigin();
             electrostatic_potential.initValues(n_grid.x, n_grid.y, n_grid.z, 0.0);
-            electrostatic_potential.setSpacing(spacing);
+            electrostatic_potential.setBasis(voxel_vectors);
             electrostatic_potential.setOrigin(origin);
         }
         
@@ -322,10 +323,15 @@ void Simulation::buildTipSurfaceInteractions() {
         electrostatic_potential.setOrigin(electrostatic_potential.getOrigin() + system.getOffset());
         
         if (DEBUG_MODE) {
+            cout << endl <<"========== Debug ==========" << endl << endl;
+            
             cout << "Hello from process " << current_process_ << endl;
+            cout << "Number of grid points:" << endl;
             cout << electrostatic_potential.getNGrid().x << " " << electrostatic_potential.getNGrid().y << " " << electrostatic_potential.getNGrid().z << endl;
-            cout << electrostatic_potential.getSpacing().x << " " << electrostatic_potential.getSpacing().y << " " << electrostatic_potential.getSpacing().z << endl;
-            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(1,0,0) << " " << electrostatic_potential.at(2,0,0) << endl;
+            cout << "Basis matrix:" << endl;
+            electrostatic_potential.getBasis().print();
+            cout << "Three first values of electrostatic potential:" << endl;
+            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(1,0,0) << " " << electrostatic_potential.at(2,0,0) << endl << endl;
 
             // Test FFT
             DataGrid<dcomplex> e_potential_kspace;
@@ -338,16 +344,29 @@ void Simulation::buildTipSurfaceInteractions() {
             time_interval = end - start;
             cout << "FFT took " << time_interval.count() << " s" << endl;
             
+            cout << "Hello from process " << current_process_ << " after FFT" << endl;
+            cout << "Number of grid points:" << endl;
+            cout << e_potential_kspace.getNGrid().x << " " << e_potential_kspace.getNGrid().y << " " << e_potential_kspace.getNGrid().z << endl;
+            cout << "Basis matrix:" << endl;
+            e_potential_kspace.getBasis().print();
+            cout << "Three first values of electrostatic potential:" << endl;
+            cout << e_potential_kspace.at(0,0,0) << ", " << e_potential_kspace.at(1,0,0) << ", " << e_potential_kspace.at(2,0,0) << endl << endl;
+            
             start = chrono::high_resolution_clock::now();
             ffti_data_grid(e_potential_kspace, electrostatic_potential);
             end = chrono::high_resolution_clock::now();
             time_interval = end - start;
             cout << "Inverse FFT took " << time_interval.count() << " s" << endl;
             
-            cout << "Hello from process " << current_process_ << endl;
+            cout << "Hello from process " << current_process_ << " after FFT and inverse FFT" << endl;
+            cout << "Number of grid points:" << endl;
             cout << electrostatic_potential.getNGrid().x << " " << electrostatic_potential.getNGrid().y << " " << electrostatic_potential.getNGrid().z << endl;
-            cout << electrostatic_potential.getSpacing().x << " " << electrostatic_potential.getSpacing().y << " " << electrostatic_potential.getSpacing().z << endl;
-            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(1,0,0) << " " << electrostatic_potential.at(2,0,0) << endl;
+            cout << "Basis matrix:" << endl;
+            electrostatic_potential.getBasis().print();
+            cout << "Three first values of electrostatic potential:" << endl;
+            cout << electrostatic_potential.at(0,0,0) << " " << electrostatic_potential.at(1,0,0) << " " << electrostatic_potential.at(2,0,0) << endl << endl;
+            
+            cout << "========== End debug ==========" << endl << endl;
         }
         
         // Create the interaction between the tip atom and the electrostatic potential

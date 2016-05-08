@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "data_grid.hpp"
+#include "matrices.hpp"
 #include "vectors.hpp"
 
 using namespace std;
@@ -18,8 +19,9 @@ class ForceGrid {
     
     void setPeriodic(bool is_periodic) { is_periodic_ = is_periodic; };
     void setNGrid(const Vec3i& n_grid);
+    void setBasis(const vector<Vec3d>& basis_vectors);
+    void setBasis(const Mat3d& basis_matrix);
     void setSpacing(const Vec3d& spacing);
-    void setBasisVectors(const vector<Vec3d>& basis_vectors);
     void setOffset(const Vec3d& offset);
     
     void swapForceValues(vector<Vec3d>& forces_to_swap);
@@ -38,9 +40,9 @@ class ForceGrid {
     Vec3i pbcGridPoint(const Vec3i& grid_point) const;
     
     bool is_periodic_; // Determines whether the force grid has periodic boundary conditions
-    bool is_orthogonal_coord_; // Determines whether the coordinate axes of force grid are orthogonal
-    Vec3i n_grid_;  // The number of grid points in each dimension
-    vector<Vec3d> basis_vectors_;   // The basis in which each point of the force grid is represented.
+    bool is_orthogonal_basis_; // Determines whether the basis vectors of force grid are orthogonal
+    Vec3i n_grid_;  // The number of grid points along each basis vector
+    Mat3d basis_;   // The basis in which each point of the force grid is represented.
                                     // If is_orthogonal_coord_ == true, this is a 3x3 diagonal matrix
                                     // and the diagonal elements define the spacing between grid points.
     Vec3d offset_;  // The real position of grid point (0, 0, 0)

@@ -4,12 +4,13 @@
 #include <stdexcept>
 #include <vector>
 
+#include "matrices.hpp"
 #include "vectors.hpp"
 
 
 void fft_data_grid(const DataGrid<double>& data_grid_in, DataGrid<dcomplex>& data_grid_out) {
     const Vec3i& n_grid = data_grid_in.getNGrid();
-    Vec3d spacing = data_grid_in.getSpacing();
+    Mat3d basis = data_grid_in.getBasis();
     int n_grid_total = n_grid.x * n_grid.y * n_grid.z;
     
     vector<kiss_fft_cpx> realspace_in, kspace_out;
@@ -36,18 +37,20 @@ void fft_data_grid(const DataGrid<double>& data_grid_in, DataGrid<dcomplex>& dat
         data_grid_out.at(i).imag(kspace_out[i].i);
     }
     
-    // Set the spacing in k-space
-    Vec3d k_spacing;
-    k_spacing.x = 1/(n_grid.x*spacing.x);
-    k_spacing.y = 1/(n_grid.y*spacing.y);
-    k_spacing.z = 1/(n_grid.z*spacing.z);
-    data_grid_out.setSpacing(k_spacing);
+    // Set the basis in k-space
+    Mat3d k_basis;
+    Mat3d n_grid_scaling = Mat3d(0);
+    n_grid_scaling.at(0, 0) = n_grid.x;
+    n_grid_scaling.at(1, 1) = n_grid.y;
+    n_grid_scaling.at(2, 2) = n_grid.z;
+    k_basis = basis.multiply(n_grid_scaling).inverse().transpose();
+    data_grid_out.setBasis(k_basis);
 }
 
 
 void ffti_data_grid(const DataGrid<dcomplex>& data_grid_in, DataGrid<double>& data_grid_out) {
     const Vec3i& n_grid = data_grid_in.getNGrid();
-    Vec3d k_spacing = data_grid_in.getSpacing();
+    Mat3d k_basis = data_grid_in.getBasis();
     int n_grid_total = n_grid.x * n_grid.y * n_grid.z;
     
     vector<kiss_fft_cpx> kspace_in, realspace_out;
@@ -80,10 +83,12 @@ void ffti_data_grid(const DataGrid<dcomplex>& data_grid_in, DataGrid<double>& da
         }
     }
     
-    // Set the spacing in real space
-    Vec3d spacing;
-    spacing.x = 1/(n_grid.x*k_spacing.x);
-    spacing.y = 1/(n_grid.y*k_spacing.y);
-    spacing.z = 1/(n_grid.z*k_spacing.z);
-    data_grid_out.setSpacing(spacing);
+    // Set the basis in real space
+    Mat3d basis;
+    Mat3d n_grid_scaling = Mat3d(0);
+    n_grid_scaling.at(0, 0) = n_grid.x;
+    n_grid_scaling.at(1, 1) = n_grid.y;
+    n_grid_scaling.at(2, 2) = n_grid.z;
+    basis = k_basis.multiply(n_grid_scaling).inverse().transpose();
+    data_grid_out.setBasis(basis);
 }

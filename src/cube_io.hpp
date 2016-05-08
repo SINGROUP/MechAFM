@@ -1,8 +1,6 @@
 /*
  * cube_io.hpp
  * 
- * Copyright 2016 Juha Ritala <juha.ritala@aalto.fi>
- * 
  * CubeReader class represents a read access to the volumetric data of a cube file
  * and contains the metadata of the file and the atom types and positions.
  * 
@@ -42,7 +40,7 @@ public:
     vector<double> readVolumetricData();
     // stores the volumetric data from the file to the preallocated vector given as a reference
     void readVolumetricData(vector<double>& volumetric_data);
-    // stores all contents to a DataGrid object (only for orthogonal voxels)
+    // stores all contents to a DataGrid object
     void storeToDataGrid(DataGrid<double>& data_grid, const Vec3d& offset = Vec3d(0.0));
 
 private:

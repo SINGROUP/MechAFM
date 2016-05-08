@@ -71,7 +71,7 @@ void CubeReader::readVolumetricData(vector<double>& volumetric_data) {
 void CubeReader::storeToDataGrid(DataGrid<double>& data_grid, const Vec3d& offset) {
     vector<double> volumetric_data = readVolumetricData();
     data_grid.setNGrid(n_voxels_);
-    data_grid.setSpacing(getVoxelSpacing());
+    data_grid.setBasis(voxel_vectors_);
     data_grid.setOrigin(origin_ + offset);
     data_grid.swapValues(volumetric_data);
 }
@@ -80,7 +80,9 @@ void CubeReader::storeToDataGrid(DataGrid<double>& data_grid, const Vec3d& offse
 bool CubeReader::isVoxelsOrthogonal() const {
     return ( abs(voxel_vectors_[0].y) + abs(voxel_vectors_[0].z) + \
         abs(voxel_vectors_[1].x) + abs(voxel_vectors_[1].z) + \
-        abs(voxel_vectors_[2].x) + abs(voxel_vectors_[2].y) ) < 1.0e-10;
+        abs(voxel_vectors_[2].x) + abs(voxel_vectors_[2].y) ) \
+        < \
+        1.0e-10 * (abs(voxel_vectors_[0].x) + abs(voxel_vectors_[1].y) + abs(voxel_vectors_[2].z));
 }
 
 

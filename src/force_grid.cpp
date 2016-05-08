@@ -13,9 +13,9 @@ using namespace std;
 
 ForceGrid::ForceGrid() {
     is_periodic_ = false;
-    is_orthogonal_coord_ = false;
+    is_orthogonal_basis_ = false;
     n_grid_ = Vec3i(0);
-    basis_vectors_.assign(3, Vec3d(0));
+    basis_ = Mat3d(0);
     offset_ = Vec3d(0);
 }
 
@@ -27,22 +27,34 @@ void ForceGrid::setNGrid(const Vec3i& n_grid) {
 }
 
 
-void ForceGrid::setSpacing(const Vec3d& spacing) {
-    is_orthogonal_coord_ = true;
-    basis_vectors_.assign(3, Vec3d(0));
-    basis_vectors_[0].x = spacing.x;
-    basis_vectors_[1].y = spacing.y;
-    basis_vectors_[2].z = spacing.z;
+void ForceGrid::setBasis(const vector<Vec3d>& basis_vectors) {
+    for (int i = 0; i < 3; i++) {
+        basis_.at(0, i) = basis_vectors[i].x;
+        basis_.at(1, i) = basis_vectors[i].y;
+        basis_.at(2, i) = basis_vectors[i].z;
+    }
+    
+    is_orthogonal_basis_ = basis_.isDiagonal();
 }
 
 
-void ForceGrid::setBasisVectors(const vector<Vec3d>& basis_vectors) {
-    is_orthogonal_coord_ = false;
+void ForceGrid::setBasis(const Mat3d& basis_matrix) {
     for (int i = 0; i < 3; i++) {
-        basis_vectors_[i].x = basis_vectors[i].x;
-        basis_vectors_[i].y = basis_vectors[i].y;
-        basis_vectors_[i].z = basis_vectors[i].z;
+        for (int j = 0; j < 3; j++) {
+            basis_.at(i, j) = basis_matrix.at(i, j);
+        }
     }
+    
+    is_orthogonal_basis_ = basis_.isDiagonal();
+}
+
+
+void ForceGrid::setSpacing(const Vec3d& spacing) {
+    is_orthogonal_basis_ = true;
+    basis_ = Mat3d(0);
+    basis_.at(0, 0) = spacing.x;
+    basis_.at(1, 1) = spacing.y;
+    basis_.at(2, 2) = spacing.z;
 }
 
 
@@ -105,11 +117,20 @@ void ForceGrid::interpolate(const Vec3d& position, Vec3d& force, double& energy)
     // The trilinear interpolation below is based on:
     // http://en.wikipedia.org/wiki/Trilinear_interpolation
 
-    // How far are we inside the cube
+    // How far are we inside the normalized (unit) cube
     Vec3d d;
-    d.x = (position.x - offset_.x - grid_point.x * basis_vectors_[1].x) / basis_vectors_[1].x;
-    d.y = (position.y - offset_.y - grid_point.y * basis_vectors_[2].y) / basis_vectors_[2].y;
-    d.z = (position.z - offset_.z - grid_point.z * basis_vectors_[3].z) / basis_vectors_[3].z;
+    if (is_orthogonal_basis_) {
+        d.x = (position.x - offset_.x) / basis_.at(0, 0) - grid_point.x;
+        d.y = (position.y - offset_.y) / basis_.at(1, 1) - grid_point.y;
+        d.z = (position.z - offset_.z) / basis_.at(2, 2) - grid_point.z;
+    }
+    else {
+        Vec3d pos_in_grid_basis;
+        pos_in_grid_basis = basis_.inverse().multiply(position - offset_);
+        d.x = pos_in_grid_basis.x - grid_point.x;
+        d.y = pos_in_grid_basis.y - grid_point.y;
+        d.z = pos_in_grid_basis.z - grid_point.z;
+    }
 
     // Construct the force
     Vec3d f00, f01, f10, f11, f0, f1;
@@ -137,13 +158,22 @@ void ForceGrid::interpolate(const Vec3d& position, Vec3d& force, double& energy)
 Vec3i ForceGrid::getGridPoint(const Vec3d& pos) const {
     Vec3i grid_point;
     
-    if (is_orthogonal_coord_) {
-        grid_point.x = floor((pos.x - offset_.x) / basis_vectors_[0].x);
-        grid_point.y = floor((pos.y - offset_.y) / basis_vectors_[1].y);
-        grid_point.z = floor((pos.z - offset_.z) / basis_vectors_[2].z);
+    // If the basis vectors of the grid are orthogonal, the position of each
+    // grid point is defined by the spacing between points (diagonal values of
+    // the basis matrix).
+    if (is_orthogonal_basis_) {
+        grid_point.x = floor((pos.x - offset_.x) / basis_.at(0, 0));
+        grid_point.y = floor((pos.y - offset_.y) / basis_.at(1, 1));
+        grid_point.z = floor((pos.z - offset_.z) / basis_.at(2, 2));
     }
+    // If the basis vectors are non-orthogonal, the position defined by pos
+    // must be transformed into the basis defined by the basis vectors of the grid.
     else {
         Vec3d pos_in_grid_basis;
+        pos_in_grid_basis = basis_.inverse().multiply(pos - offset_);
+        grid_point.x = floor(pos_in_grid_basis.x);
+        grid_point.y = floor(pos_in_grid_basis.y);
+        grid_point.z = floor(pos_in_grid_basis.z);
     }
     
     // If grid_point is outside the grid inform the user and take the edge point instead.
