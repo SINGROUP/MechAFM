@@ -8,7 +8,7 @@
 
 
 void System::initialize(int n_atoms) {
-
+    tip_pbc_ = false;
     n_atoms_ = n_atoms + 2;  // Add tip and dummy to the atom count
     positions_.assign(n_atoms_, Vec3d());
     velocities_.assign(n_atoms_, Vec3d());
@@ -27,7 +27,9 @@ void System::initialize(int n_atoms) {
 
 OutputData System::getOutput() const {
     OutputData data;
-    data.position = positions_[0];
+    data.position.x = real_tip_xy_.x;
+    data.position.y = real_tip_xy_.y;
+    data.position.z = positions_[0].z;
     data.r_vec = positions_[1] - positions_[0];
     data.r = data.r_vec.len();
     data.angle = atan2(data.r_vec.getXY().len(), data.r_vec.z) * (180.0 / PI);
@@ -51,7 +53,7 @@ void System::evalTipSurfaceForces(Vec3d& tip_force, double& tip_energy) const {
 
 void System::makeXYZFile(string folder) const {
     char file_name[NAME_LENGTH];
-    sprintf(file_name, "%sstate_%.1f-%.1f-%.1f.xyz", folder.c_str(), positions_[0].x, positions_[0].y, positions_[0].z);
+    sprintf(file_name, "%sstate_%.1f-%.1f-%.1f.xyz", folder.c_str(), real_tip_xy_.x, real_tip_xy_.y, positions_[0].z);
     FILE* file = fopen(file_name, "w");
     fprintf(file, "%d\n\n", n_atoms_);
     for (int i = 0; i < n_atoms_; ++i) {
@@ -85,6 +87,16 @@ void System::rotateCoordAxes(const string& new_coord_sequence) {
     }
     
     positions_.swap(new_positions);
+}
+
+
+void System::setUnitCell(const vector<Vec3d>& cell_vectors) {
+    for (int i = 0; i < 3; i++) {
+        cell_matrix_.at(0, i) = cell_vectors[i].x;
+        cell_matrix_.at(1, i) = cell_vectors[i].y;
+        cell_matrix_.at(2, i) = cell_vectors[i].z;
+    }
+    tip_pbc_ = true;
 }
 
 
@@ -123,3 +135,28 @@ void System::centerMolecule(Vec2d pos) {
     offset_.y = dy;
 }
 
+
+void System::setDummyXY(double x, double y) {
+    real_tip_xy_.x = x;
+    real_tip_xy_.y = y;
+    
+    // If periodic boundary conditions are used, make sure tip position is inside the unit cell
+    if (tip_pbc_) {
+        Vec3d temp_position = Vec3d(x, y, 0);
+        Vec3d cell_norm_position = cell_matrix_.inverse().multiply(temp_position - offset_); // position in basis of unit cell vectors
+        cell_norm_position.x -= floor(cell_norm_position.x);
+        cell_norm_position.y -= floor(cell_norm_position.y);
+        Vec3d pbc_position = cell_matrix_.multiply(cell_norm_position) + offset_;
+        
+        positions_[0].x = pbc_position.x;
+        positions_[0].y = pbc_position.y;
+        positions_[1].x = pbc_position.x;
+        positions_[1].y = pbc_position.y;
+    }
+    else {
+        positions_[0].x = x;
+        positions_[0].y = y;
+        positions_[1].x = x;
+        positions_[1].y = y;
+    }
+}

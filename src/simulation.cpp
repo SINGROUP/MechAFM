@@ -35,6 +35,29 @@ void Simulation::initialize() {
     } else if (options_.normal == NORMAL_Y) {
         system.rotateCoordAxes("ZXY");
     }
+    
+    // If pbc for vdw is on, get the unit cell vectors from electrostatic potential file
+    // or use the ones given in input file
+    if (options_.vdw_pbc) {
+        if (options_.use_external_potential) {
+            CubeReader cube_file(options_.e_potential_file);
+            Vec3i n_voxels = cube_file.getNVoxels();
+            vector<Vec3d> voxel_vectors = cube_file.getVoxelVectors();
+            vector<Vec3d> cell_vectors;
+            cell_vectors.push_back(n_voxels.x * voxel_vectors[0]);
+            cell_vectors.push_back(n_voxels.y * voxel_vectors[1]);
+            cell_vectors.push_back(n_voxels.z * voxel_vectors[2]);
+            system.setUnitCell(cell_vectors);
+        }
+        else {
+            vector<Vec3d> cell_vectors;
+            cell_vectors.push_back(options_.cell_a);
+            cell_vectors.push_back(options_.cell_b);
+            cell_vectors.push_back(options_.cell_c);
+            system.setUnitCell(cell_vectors);
+        }
+    }
+    
     system.centerMolecule(options_.center);
     system.setMoleculeZ();
     calculateTipDummyDistance();
@@ -72,10 +95,11 @@ void Simulation::run() {
             if (min_system.interactions_ == nullptr) {
                 error("System interactions are not given!");
             }
+            if (options_.rigidgrid)
+                min_system.setTipPbc(false);
             min_system.setDummyXY(x, y);
+            min_system.setDummyZ(options_.zhigh);
             for (int k = 0; k < n_points_.z; ++k) {
-                double z = options_.zhigh - k * options_.dz;
-                min_system.setDummyZ(z);
                 int n = 0;
                 switch (options_.minimiser_type) {
                     case STEEPEST_DESCENT:
@@ -94,6 +118,7 @@ void Simulation::run() {
                 z_data[k].indices = Vec3i(i, j, k);
                 z_data[k].minimisation_steps = n;
                 n_total_ += n;
+                min_system.lowerTip(options_.dz);
             } // z
 #pragma omp critical(output)
         {
@@ -210,16 +235,16 @@ bool Simulation::findOverwriteParameters(int atom_i1, int atom_i2, OverwritePara
     return false;
 }
 
-void Simulation::addVDWInteraction(int atom_i1, int atom_i2) {
+void Simulation::addVDWInteraction(int atom_i1, int atom_i2, Vec3d pbc_shift = Vec3d(0)) {
     OverwriteParameters op;
     // Use overwrite parameters to define the interaction if they exist
     if (findOverwriteParameters(atom_i1, atom_i2, op)) {
         if (op.morse) {
-            interactions_.emplace_back(new MorseInteraction(atom_i1, atom_i2, op.de, op.a, op.re));
+            interactions_.emplace_back(new MorseInteraction(atom_i1, atom_i2, op.de, op.a, op.re, pbc_shift));
         } else {
             double es6 = 4 * op.eps * pow(op.sig, 6);
             double es12 = 4 * op.eps * pow(op.sig, 12);
-            interactions_.emplace_back(new LJInteraction(atom_i1, atom_i2, es6, es12));
+            interactions_.emplace_back(new LJInteraction(atom_i1, atom_i2, es6, es12, pbc_shift));
         }
     } else {
         unordered_map<string, AtomParameters> ap = interaction_parameters_.atom_parameters;
@@ -237,7 +262,7 @@ void Simulation::addVDWInteraction(int atom_i1, int atom_i2) {
         double m_sig = mixsig(atom1_it->second.sig, atom2_it->second.sig);
         double es6 = 4 * m_eps * pow(m_sig, 6);
         double es12 = 4 * m_eps * pow(m_sig, 12);
-        interactions_.emplace_back(new LJInteraction(atom_i1, atom_i2, es6, es12));
+        interactions_.emplace_back(new LJInteraction(atom_i1, atom_i2, es6, es12, pbc_shift));
     }
 }
 
@@ -270,15 +295,33 @@ void Simulation::addCoulombInteraction(int atom_i1, int atom_i2) {
 }
 
 void Simulation::buildTipSurfaceInteractions() {
-    for (int i = 2; i < system.n_atoms_; ++i) {
-        addVDWInteraction(1, i);
-        if (options_.coulomb) {
-            addCoulombInteraction(1, i);
-        } 
+    if (options_.vdw_pbc) {
+        Vec3d pbc_shift;
+        Mat3d cell_matrix = system.getUnitCell();
+        // This is hard coded to consider atoms across one unit cell boundary in the direction
+        // of each unit cell vector perpendicular to the surface normal
+        for (int cell_a_shift = -1; cell_a_shift <= 1; cell_a_shift++) {
+            for (int cell_b_shift = -1; cell_b_shift <= 1; cell_b_shift++) {
+                pbc_shift = cell_a_shift*cell_matrix.getColumn(0) + \
+                            cell_b_shift*cell_matrix.getColumn(1);
+                for (int i = 2; i < system.n_atoms_; ++i) {
+                    addVDWInteraction(1, i, pbc_shift);
+                }
+            }
+        }
+    }
+    else {
+        for (int i = 2; i < system.n_atoms_; ++i) {
+            addVDWInteraction(1, i);
+            if (options_.coulomb) {
+                addCoulombInteraction(1, i);
+            } 
+        }
     }
     
     // Interaction of tip atom with an external electrostatic potential
     if (options_.use_external_potential) {
+        pretty_print("Calculating energy and force on grid from external electrostatic potential.");
         DataGrid<double> electrostatic_potential;
         CubeReader cube_file(options_.e_potential_file);
         if (rootProcess()) {
@@ -302,13 +345,12 @@ void Simulation::buildTipSurfaceInteractions() {
         
         // Units for potential are in Hartree units in the case of CP2k cube files
         // Hartree potential is defined for negatively charge electrons -> multiply by -1
-        //TODO: convert units from Hartree to kcal/mol or kJ if those units are used
         if (options_.units == U_EV)
-            electrostatic_potential.scaleValues(-hartree_to_eV);
+            electrostatic_potential.scaleValues(-g_hartree_to_eV);
         else if (options_.units == U_KJ)
-            error("unit conversion of Hartree potential to kJ is not implemented!");
+            electrostatic_potential.scaleValues(-g_hartree_to_kJ);
         else if (options_.units == U_KCAL)
-            error("unit conversion of Hartree potential to kcal/mol is not implemented!");
+            electrostatic_potential.scaleValues(-g_hartree_to_kcal);
         else
             error("unit conversion of Hartree potential to given units is not implemented");
         
@@ -370,7 +412,8 @@ void Simulation::buildTipSurfaceInteractions() {
         }
         
         // Create the interaction between the tip atom and the electrostatic potential
-        interactions_.emplace_back(new ElectrostaticPotentialInteraction(electrostatic_potential, system.charges_[1], 0.5)); //TODO: get gaussian_width from input file
+        interactions_.emplace_back(new ElectrostaticPotentialInteraction(electrostatic_potential, system.charges_[1], g_tip_gaussian_width));
+        pretty_print("Done!");
     }
 }
 
@@ -395,8 +438,7 @@ void Simulation::buildTipGridInteractions() {
     Vec3d offset;
     offset.x = -border.x * spacing.x;
     offset.y = -border.y * spacing.y;
-    offset.z = options_.zhigh - system.getTipDummyDistance()
-                   - (n_grid.z - border.z - 1) * spacing.z;
+    offset.z = options_.zlow - system.getTipDummyDistance() - border.z * spacing.z;
 
     pretty_print("Computing 3D force grid: %d, %d, %d (%d grid points)",
         n_grid.x, n_grid.y, n_grid.z, total_points);
@@ -416,19 +458,22 @@ void Simulation::buildTipGridInteractions() {
             if (current_point % n_processes_ != current_process_) {
                 continue;
             }
+            
+            System temp_system = system; // Create a copy of system for each (x, y) point
+            temp_system.setTipDummyDistance(0);
+            temp_system.setDummyXY(x, y);
 
             for (int k = 0; k < n_grid.z; ++k) {
                 double z = k * spacing.z + offset.z;
-                vector<Vec3d> positions = system.positions_;
-                positions[1] = Vec3d(x, y, z);
-                vector<Vec3d> atom_forces(system.n_atoms_);
-                vector<double> atom_energies(system.n_atoms_, 0);
+                temp_system.setDummyZ(z);
+                fill(temp_system.forces_.begin(), temp_system.forces_.end(), Vec3d(0));
+                fill(temp_system.energies_.begin(), temp_system.energies_.end(), 0);
                 for (const auto& interaction : interactions_) {
-                    interaction->eval(positions, atom_forces, atom_energies);
+                    interaction->eval(temp_system.positions_, temp_system.forces_, temp_system.energies_);
                 }
                 int index = i * n_grid.y * n_grid.z + j * n_grid.z + k;
-                forces[index] = atom_forces[1];
-                energies[index] = atom_energies[1];
+                forces[index] = temp_system.forces_[1];
+                energies[index] = temp_system.energies_[1];
             } // z
         } // y
     } // x
@@ -458,6 +503,10 @@ void Simulation::buildTipGridInteractions() {
 void Simulation::buildTipDummyInteractions() {
     // LJ / Morse
     addVDWInteraction(0, 1);
+    
+    // Coulomb
+    if (options_.tip_dummy_coulomb)
+        addCoulombInteraction(0, 1);
 
     // Harmonic constraint
     double k = interaction_parameters_.tip_dummy_k;

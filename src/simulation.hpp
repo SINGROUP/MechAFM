@@ -39,10 +39,13 @@ struct InputOptions {
     string planeatom;
     Vec2d area, center;
     double dx, dy, dz;
-    double zlow, zhigh, zplane;
+    double zlow, zhigh;
+    bool vdw_pbc;
+    Vec3d cell_a, cell_b, cell_c;
     SurfNormal normal;
     Units units;
     bool coulomb;
+    bool tip_dummy_coulomb;
     bool use_external_potential;
     int maxsteps;
     MinimizationCriteria minterm;
@@ -95,7 +98,7 @@ class Simulation {
     // Writes the output buffer to the disk
     void writeOutput(vector<OutputData> output_buffer);
     // Add a LJ or Morse interaction between atoms 1 and 2
-    void addVDWInteraction(int atom_i1, int atom_i2);
+    void addVDWInteraction(int atom_i1, int atom_i2, Vec3d pbc_shift);
     // Add a Coulomb interaction between atoms 1 and 2
     void addCoulombInteraction(int atom_i1, int atom_i2);
     // Looks for overwrite parameters for atoms 1 and 2.

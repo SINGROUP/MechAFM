@@ -88,10 +88,10 @@ void readInputFile(Simulation& simulation) {
     char value[NAME_LENGTH];
     char line[LINE_LENGTH];
     char dump[LINE_LENGTH];
-    char tmp_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH];
+    char tmp_coulomb[NAME_LENGTH], tmp_tip_dummy_coulomb[NAME_LENGTH], tmp_minterm[NAME_LENGTH];
     char tmp_gzip[NAME_LENGTH], tmp_statistics[NAME_LENGTH], tmp_units[NAME_LENGTH];
     char tmp_flexible[NAME_LENGTH], tmp_rigidgrid[NAME_LENGTH], tmp_normal[NAME_LENGTH];
-    char tmp_use_external_potential[NAME_LENGTH];
+    char tmp_use_external_potential[NAME_LENGTH], tmp_vdw_pbc[NAME_LENGTH];
 
     // Initialize the mandatory options
     options.xyzfile = "";
@@ -106,6 +106,7 @@ void readInputFile(Simulation& simulation) {
     sprintf(tmp_units, "%s" ,"kcal/mol");
     options.e_potential_file = "";
     options.coulomb = false;
+    options.tip_dummy_coulomb = false;
     options.use_external_potential = false;
     options.area = Vec2d(10);
     options.center = Vec2d(-1);
@@ -114,7 +115,10 @@ void readInputFile(Simulation& simulation) {
     options.dz = 0.1;
     options.zlow = 6.0;
     options.zhigh = 10.0;
-    options.zplane = NEGVAL;
+    options.vdw_pbc = false;
+    options.cell_a = Vec3d(0);
+    options.cell_b = Vec3d(0);
+    options.cell_c = Vec3d(0);
     options.normal = NORMAL_Z;
     sprintf(tmp_normal, "%s" ,"z");
     options.etol = 0.01;
@@ -168,6 +172,12 @@ void readInputFile(Simulation& simulation) {
             options.dy = atof(value);
         } else if (strcmp(keyword, "dz") == 0) {
             options.dz = atof(value);
+        } else if (strcmp(keyword, "cell_a") == 0) {
+            sscanf(line, "%s %lf %lf %lf", dump, &(options.cell_a.x), &(options.cell_a.y), &(options.cell_a.z));
+        } else if (strcmp(keyword, "cell_b") == 0) {
+            sscanf(line, "%s %lf %lf %lf", dump, &(options.cell_b.x), &(options.cell_b.y), &(options.cell_b.z));
+        } else if (strcmp(keyword, "cell_c") == 0) {
+            sscanf(line, "%s %lf %lf %lf", dump, &(options.cell_c.x), &(options.cell_c.y), &(options.cell_c.z));
         } else if (strcmp(keyword, "etol") == 0) {
             options.etol = atof(value);
         } else if (strcmp(keyword, "ftol") == 0) {
@@ -218,11 +228,27 @@ void readInputFile(Simulation& simulation) {
             } else {
                 error("Option %s must be either on or off!", keyword);
             }
+        } else if (strcmp(keyword, "tip_dummy_coulomb") == 0) {
+            if (strcmp(value, "on") == 0) {
+                options.tip_dummy_coulomb = true;
+            } else if (strcmp(value, "off") == 0) {
+                options.tip_dummy_coulomb = false;
+            } else {
+                error("Option %s must be either on or off!", keyword);
+            }
         } else if (strcmp(keyword, "use_external_potential") == 0) {
             if (strcmp(value, "on") == 0) {
                 options.use_external_potential = true;
             } else if (strcmp(value, "off") == 0) {
                 options.use_external_potential = false;
+            } else {
+                error("Option %s must be either on or off!", keyword);
+            }
+        } else if (strcmp(keyword, "vdw_pbc") == 0) {
+            if (strcmp(value, "on") == 0) {
+                options.vdw_pbc = true;
+            } else if (strcmp(value, "off") == 0) {
+                options.vdw_pbc = false;
             } else {
                 error("Option %s must be either on or off!", keyword);
             }
@@ -321,10 +347,20 @@ void readInputFile(Simulation& simulation) {
     } else {
         sprintf(tmp_coulomb, "%s", "off");
     }
+    if (options.tip_dummy_coulomb) {
+        sprintf(tmp_tip_dummy_coulomb, "%s", "on");
+    } else {
+        sprintf(tmp_tip_dummy_coulomb, "%s", "off");
+    }
     if (options.use_external_potential) {
         sprintf(tmp_use_external_potential, "%s", "on");
     } else {
         sprintf(tmp_use_external_potential, "%s", "off");
+    }
+    if (options.vdw_pbc) {
+        sprintf(tmp_vdw_pbc, "%s", "on");
+    } else {
+        sprintf(tmp_vdw_pbc, "%s", "off");
     }
     if (options.gzip) {
         sprintf(tmp_gzip, "%s", "on");
@@ -360,6 +396,13 @@ void readInputFile(Simulation& simulation) {
     if (options.use_external_potential && (options.e_potential_file == "")) {
         error("If you want to use external electrostatic potential, you must specify a file that contains it!");
     }
+    if (options.vdw_pbc && options.coulomb) {
+        error("Implementation of Coulomb interaction does not support any periodic boundary conditions! Use periodic external electrostatic potential instead.");
+    }
+    if (options.vdw_pbc && !options.use_external_potential) {
+        if (options.cell_a == Vec3d(0) || options.cell_b == Vec3d(0) || options.cell_c == Vec3d(0))
+            error("The unit cell vectors must be given if periodic vdW is used.");
+    }
 
     // Talk to me
     pretty_print("");
@@ -385,11 +428,20 @@ void readInputFile(Simulation& simulation) {
     pretty_print("dx:                       %-8.4f", options.dx);
     pretty_print("dy:                       %-8.4f", options.dy);
     pretty_print("dz:                       %-8.4f", options.dz);
+    pretty_print("");
     pretty_print("surface_normal:           %-s", tmp_normal);
+    pretty_print("vdw_pbc:                  %-s", tmp_vdw_pbc);
+    if (options.vdw_pbc && !options.use_external_potential) {
+        pretty_print("cell_a:                   %-8.4f %-8.4f %-8.4f", options.cell_a.x, options.cell_a.y, options.cell_a.z);
+        pretty_print("cell_b:                   %-8.4f %-8.4f %-8.4f", options.cell_b.x, options.cell_b.y, options.cell_b.z);
+        pretty_print("cell_c:                   %-8.4f %-8.4f %-8.4f", options.cell_c.x, options.cell_c.y, options.cell_c.z);
+    }
     pretty_print("");
     pretty_print("coulomb:                  %-s", tmp_coulomb);
+    pretty_print("tip_dummy_coulomb:        %-s", tmp_tip_dummy_coulomb);
     pretty_print("use_external_potential:   %-s", tmp_use_external_potential);
-    pretty_print("e_potential_file:         %-s", options.e_potential_file.c_str());
+    if (options.use_external_potential)
+        pretty_print("e_potential_file:         %-s", options.e_potential_file.c_str());
     pretty_print("");
     pretty_print("flexible:                 %-s", tmp_flexible);
     pretty_print("rigidgrid:                %-s", tmp_rigidgrid);

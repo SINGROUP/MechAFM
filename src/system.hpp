@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "interactions.hpp"
+#include "matrices.hpp"
 #include "vectors.hpp"
 
 using namespace std;
@@ -26,6 +27,12 @@ class System {
     void rotateCoordAxes(const string& new_coord_sequence);
     // Centers the molecule around pos in x, y
     void centerMolecule(const Vec2d pos);
+    // Set the periodic unit cell (also sets tip_pbc_ to true)
+    void setUnitCell(const vector<Vec3d>& cell_vectors);
+    // Get the unit cell vectors in matrix form
+    const Mat3d& getUnitCell() const { return cell_matrix_; }
+    // Sets periodic boundary conditions
+    void setTipPbc(bool tip_pbc) { tip_pbc_ = tip_pbc; }
     // Positions the molecule in z to lie on the substrate
     void setMoleculeZ();
     // Sets the tip and dummy initial distance
@@ -33,18 +40,17 @@ class System {
     // Returns the tip and dummy initial distance
     double getTipDummyDistance() {return tip_dummy_d_;}
     // Returns the offset of the system compared to the input coordinates
-    const Vec3d& getOffset() { return offset_; };
+    const Vec3d& getOffset() { return offset_; }
     // Sets dummy x, y coordinates and moves the tip there aswell
-    void setDummyXY(double x, double y) {
-        positions_[0].x = x;
-        positions_[0].y = y;
-        positions_[1].x = x;
-        positions_[1].y = y;
-    }
+    void setDummyXY(double x, double y);
     // Sets dummy z and moves the tip aswell
     void setDummyZ(double z) {
         positions_[0].z = z;
         positions_[1].z = z - tip_dummy_d_;
+    }
+    void lowerTip(double dz) {
+        positions_[0].z -= dz;
+        positions_[1].z -= dz;
     }
 
     int n_atoms_;  // Count of atoms in the system including the tip and the dummy
@@ -62,6 +68,10 @@ class System {
     vector<string> types_;
 
  private:
+    bool tip_pbc_;
     double tip_dummy_d_;  // Initial distance of the tip and dummy atoms
     Vec3d offset_;
+    Vec2d real_tip_xy_;   // In case where pbc is used, real tip position can be outside
+                          // the unit cell but the computational one is always inside
+    Mat3d cell_matrix_;
 };

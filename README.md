@@ -63,6 +63,9 @@ The simulation requires three input files to run: the input file defines the inp
   
     coulomb: Defines whether coulomb interactions are on or off. (default: off)
     
+    tip_dummy_coulomb: Defines whether Coulomb interaction between tip particle and dummy particle is
+                       on or off. (default: off)
+
     use_external_potential: Defines whether the tip atom interacts with an external electrostatic
                             potential. Works only for rigid systems with coulomb off. (default: off)
   
@@ -89,6 +92,22 @@ The simulation requires three input files to run: the input file defines the inp
                     substituting coordinates X->Y, Y->Z, Z->X. If surface_normal = x,
                     the substitution is X->Z, Y->X, Z->Y. (default: z)
     
+    vdw_pbc: Defines whether the pair potentials describing van der Waals interaction and close range
+             repulsion (Lennard-Jones or Morse potential) extend over the unit cell boundaries using
+             periodic boundary conditions. Implemented only for tip-surface interactions only.
+             If use_external_potential is off, the cell vectors cell_a, cell_b and cell_c must be defined.
+             Notice that external electrostatic potential should be used for periodic system since Coulomb
+             is not periodic. (default: off)
+
+    cell_a: First unit cell vector. Must be defined only if vdw_pbc is on and use_external_potential
+            is off. (default: 0.0 0.0 0.0)
+
+    cell_b: Second unit cell vector. Must be defined only if vdw_pbc is on and use_external_potential
+            is off. (default: 0.0 0.0 0.0)
+
+    cell_c: Third unit cell vector. Must be defined only if vdw_pbc is on and use_external_potential
+            is off. (default: 0.0 0.0 0.0)
+
     etol: Defines the energy value used to check for convergence. (default: 0.01)
     
     ftol: Defines the force value used to check for convergence. (default: 0.01)

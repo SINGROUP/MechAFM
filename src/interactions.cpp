@@ -13,7 +13,7 @@
 #include "vectors.hpp"
 
 void LJInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
-    Vec3d r_vec = positions[atom_i1_] - positions[atom_i2_];
+    Vec3d r_vec = positions[atom_i1_] - (positions[atom_i2_] + pbc_shift_);
     double r_sqr = r_vec.lensqr();
     double r6 = r_sqr * r_sqr * r_sqr;
     double term_a = es12_ / (r6*r6);
@@ -27,7 +27,7 @@ void LJInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, 
 }
 
 void MorseInteraction::eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const {
-    Vec3d r_vec = positions[atom_i1_] - positions[atom_i2_];
+    Vec3d r_vec = positions[atom_i1_] - (positions[atom_i2_] + pbc_shift_);
     double r = r_vec.len();
     double d_exp = exp(- a_ * (r - re_));
     double e = de_ * (pow(d_exp, 2) - 2 * d_exp + 1);
@@ -74,21 +74,21 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     int z_cutoff = n_min;
     for (int ix = 0; ix < n_min-1; ix++) {
         double x_sqr = (ix*basis.getColumn(0)).lensqr();
-        if (exp(-0.5*x_sqr/gaussian_width_sqr) < 1.0e-10) { //TODO: make sure 1.0e-10 is a good cutoff value and define in globals
+        if (exp(-0.5*x_sqr/gaussian_width_sqr) < g_gaussian_cutoff_value) {
             x_cutoff = ix;
             break;
         }
     }
     for (int iy = 0; iy < n_min-1; iy++) {
         double y_sqr = (iy*basis.getColumn(1)).lensqr();
-        if (exp(-0.5*y_sqr/gaussian_width_sqr) < 1.0e-10) { //TODO: make sure 1.0e-10 is a good cutoff value and define in globals
+        if (exp(-0.5*y_sqr/gaussian_width_sqr) < g_gaussian_cutoff_value) {
             y_cutoff = iy;
             break;
         }
     }
     for (int iz = 0; iz < n_min-1; iz++) {
         double z_sqr = (iz*basis.getColumn(2)).lensqr();
-        if (exp(-0.5*z_sqr/gaussian_width_sqr) < 1.0e-10) { //TODO: make sure 1.0e-10 is a good cutoff value and define in globals
+        if (exp(-0.5*z_sqr/gaussian_width_sqr) < g_gaussian_cutoff_value) {
             z_cutoff = iz;
             break;
         }
@@ -105,20 +105,7 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     }
     
     if (DEBUG_MODE) {
-        double basis_det = basis.determinant();
-        Mat3d basis_inv = basis.inverse();
-        Mat3d basis_t = basis.transpose();
-        
         cout << endl <<"========== Debug ==========" << endl << endl;
-        
-        cout << "Basis matrix:" << endl;
-        basis.print();
-        cout << "Basis inverse:" << endl;
-        basis_inv.print();
-        cout << "Basis transpose:" << endl;
-        basis_t.print();
-        cout << "Basis determinant:" << endl;
-        cout << basis_det << endl;
         
         double total_charge = 0.0;
         for (int ix = 0; ix < n_grid.x; ix++) {
@@ -175,7 +162,6 @@ ElectrostaticPotentialInteraction::ElectrostaticPotentialInteraction(const DataG
     ffti_data_grid(energy_kspace, energy);
     
     // Calculate the components of the force one by one
-    //TODO: kx, ky and kz should be vectors ka, kb, and kc instead
     vector<Vec3d> ka_vectors, kb_vectors, kc_vectors;
     ka_vectors.reserve(n_grid.x);
     kb_vectors.reserve(n_grid.y);

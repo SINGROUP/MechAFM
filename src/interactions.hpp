@@ -79,9 +79,9 @@ class Interaction {
 class LJInteraction: public Interaction {
  public:
     LJInteraction():
-        atom_i1_(0), atom_i2_(0), es6_(0), es12_(0) {};
-    LJInteraction(int atom_i1, int atom_i2, double es6, double es12):
-        atom_i1_(atom_i1), atom_i2_(atom_i2), es6_(es6), es12_(es12) {};
+        atom_i1_(0), atom_i2_(0), es6_(0), es12_(0), pbc_shift_(Vec3d(0)) {};
+    LJInteraction(int atom_i1, int atom_i2, double es6, double es12, Vec3d pbc_shift = Vec3d(0)):
+        atom_i1_(atom_i1), atom_i2_(atom_i2), es6_(es6), es12_(es12), pbc_shift_(pbc_shift) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
     bool isTipSurface() const override {
         // The interactions are build such that this holds
@@ -93,15 +93,16 @@ class LJInteraction: public Interaction {
     // Interaction constants
     double es6_;
     double es12_;
+    Vec3d pbc_shift_;
 };
 
 
 class MorseInteraction: public Interaction {
  public:
     MorseInteraction():
-        atom_i1_(0), atom_i2_(0), de_(0), a_(0), re_(0) {};
-    MorseInteraction(int atom_i1, int atom_i2, double de, double a, double re):
-        atom_i1_(atom_i1), atom_i2_(atom_i2), de_(de), a_(a), re_(re) {};
+        atom_i1_(0), atom_i2_(0), de_(0), a_(0), re_(0), pbc_shift_(Vec3d(0)) {};
+    MorseInteraction(int atom_i1, int atom_i2, double de, double a, double re, Vec3d pbc_shift = Vec3d(0)):
+        atom_i1_(atom_i1), atom_i2_(atom_i2), de_(de), a_(a), re_(re), pbc_shift_(pbc_shift) {};
     void eval(const vector<Vec3d>& positions, vector<Vec3d>& forces, vector<double>& energies) const override;
     bool isTipSurface() const override {
         // The interactions are build such that this holds
@@ -114,6 +115,7 @@ class MorseInteraction: public Interaction {
     double de_;
     double a_;
     double re_;
+    Vec3d pbc_shift_;
 };
 
 class CoulombInteraction: public Interaction {
