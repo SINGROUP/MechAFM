@@ -480,9 +480,9 @@ void Simulation::buildTipGridInteractions() {
 
     // Communicate the data to all processes
 #if MPI_BUILD
-    MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(fg.forces_.data()),
+    MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(forces_.data()),
                   total_points * sizeof(Vec3d), MPI_CHAR, MPI_SUM, universe);
-    MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(fg.energies_.data()),
+    MPI_Allreduce(MPI_IN_PLACE, static_cast<void*>(energies_.data()),
                   total_points, MPI_DOUBLE, MPI_SUM, universe);
 #endif
 
